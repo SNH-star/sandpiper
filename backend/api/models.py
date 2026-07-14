@@ -351,6 +351,23 @@ class ParsedSampleAttribute(db.Model):
     meta_water_depth_meters = db.Column(db.String)
     meta_weight_kg = db.Column(db.String)
     # --- END metalog meta_ columns ---
+    # Backend-only classification flags (not surfaced on the website; intentionally
+    # excluded from to_displayable_dict). Populated in the 'tags' stage by
+    # add_metagenome_classification_flags() in bin/generate_backend_db.
+    non_metagenome_organism_strict = db.Column(db.Boolean)
+    non_metagenome_organism_loose = db.Column(db.Boolean)
+    synthetic = db.Column(db.Boolean)
+    rna_or_non_dna_strict = db.Column(db.Boolean)
+    rna_or_non_dna_loose = db.Column(db.Boolean)
+    # Per-taxonomy "nothing assigned below domain-level" flags (backend-only,
+    # excluded from to_displayable_dict). Profile-derived, so they differ by
+    # taxonomy_type. domain_only_gtdb / domain_only_globdb are set during the
+    # stage2 condensed loads in fill_condensed_and_taxonomy_tables(); NULL means
+    # no profile was loaded for that sample under that taxonomy. domain_only_both
+    # = domain_only_gtdb AND domain_only_globdb, derived in the 'tags' stage.
+    domain_only_gtdb = db.Column(db.Boolean)
+    domain_only_globdb = db.Column(db.Boolean)
+    domain_only_both = db.Column(db.Boolean)
     def to_displayable_dict(self):
         return dict(
             collection_year=self.collection_year,
@@ -368,6 +385,15 @@ class ParsedSampleAttribute(db.Model):
             known_species_fraction=self.known_species_fraction,
             globdb_known_species_fraction=self.globdb_known_species_fraction,
             low_complexity=self.low_complexity,
+            top1_order_fraction=self.top1_order_fraction,
+            non_metagenome_organism_strict=self.non_metagenome_organism_strict,
+            non_metagenome_organism_loose=self.non_metagenome_organism_loose,
+            synthetic=self.synthetic,
+            rna_or_non_dna_strict=self.rna_or_non_dna_strict,
+            rna_or_non_dna_loose=self.rna_or_non_dna_loose,
+            domain_only_gtdb=self.domain_only_gtdb,
+            domain_only_globdb=self.domain_only_globdb,
+            domain_only_both=self.domain_only_both)
             top1_order_fraction=self.top1_order_fraction,
             non_metagenome_organism_strict=self.non_metagenome_organism_strict,
             non_metagenome_organism_loose=self.non_metagenome_organism_loose,

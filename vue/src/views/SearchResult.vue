@@ -241,6 +241,7 @@ export default {
       exclude_low_complexity: true,
       shuffled_profiles: null,
       filtered_total: null,
+      shuffled_profiles: null,
       page: 1,
       pageSize: 100,
       sortField: 'relative_abundance',
@@ -444,6 +445,14 @@ export default {
     },
     minimal_csv_link () {
       return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
+    },
+    shuffle_runs () {
+      const arr = [...this.filtered_profiles]
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]]
+      }
+      this.shuffled_profiles = arr
     }
   },
   watch: {
