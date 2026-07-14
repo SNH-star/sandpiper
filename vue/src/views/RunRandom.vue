@@ -29,11 +29,14 @@ export default {
     },
     exclude_strict_low_complexity() {
       return this.$route.query.exclude_strict_low_complexity
+    },
+    non_human_host() {
+      return this.$route.query.non_human_host
     }
   },
   methods: {
     fetchData () {
-      fetchRandomAccession(this.host, this.ecological, this.two_gbp, this.exclude_strict_low_complexity)
+      fetchRandomAccession(this.host, this.ecological, this.two_gbp, this.exclude_strict_low_complexity, this.non_human_host)
         .then(response => {
           const acc = response.data.run
           this.$router.push({ name: 'Run', params: { accession: acc } })

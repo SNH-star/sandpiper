@@ -14,7 +14,7 @@ if (import.meta.env.PROD) {
     API_URL = `${useHttps ? 'https' : 'http'}://${raw}/api`
   }
 } else {
-  API_URL = 'http://localhost:5000/api'
+  API_URL = 'http://localhost:8090/api'
 }
 
 export function api_url () {
@@ -58,8 +58,8 @@ export function fetchTaxonomySearchHints (taxonomy: string, taxonomyType?: strin
   return axios.get(`${API_URL}/taxonomy_search_hints/${taxonomy}${taxonomyTypeParam}`)
 }
 
-export function fetchRandomAccession(host: boolean, ecological: boolean, two_gbp: boolean, exclude_strict_low_complexity: boolean = true) {
-  return axios.get(`${API_URL}/random_run?host=${host}&ecological=${ecological}&two_gbp=${two_gbp}&exclude_strict_low_complexity=${exclude_strict_low_complexity}`)
+export function fetchRandomAccession(host: boolean, ecological: boolean, two_gbp: boolean, exclude_strict_low_complexity: boolean = true, non_human_host: boolean = true) {
+  return axios.get(`${API_URL}/random_run?host=${host}&ecological=${ecological}&two_gbp=${two_gbp}&exclude_strict_low_complexity=${exclude_strict_low_complexity}&non_human_host=${non_human_host}`)
 }
 
 export function fetchAccession(accession: string) {
@@ -70,4 +70,8 @@ export function verifyRecaptcha (token: string) {
   return axios.post(`${API_URL}/verify-recaptcha`, {
     token
   })
+}
+
+export function fetchUniversalSearch (q: string) {
+  return axios.get(`${API_URL}/universal_search`, { params: { q } })
 }

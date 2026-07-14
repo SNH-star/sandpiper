@@ -121,7 +121,7 @@
         </div>
         <br />
         <b-table
-          :data="filtered_profiles"
+          :data="display_profiles"
           :striped="true"
           :sort-icon="'arrow-up'"
           :default-sort="this.sortField"
@@ -136,8 +136,16 @@
           @page-change="onPageChange"
           @sort="onSort">
 
-          <b-table-column field='sample_name' label='Run' v-slot="props">
-            <a :href="'/run/' + props.row.sample_acc">{{ props.row.sample_acc }}</a>
+          <b-table-column field='sample_name' useSorted>
+            <template #header>
+              <span style="display: flex; align-items: center; gap: 0.4rem;">
+                Run
+                <b-button class="shuffle-btn" size="is-small" icon-left="shuffle-variant" @click.stop="shuffle_runs" title="Shuffle order" />
+              </span>
+            </template>
+            <template #default="props">
+              <a :href="'/run/' + props.row.sample_acc">{{ props.row.sample_acc }}</a>
+            </template>
           </b-table-column>
 
           <b-table-column field='organism' label='Environment' v-slot="props" sortable>
@@ -231,6 +239,7 @@ export default {
       GTDB_VERSION,
       GLOBDB_VERSION,
       exclude_low_complexity: true,
+      shuffled_profiles: null,
       filtered_total: null,
       page: 1,
       pageSize: 100,
@@ -271,6 +280,9 @@ export default {
       return this.search_result['condensed_profiles'].filter(
         r => r.top1_order_fraction === null || r.top1_order_fraction < 95
       )
+    },
+    display_profiles () {
+      return this.shuffled_profiles ?? this.filtered_profiles
     }
   },
   created () {
@@ -392,9 +404,15 @@ export default {
       this.fetchData()
     },
     onSort (field, direction) {
+      const scrollY = window.scrollY
       this.sortField = field
       this.sortDirection = direction
-      this.fetchData()
+      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity)
+        .then(response => {
+          this.search_result = response.data.results
+          this.filtered_total = response.data.results.filtered_total ?? null
+          this.$nextTick(() => window.scrollTo(0, scrollY))
+        })
     },
     numericColumnTdAttrs (_row, _column) {
       return {
@@ -413,6 +431,14 @@ export default {
       })
       return toReturn
     },
+    shuffle_runs () {
+      const arr = [...this.filtered_profiles]
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]]
+      }
+      this.shuffled_profiles = arr
+    },
     csv_link () {
       return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
     },
@@ -422,6 +448,9 @@ export default {
   },
   watch: {
     $route: 'fetchGlobalData',
+    filtered_profiles () {
+      this.shuffled_profiles = null
+    },
     exclude_low_complexity () {
       const scrollY = window.scrollY
       this.page = 1
@@ -435,3 +464,22 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.shuffle-btn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #aaa;
+}
+.shuffle-btn:hover,
+.shuffle-btn:focus,
+.shuffle-btn:active,
+.shuffle-btn:focus:not(:active) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #111;
+  outline: none;
+}
+</style>

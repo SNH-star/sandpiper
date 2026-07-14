@@ -12,6 +12,9 @@
     <div class="container">
       <section>
         <h3 class="title">Sample information</h3>
+        <h4 class="subtitle is-6">Classification flags</h4>
+        <RunMetadataTable :table_data="classification_metadata()" />
+        <br />
         <div v-if="lat_lon() !== null">
           <!-- I cannot get center.sync to reset when reset_map() is clicked, oh well -->
           <l-map :style="map_style" :zoom.sync="zoom" :center.sync="center">
@@ -189,6 +192,32 @@ export default {
     },
     studyLinksColumns () {
       return [{ label: 'database', field: 'k' }, { label: 'id', field: 'value' }]
+    },
+    // Backend classification flags surfaced from parsed_sample_attributes.
+    // Booleans render Yes/No; the domain_only_* flags may be null (no profile
+    // loaded for that taxonomy) and render as Unknown.
+    classification_metadata () {
+      const p = this.mdata_parsed
+      const yesNo = (v) => (v === null || typeof v === 'undefined' ? 'Unknown' : (v ? 'Yes' : 'No'))
+      const rows = [
+        { k: 'Non-metagenome organism (strict)', flag: p.non_metagenome_organism_strict,
+          description: "TRUE when the organism is a specific single organism (not a metagenome or community term), excluding ambiguous generic names." },
+        { k: 'Non-metagenome organism (loose)', flag: p.non_metagenome_organism_loose,
+          description: "As strict, but including ambiguous generic names such as 'bacterium' or 'unidentified'." },
+        { k: 'Synthetic', flag: p.synthetic,
+          description: "TRUE for synthetic or simulated metagenomes, or a SYNTHETIC library source." },
+        { k: 'RNA / non-DNA (strict)', flag: p.rna_or_non_dna_strict,
+          description: "TRUE for RNA-based library strategies or transcriptomic library sources." },
+        { k: 'RNA / non-DNA (loose)', flag: p.rna_or_non_dna_loose,
+          description: "As strict, plus OTHER or SYNTHETIC library sources." },
+        { k: 'Domain-only (GTDB)', flag: p.domain_only_gtdb,
+          description: "TRUE when the GTDB profile does not resolve below domain level." },
+        { k: 'Domain-only (GlobDB)', flag: p.domain_only_globdb,
+          description: "TRUE when the GlobDB profile does not resolve below domain level." },
+        { k: 'Domain-only (both)', flag: p.domain_only_both,
+          description: "TRUE when neither GTDB nor GlobDB resolves below domain level." }
+      ]
+      return rows.map(r => ({ k: r.k, v: yesNo(r.flag), is_custom: false, description: r.description }))
     },
     lat_lon () {
       const parsed_data = this.mdata_parsed

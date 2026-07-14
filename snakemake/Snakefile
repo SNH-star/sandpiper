@@ -13,6 +13,11 @@ import os
 
 file_list = config['ACCESSIONS_FILE']
 
+# Optional: slim metalog extension TSV (run + meta_ columns) produced by
+# metaup_sandpiper. When set, meta_ columns are merged into parsed_metadata
+# before the DB is loaded; when absent, the pipeline behaves as before.
+METALOG_EXTENSION_METADATA = config.get('METALOG_EXTENSION_METADATA', '')
+
 # Process this many in the list at a time.
 chunk_size = 10000
 
@@ -351,12 +356,44 @@ rule generate_parsed_metadata_from_kingfisher:
     shell:
         'pixi run -e sandpiper ../backend/sandpiper/parse_biosample_extras.py --kingfisher-annotate-tsv-list {input.file_list} --extra-sample-keys depth temperature collection_date > {output.parsed_metadata} 2> {log}'
 
-rule add_parsed_metadata_from_kingfisher:
+rule extend_parsed_metadata_with_metalog:
+    # Append metalog meta_ columns onto parsed_metadata (joined by run). If
+    # METALOG_EXTENSION_METADATA is unset, parsed metadata is passed through
+    # unchanged, so downstream behaviour is identical to before.
     input:
         parsed_metadata='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata.tsv'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
         done='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_done'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+    output:
+        extended='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        done=touch('{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD'])),
+    params:
+        ext_flag=('--metalog-extension ' + METALOG_EXTENSION_METADATA) if METALOG_EXTENSION_METADATA else '',
+    resources:
+        mem_mb=16000,
+        runtime='1h'
+    log:
+        '{test_or_prod}/kingfisher_metadata/{date}/logs/parsed_metadata_extended.log'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD'])
+    shell:
+        'pixi run -e sandpiper ../backend/sandpiper/extend_parsed_metadata.py '
+        '--parsed-metadata {input.parsed_metadata} {params.ext_flag} '
+        '--output {output.extended} 2> {log}'
+
+rule add_parsed_metadata_from_kingfisher:
+    input:
+        parsed_metadata='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        done='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
         # After OTUs because then it can be changed up until the last minute

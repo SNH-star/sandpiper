@@ -685,6 +685,20 @@ def add_metadata_from_kingfisher_annotate(db, run_accession_to_id, kingfisher_an
     logging.info("Wrote {} metadata and {} study link rows to DB".format(num_kingfisher_annotated, num_study_links))
 
 
+# Organism annotations whose recorded host/ecological label is unreliable.
+# NCBI files all viral/phage metagenomes under "organismal metagenomes", which
+# the upstream predictor equates with "host"; but a virome's host vs ecological
+# status should come from its actual microbial community, not the annotation.
+# Matched as substrings (lowercased) so new variants (e.g. "marine viral
+# metagenome") are handled automatically without maintaining an explicit list.
+HOST_LABEL_UNRELIABLE_ORGANISM_KEYWORDS = ('viral', 'phage', 'virome')
+
+
+def _is_host_label_unreliable(organism):
+    org = str(organism).lower()
+    return any(keyword in org for keyword in HOST_LABEL_UNRELIABLE_ORGANISM_KEYWORDS)
+
+
 def add_host_predictions(db, run_accession_to_id, host_predictions_tsv):
     num_host_predicted = 0
 
@@ -703,11 +717,19 @@ def add_host_predictions(db, run_accession_to_id, host_predictions_tsv):
             continue
         run_id = run_accession_to_id[row.acc]
 
+        # Defer to the model prediction when the recorded label is missing, or
+        # when the organism annotation is one whose host label is unreliable
+        # (viral/phage metagenomes wrongly inherit "host" from NCBI's tree).
+        if str(row.host_or_not) == 'nan' or _is_host_label_unreliable(row.organism):
+            host_or_not_mature = row.prediction
+        else:
+            host_or_not_mature = row.host_or_not
+
         update_bindparams.append({
             'id': run_id,
             'host_or_not_prediction': row.prediction,
             'host_or_not_recorded': row.host_or_not,
-            'host_or_not_mature': row.prediction if str(row.host_or_not) == 'nan' else row.host_or_not
+            'host_or_not_mature': host_or_not_mature
         })
 
         num_host_predicted += 1

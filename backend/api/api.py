@@ -17,6 +17,7 @@ from sqlalchemy.orm import joinedload, lazyload
 from .models import (
     NcbiMetadata,
     ParsedSampleAttribute,
+    BiosampleAttribute,
     db,
     Marker,
     CondensedProfile,
@@ -319,6 +320,14 @@ def fetch_metadata(sample_name):
             if metadata_dict['parsed_sample_attributes']['globdb_known_species_fraction'] is not None
             else None
         ),
+        'non_metagenome_organism_strict': metadata_dict['parsed_sample_attributes']['non_metagenome_organism_strict'],
+        'non_metagenome_organism_loose': metadata_dict['parsed_sample_attributes']['non_metagenome_organism_loose'],
+        'synthetic': metadata_dict['parsed_sample_attributes']['synthetic'],
+        'rna_or_non_dna_strict': metadata_dict['parsed_sample_attributes']['rna_or_non_dna_strict'],
+        'rna_or_non_dna_loose': metadata_dict['parsed_sample_attributes']['rna_or_non_dna_loose'],
+        'domain_only_gtdb': metadata_dict['parsed_sample_attributes']['domain_only_gtdb'],
+        'domain_only_globdb': metadata_dict['parsed_sample_attributes']['domain_only_globdb'],
+        'domain_only_both': metadata_dict['parsed_sample_attributes']['domain_only_both'],
         'sample_name': metadata_dict['sample_name'],
         'study_title': metadata_dict['study_title'],
         'bioproject': metadata_dict['bioproject'],
@@ -848,6 +857,7 @@ def random_run():
     ecological = request.args.get('ecological') == 'true'
     two_gbp = request.args.get('two_gbp') == 'true'
     exclude_strict_low_complexity = request.args.get('exclude_strict_low_complexity') == 'true'
+    non_human_host = request.args.get('non_human_host') == 'true'
 
     stmt = select(NcbiMetadata.acc).order_by(func.random())
     if host==True and ecological==True:
@@ -863,6 +873,25 @@ def random_run():
             NcbiMetadata.id == ParsedSampleAttribute.run_id).where(
                 ParsedSampleAttribute.host_or_not_mature=='ecological'
             )
+
+    if host==True and non_human_host==True:
+        # Exclude anything with "human", "homo sapiens", or "metagenome" in taxon_name.
+        # "metagenome" labels are ambiguous but predominantly human-associated in practice.
+        stmt = stmt.where(
+            (NcbiMetadata.taxon_name == None) |
+            (
+                func.lower(NcbiMetadata.taxon_name).not_like('%human%') &
+                func.lower(NcbiMetadata.taxon_name).not_like('%homo sapiens%') &
+                func.lower(NcbiMetadata.taxon_name).not_like('%metagenome%')
+            )
+        )
+        # Also exclude samples where any BioSample attribute value contains "homo sapiens".
+        # This catches cases where taxon_name is uninformative (e.g. "unidentified", "metagenome")
+        # but the host is recorded as Homo sapiens in the BioSample metadata.
+        human_host_subq = select(BiosampleAttribute.run_id).where(
+            func.lower(BiosampleAttribute.v).like('%homo sapiens%')
+        ).distinct()
+        stmt = stmt.where(NcbiMetadata.id.not_in(human_host_subq))
 
     if two_gbp == True:
         stmt = stmt.where(NcbiMetadata.bases >= 2e9)
@@ -959,6 +988,311 @@ def accession(acc):
         return jsonify({ 
             'result_type': 'fail',
             'error': 'No accession identified when searching for "'+acc+'". Please let us know if you believe this is a valid identifier.'})
+
+
+def _parse_numeric_range(value):
+    """Parse a numeric range string into (op, low_str, high_str).
+    op is one of: 'between', 'gt', 'gte', 'lt', 'lte', 'eq'.
+    Handles negatives: '-40-30' → ('-40', '30'), '-40--30' → ('-40', '-30').
+    Handles comparisons: '>2', '>=2', '<5', '<=5'."""
+    v = value.strip()
+    if v.startswith('>='):
+        return 'gte', v[2:], None
+    if v.startswith('<='):
+        return 'lte', v[2:], None
+    if v.startswith('>'):
+        return 'gt', v[1:], None
+    if v.startswith('<'):
+        return 'lt', v[1:], None
+    parts = re.split(r'(?<=\d)-(?=-?\d)', v, maxsplit=1)
+    if len(parts) == 2:
+        return 'between', parts[0], parts[1]
+    return 'eq', v, None
+
+
+def _apply_numeric_filter(column, value, scale=1.0, approx_delta=None):
+    """Apply a numeric filter to a SQLAlchemy column.
+    scale: multiply parsed float by this (e.g. 1e9 for gbp→bases).
+    approx_delta: tolerance for single-value equality (None = exact)."""
+    op, low_str, high_str = _parse_numeric_range(value)
+    try:
+        low = float(low_str) * scale
+        if op == 'between':
+            high = float(high_str) * scale
+            return column.between(low, high)
+        if op == 'gt':
+            return column > low
+        if op == 'gte':
+            return column >= low
+        if op == 'lt':
+            return column < low
+        if op == 'lte':
+            return column <= low
+        # eq — use approx range if provided, otherwise exact
+        if approx_delta is not None:
+            return column.between(low - approx_delta * scale, low + approx_delta * scale)
+        return column == low
+    except (ValueError, TypeError):
+        return None
+
+
+def _apply_numeric_filter_int(column, value, scale=1.0, approx_delta=None):
+    """Like _apply_numeric_filter but casts scaled values to int."""
+    op, low_str, high_str = _parse_numeric_range(value)
+    try:
+        low = float(low_str)
+        if op == 'between':
+            high = float(high_str)
+            return column.between(int(low * scale), int(high * scale))
+        if op == 'gt':
+            return column > int(low * scale)
+        if op == 'gte':
+            return column >= int(low * scale)
+        if op == 'lt':
+            return column < int(low * scale)
+        if op == 'lte':
+            return column <= int(low * scale)
+        if approx_delta is not None:
+            return column.between(int((low - approx_delta) * scale), int((low + approx_delta) * scale))
+        return column == int(low * scale)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_search_condition(key, value):
+    """Parse a single key:value pair into (sql_condition, description, needs_parsed_join, needs_condensed_join).
+    Returns (None, None, False, False) if the key is unrecognised."""
+    P = ParsedSampleAttribute
+    N = NcbiMetadata
+
+    if key in ('longitude', 'lon'):
+        cond = _apply_numeric_filter(P.longitude, value, approx_delta=0.5)
+        if cond is None: return None, None, False, False
+        return cond, f'longitude: {value}', True, False
+    elif key in ('latitude', 'lat'):
+        cond = _apply_numeric_filter(P.latitude, value, approx_delta=0.5)
+        if cond is None: return None, None, False, False
+        return cond, f'latitude: {value}', True, False
+    elif key == 'country':
+        return N.geo_loc_name.ilike(f'%{value}%'), f'country: {value}', False, False
+    elif key == 'continent':
+        return N.geo_loc_name_country_continent_calc.ilike(f'%{value}%'), f'continent: {value}', False, False
+    elif key == 'year':
+        cond = _apply_numeric_filter(P.collection_year, value)
+        if cond is None: return None, None, False, False
+        return cond, f'year: {value}', True, False
+    elif key in ('study', 'study_title', 'title'):
+        return N.study_title.ilike(f'%{value}%'), f'study: {value}', False, False
+    elif key in ('environment', 'env'):
+        return func.lower(P.host_or_not_mature) == value.lower(), f'environment: {value}', True, False
+    elif key in ('location', 'geo'):
+        return N.geo_loc_name.ilike(f'%{value}%'), f'location: {value}', False, False
+    elif key in ('temperature', 'temp'):
+        cond = _apply_numeric_filter(P.temperature, value, approx_delta=1.0)
+        if cond is None: return None, None, False, False
+        return cond, f'temperature: {value}°C', True, False
+    elif key == 'depth':
+        cond = _apply_numeric_filter(P.depth, value, approx_delta=1.0)
+        if cond is None: return None, None, False, False
+        return cond, f'depth: {value}m', True, False
+    elif key == 'platform':
+        return N.platform.ilike(f'%{value}%'), f'platform: {value}', False, False
+    elif key in ('instrument', 'model'):
+        return N.model.ilike(f'%{value}%'), f'instrument: {value}', False, False
+    elif key in ('library_strategy', 'strategy'):
+        return N.library_strategy.ilike(f'%{value}%'), f'library strategy: {value}', False, False
+    elif key in ('organism', 'taxon_name'):
+        return N.taxon_name.ilike(f'%{value}%'), f'organism: {value}', False, False
+    elif key == 'taxonomy':
+        tax_search = '%' + value.lower().replace('_', '\\_') + '%'
+        tax_rows = db.session.execute(
+            text("select id from taxonomies where lower(name) like :taxon escape '\\'"),
+            {'taxon': tax_search}
+        ).fetchall()
+        if not tax_rows:
+            return None, f'no taxonomy matching "{value}"', False, False
+        tax_ids = [r.id for r in tax_rows]
+        return CondensedProfileCtas1.taxonomy_id.in_(tax_ids), f'taxonomy: {value}', False, True
+
+    # --- Quality / size fields ---
+    elif key in ('spf', 'prokaryotic_fraction'):
+        cond = _apply_numeric_filter(P.smf, value, approx_delta=2.0)
+        if cond is None: return None, None, False, False
+        return cond, f'SPF: {value}%', True, False
+    elif key in ('ksf', 'known_species_fraction'):
+        cond = _apply_numeric_filter(P.known_species_fraction, value, approx_delta=2.0)
+        if cond is None: return None, None, False, False
+        return cond, f'KSF: {value}%', True, False
+    elif key == 'low_complexity':
+        val_lower = value.lower()
+        if val_lower in ('yes', 'true', '1'):
+            return P.low_complexity == True, 'low complexity: yes', True, False
+        elif val_lower in ('no', 'false', '0'):
+            return P.low_complexity == False, 'low complexity: no', True, False
+        return None, None, False, False
+    elif key in ('gbp', 'bases', 'size'):
+        cond = _apply_numeric_filter_int(N.bases, value, scale=1e9, approx_delta=0.1)
+        if cond is None: return None, None, False, False
+        return cond, f'size: {value} Gbp', False, False
+    elif key in ('reads', 'spots'):
+        cond = _apply_numeric_filter_int(N.spots, value, scale=1e6, approx_delta=1)
+        if cond is None: return None, None, False, False
+        return cond, f'reads: {value}M', False, False
+    elif key == 'read_length':
+        cond = _apply_numeric_filter(N.read1_length_average, value, approx_delta=5)
+        if cond is None: return None, None, False, False
+        return cond, f'read length: {value}bp', False, False
+    elif key == 'release_year':
+        op, low_str, high_str = _parse_numeric_range(value)
+        try:
+            low = int(low_str)
+            if op == 'between':
+                high = int(high_str)
+                return N.published.between(f'{low}-01-01', f'{high}-12-31'), f'release year: {low}–{high}', False, False
+            if op == 'gt':
+                return N.published > f'{low}-12-31', f'release year: >{low}', False, False
+            if op == 'gte':
+                return N.published >= f'{low}-01-01', f'release year: >={low}', False, False
+            if op == 'lt':
+                return N.published < f'{low}-01-01', f'release year: <{low}', False, False
+            if op == 'lte':
+                return N.published <= f'{low}-12-31', f'release year: <={low}', False, False
+            return N.published.between(f'{low}-01-01', f'{low}-12-31'), f'release year: {low}', False, False
+        except ValueError:
+            return None, None, False, False
+
+    # --- Study / project fields ---
+    elif key in ('abstract', 'study_abstract'):
+        return N.study_abstract.ilike(f'%{value}%'), f'abstract: {value}', False, False
+    elif key == 'bioproject':
+        return N.bioproject.ilike(f'%{value}%'), f'bioproject: {value}', False, False
+
+    # --- Identifier fields ---
+    elif key in ('sra_study', 'sra'):
+        return N.sra_study.ilike(f'%{value}%'), f'SRA study: {value}', False, False
+    elif key in ('experiment', 'exp'):
+        return N.experiment.ilike(f'%{value}%'), f'experiment: {value}', False, False
+    elif key in ('sample_acc', 'sample'):
+        return N.sample_acc.ilike(f'%{value}%'), f'sample accession: {value}', False, False
+    elif key == 'biosample':
+        return N.biosample.ilike(f'%{value}%'), f'biosample: {value}', False, False
+
+    # --- Submitter fields ---
+    elif key in ('organisation', 'organization'):
+        search = f'%{value}%'
+        return or_(
+            N.organisation_name.ilike(search),
+            N.organisation_institution.ilike(search),
+            N.organisation_department.ilike(search),
+            N.organisation_city.ilike(search),
+            N.organisation_country.ilike(search),
+            N.organisation_contact_name.ilike(search),
+        ), f'organisation: {value}', False, False
+
+    # --- Age search ---
+    # Numeric range on biosample age attributes. Assumes the stored number is meaningful
+    # at face value — scale is study-dependent (years for humans, weeks for neonates, etc.)
+    elif key == 'age':
+        op, low_str, high_str = _parse_numeric_range(value)
+        try:
+            low = float(low_str)
+            age_col = "TRY_CAST(regexp_extract(v, '^\\d+\\.?\\d*') AS DOUBLE)"
+            if op == 'between':
+                high = float(high_str)
+                age_filter = text(f"{age_col} BETWEEN {low} AND {high}")
+            elif op == 'gt':
+                age_filter = text(f"{age_col} > {low}")
+            elif op == 'gte':
+                age_filter = text(f"{age_col} >= {low}")
+            elif op == 'lt':
+                age_filter = text(f"{age_col} < {low}")
+            elif op == 'lte':
+                age_filter = text(f"{age_col} <= {low}")
+            else:
+                age_filter = text(f"{age_col} BETWEEN {low} AND {low}")
+            subq = select(BiosampleAttribute.run_id).where(
+                BiosampleAttribute.k.in_(['age', 'host_age', 'Age', 'host age'])
+            ).where(age_filter).distinct()
+            return N.id.in_(subq), f'age: {value}', False, False
+        except ValueError:
+            return None, None, False, False
+
+    # --- BioSample attribute search ---
+    # value can be "key=value" to match a specific attribute key, or plain text to match any attribute value
+    elif key in ('attr', 'attribute', 'biosample_attr', 'metadata'):
+        if '=' in value:
+            attr_key, attr_val = value.split('=', 1)
+            subq = select(BiosampleAttribute.run_id).where(
+                BiosampleAttribute.k.ilike(attr_key.strip())
+            ).where(
+                BiosampleAttribute.v.ilike(f'%{attr_val.strip()}%')
+            ).distinct()
+        else:
+            subq = select(BiosampleAttribute.run_id).where(
+                BiosampleAttribute.v.ilike(f'%{value}%')
+            ).distinct()
+        return N.id.in_(subq), f'attribute: {value}', False, False
+
+    return None, None, False, False
+
+
+@api.route('/universal_search', methods=['GET'])
+def universal_search():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify({'error': 'No query provided'}), 400
+
+    parts = [p.strip() for p in q.split(',') if p.strip()]
+    conditions = []
+    descriptions = []
+    needs_parsed = False
+    needs_condensed = False
+
+    for part in parts:
+        kv_match = re.match(r'^(\w[\w\s]*?)\s*:\s*(.+)$', part)
+        if kv_match:
+            key = kv_match.group(1).lower().strip()
+            value = kv_match.group(2).strip()
+            cond, desc, p_join, c_join = _parse_search_condition(key, value)
+            if cond is not None:
+                conditions.append(cond)
+                descriptions.append(desc)
+                needs_parsed = needs_parsed or p_join
+                needs_condensed = needs_condensed or c_join
+                continue
+            elif desc is not None:
+                # key was recognised but returned no results (e.g. unknown taxonomy)
+                return jsonify({'count': 0, 'random_acc': None, 'match_description': desc, 'query': q})
+
+        # Free text fallback for unrecognised or non-key:value input
+        conditions.append(or_(
+            NcbiMetadata.study_title.ilike(f'%{part}%'),
+            NcbiMetadata.study_abstract.ilike(f'%{part}%'),
+            NcbiMetadata.geo_loc_name.ilike(f'%{part}%'),
+            NcbiMetadata.taxon_name.ilike(f'%{part}%'),
+        ))
+        descriptions.append(f'"{part}"')
+
+    if not conditions:
+        return jsonify({'error': 'No valid conditions parsed'}), 400
+
+    stmt = select(NcbiMetadata.acc).distinct()
+    if needs_parsed:
+        stmt = stmt.join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id)
+    if needs_condensed:
+        stmt = stmt.join(CondensedProfileCtas1, CondensedProfileCtas1.run_id == NcbiMetadata.id)
+    for cond in conditions:
+        stmt = stmt.where(cond)
+
+    total = db.session.execute(select(func.count()).select_from(stmt.subquery())).scalar()
+    random_row = db.session.execute(stmt.order_by(func.random()).limit(1)).fetchone()
+
+    return jsonify({
+        'count': total,
+        'random_acc': random_row.acc if random_row else None,
+        'match_description': ' AND '.join(descriptions),
+        'query': q,
+    })
 
 
 RECAPTCHA_SECRET_KEY = '6LdZXhorAAAAAJOtcFJj6SBkOKW4bhKu80khNcH2'
