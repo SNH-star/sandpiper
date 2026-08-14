@@ -86,6 +86,10 @@
                 <code class="keys-item-label">metadata <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('metadata_info', $event)" @mouseleave="hideTooltipDelayed" /></code>
                 <span class="keys-example">e.g. sex=male or body_site=arm</span>
               </div>
+              <div class="keys-item">
+                <code class="keys-item-label">metalog <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('metalog_info', $event)" @mouseleave="hideTooltipDelayed" /></code>
+                <span class="keys-example">e.g. host=Sus scrofa or diabetes</span>
+              </div>
             </div>
 
           </div>
@@ -98,6 +102,7 @@
               <span class="keys-syntax-item"><code>&lt;10</code> less than</span>
               <span class="keys-syntax-item"><code>&lt;=10</code> at most</span>
               <span class="keys-syntax-item"><code>10</code> exact / approx</span>
+              <span class="keys-syntax-item"><code>(empty)</code> present, any value e.g. "age:"</span>
             </div>
           </div>
           <div class="keys-example-row">
@@ -117,101 +122,69 @@
 
           <p class="adv-group-title has-text-primary">Location</p>
           <b-field grouped group-multiline>
-            <b-field label="Country" label-position="on-border">
-              <b-input v-model="adv.country" placeholder="e.g. Australia" size="is-small"></b-input>
-            </b-field>
-            <b-field label="Location" label-position="on-border">
-              <b-input v-model="adv.location" placeholder="e.g. Pacific Ocean" size="is-small"></b-input>
-            </b-field>
-            <b-field label="Latitude" label-position="on-border" :message="adv_errors.latitude" :type="adv_errors.latitude ? 'is-danger' : ''">
-              <b-input v-model="adv.latitude" placeholder="e.g. -33.8 or -40-30" size="is-small" @input="on_adv_field_input('latitude')"></b-input>
-            </b-field>
-            <b-field label="Longitude" label-position="on-border" :message="adv_errors.longitude" :type="adv_errors.longitude ? 'is-danger' : ''">
-              <b-input v-model="adv.longitude" placeholder="e.g. 151.2 or 140-160" size="is-small" @input="on_adv_field_input('longitude')"></b-input>
-            </b-field>
+            <PresenceField label="Country" v-model="adv.country" v-model:present="adv_present.country" placeholder="e.g. Australia" />
+            <PresenceField label="Location" v-model="adv.location" v-model:present="adv_present.location" placeholder="e.g. Pacific Ocean" />
+            <PresenceField label="Latitude" v-model="adv.latitude" v-model:present="adv_present.latitude" placeholder="e.g. -33.8 or -40-30" :error-message="adv_errors.latitude" @input="on_adv_field_input('latitude')" />
+            <PresenceField label="Longitude" v-model="adv.longitude" v-model:present="adv_present.longitude" placeholder="e.g. 151.2 or 140-160" :error-message="adv_errors.longitude" @input="on_adv_field_input('longitude')" />
           </b-field>
 
           <p class="adv-group-title has-text-primary">Sample</p>
-          <b-field grouped group-multiline style="row-gap: 0.75rem;">
-            <b-field label="Collection year" label-position="on-border" :message="adv_errors.year" :type="adv_errors.year ? 'is-danger' : ''">
-              <b-input v-model="adv.year" placeholder="e.g. 2010 or 2010-2015" size="is-small" @input="on_adv_field_input('year')"></b-input>
-            </b-field>
-            <b-field label="Release year" label-position="on-border" :message="adv_errors.release_year" :type="adv_errors.release_year ? 'is-danger' : ''">
-              <b-input v-model="adv.release_year" placeholder="e.g. 2018 or 2015-2020" size="is-small" @input="on_adv_field_input('release_year')"></b-input>
-            </b-field>
-            <b-field label="Temperature (°C)" label-position="on-border" :message="adv_errors.temperature" :type="adv_errors.temperature ? 'is-danger' : ''">
-              <b-input v-model="adv.temperature" placeholder="e.g. 25 or 20-30" size="is-small" @input="on_adv_field_input('temperature')"></b-input>
-            </b-field>
-            <b-field label="Depth (m)" label-position="on-border" :message="adv_errors.depth" :type="adv_errors.depth ? 'is-danger' : ''">
-              <b-input v-model="adv.depth" placeholder="e.g. 100 or 0-200" size="is-small" @input="on_adv_field_input('depth')"></b-input>
-            </b-field>
-            <b-field label-position="on-border" :message="adv_errors.age" :type="adv_errors.age ? 'is-danger' : ''">
-              <template #label>
-                Age
+          <b-field grouped group-multiline class="sample-group-field">
+            <PresenceField label="Collection year" v-model="adv.year" v-model:present="adv_present.year" placeholder="e.g. 2010 or 2010-2015" :error-message="adv_errors.year" @input="on_adv_field_input('year')" />
+            <PresenceField label="Release year" v-model="adv.release_year" v-model:present="adv_present.release_year" placeholder="e.g. 2018 or 2015-2020" :error-message="adv_errors.release_year" @input="on_adv_field_input('release_year')" />
+            <PresenceField label="Temperature (°C)" v-model="adv.temperature" v-model:present="adv_present.temperature" placeholder="e.g. 25 or 20-30" :error-message="adv_errors.temperature" @input="on_adv_field_input('temperature')" />
+            <PresenceField label="Depth (m)" v-model="adv.depth" v-model:present="adv_present.depth" placeholder="e.g. 100 or 0-200" :error-message="adv_errors.depth" @input="on_adv_field_input('depth')" />
+            <PresenceField label="Age" v-model="adv.age" v-model:present="adv_present.age" placeholder="e.g. 25 or 20-30" :error-message="adv_errors.age" @input="on_adv_field_input('age')">
+              <template #label-suffix>
                 <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('age_info', $event)" @mouseleave="hideTooltipDelayed" />
               </template>
-              <b-input v-model="adv.age" placeholder="e.g. 25 or 20-30" size="is-small" @input="on_adv_field_input('age')"></b-input>
-            </b-field>
+            </PresenceField>
             <b-field label="Environment" label-position="on-border">
               <div class="buttons has-addons">
                 <b-button size="is-small" :type="adv.environment === 'host' ? 'is-primary' : ''" @click="toggle_env('host')">Host</b-button>
                 <b-button size="is-small" :type="adv.environment === 'ecological' ? 'is-primary' : ''" @click="toggle_env('ecological')">Ecological</b-button>
+                <b-button size="is-small" :type="adv_present.environment ? 'is-primary' : ''" title="Match any run with an environment classification" @click="adv_present.environment = !adv_present.environment">Any</b-button>
               </div>
             </b-field>
             <b-field label="Low complexity" label-position="on-border" style="width: 1000px; top: 10px; position relative">
               <div class="buttons has-addons">
                 <b-button size="is-small" style="width: 82px;" :type="adv.low_complexity === 'yes' ? 'is-primary' : ''" @click="adv.low_complexity = adv.low_complexity === 'yes' ? '' : 'yes'">Yes</b-button>
                 <b-button size="is-small" style="width: 82px;" :type="adv.low_complexity === 'no' ? 'is-primary' : ''" @click="adv.low_complexity = adv.low_complexity === 'no' ? '' : 'no'">No</b-button>
+                <b-button size="is-small" :type="adv_present.low_complexity ? 'is-primary' : ''" title="Match any run with a low-complexity classification" @click="adv_present.low_complexity = !adv_present.low_complexity">Any</b-button>
               </div>
             </b-field>
           </b-field>
 
           <p class="adv-group-title has-text-primary">Quality / Size</p>
           <b-field grouped group-multiline>
-            <b-field label="SPF %" label-position="on-border" :message="adv_errors.spf" :type="adv_errors.spf ? 'is-danger' : ''">
-              <b-input v-model="adv.spf" placeholder="e.g. 80 or 50-100" size="is-small" @input="on_adv_field_input('spf')"></b-input>
-            </b-field>
-            <b-field label="Known species fraction %" label-position="on-border" :message="adv_errors.ksf" :type="adv_errors.ksf ? 'is-danger' : ''">
-              <b-input v-model="adv.ksf" placeholder="e.g. 90 or 70-100" size="is-small" @input="on_adv_field_input('ksf')"></b-input>
-            </b-field>
-            <b-field label="Size (Gbp)" label-position="on-border" :message="adv_errors.gbp" :type="adv_errors.gbp ? 'is-danger' : ''">
-              <b-input v-model="adv.gbp" placeholder="e.g. 5 or 2-10" size="is-small" @input="on_adv_field_input('gbp')"></b-input>
-            </b-field>
-            <b-field label="Reads (millions)" label-position="on-border" :message="adv_errors.reads" :type="adv_errors.reads ? 'is-danger' : ''">
-              <b-input v-model="adv.reads" placeholder="e.g. 50 or 10-100" size="is-small" @input="on_adv_field_input('reads')"></b-input>
-            </b-field>
-            <b-field label="Read length (bp)" label-position="on-border" :message="adv_errors.read_length" :type="adv_errors.read_length ? 'is-danger' : ''">
-              <b-input v-model="adv.read_length" placeholder="e.g. 150 or 100-250" size="is-small" @input="on_adv_field_input('read_length')"></b-input>
-            </b-field>
+            <PresenceField label="SPF %" v-model="adv.spf" v-model:present="adv_present.spf" placeholder="e.g. 80 or 50-100" :error-message="adv_errors.spf" @input="on_adv_field_input('spf')" />
+            <PresenceField label="Known species fraction %" v-model="adv.ksf" v-model:present="adv_present.ksf" placeholder="e.g. 90 or 70-100" :error-message="adv_errors.ksf" @input="on_adv_field_input('ksf')" />
+            <PresenceField label="Size (Gbp)" v-model="adv.gbp" v-model:present="adv_present.gbp" placeholder="e.g. 5 or 2-10" :error-message="adv_errors.gbp" @input="on_adv_field_input('gbp')" />
+            <PresenceField label="Reads (millions)" v-model="adv.reads" v-model:present="adv_present.reads" placeholder="e.g. 50 or 10-100" :error-message="adv_errors.reads" @input="on_adv_field_input('reads')" />
+            <PresenceField label="Read length (bp)" v-model="adv.read_length" v-model:present="adv_present.read_length" placeholder="e.g. 150 or 100-250" :error-message="adv_errors.read_length" @input="on_adv_field_input('read_length')" />
           </b-field>
 
           <p class="adv-group-title has-text-primary">Sequencing</p>
           <b-field grouped group-multiline>
-            <b-field label-position="on-border">
-              <template #label>
-                Platform
+            <PresenceField label="Platform" v-model="adv.platform" v-model:present="adv_present.platform" placeholder="e.g. Illumina">
+              <template #label-suffix>
                 <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('platform', $event)" @mouseleave="hideTooltipDelayed" />
               </template>
-              <b-input v-model="adv.platform" placeholder="e.g. Illumina" size="is-small"></b-input>
-            </b-field>
-            <b-field label-position="on-border">
-              <template #label>
-                Instrument
+            </PresenceField>
+            <PresenceField label="Instrument" v-model="adv.instrument" v-model:present="adv_present.instrument" placeholder="e.g. HiSeq 2500">
+              <template #label-suffix>
                 <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('instrument', $event)" @mouseleave="hideTooltipDelayed" />
               </template>
-              <b-input v-model="adv.instrument" placeholder="e.g. HiSeq 2500" size="is-small"></b-input>
-            </b-field>
-            <b-field label-position="on-border">
-              <template #label>
-                Library strategy
+            </PresenceField>
+            <PresenceField label="Library strategy" v-model="adv.library_strategy" v-model:present="adv_present.library_strategy" placeholder="e.g. WGS">
+              <template #label-suffix>
                 <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('library', $event)" @mouseleave="hideTooltipDelayed" />
               </template>
-              <b-input v-model="adv.library_strategy" placeholder="e.g. WGS" size="is-small"></b-input>
-            </b-field>
+            </PresenceField>
           </b-field>
 
           <teleport to="body">
-            <div v-if="active_tooltip" class="info-tooltip-box" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+            <div v-if="active_tooltip" class="info-tooltip-box" :class="{ 'is-scroll-list': active_tooltip === 'metalog_info' }" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
               <template v-if="active_tooltip === 'taxonomy_info'">
                 <p class="info-tooltip-title">Taxonomy — detected presence only</p>
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
@@ -280,6 +253,224 @@
                   <span>host</span><span>tissue</span><span>disease</span><span>treatment</span>
                   <span>isolation_source</span><span>env_biome</span><span>body_site</span><span>age</span>
                   <span>sex</span><span>phenotype</span><span>genotype</span><span>strain</span>
+                </div>
+              </template>
+              <template v-if="active_tooltip === 'metalog_info'">
+                <p class="info-tooltip-title">Metalog metadata — click a field to select</p>
+                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                  Searches Metalog's curated/harmonised fields for this run (host, sex, age, diet,
+                  environment, chemistry measurements, and more) -- distinct from "Metadata" above,
+                  which searches the raw BioSample attributes as originally submitted to NCBI. Not
+                  every run has a Metalog match; only a handful of these fields are populated for
+                  any given sample.
+                </p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Two formats</p>
+                <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
+                  <span>metalog: diabetes — matches any field containing this value</span>
+                  <span>metalog: host=Sus scrofa — matches only the "host" field</span>
+                </div>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">All fields (200)</p>
+                <div class="info-tooltip-grid metalog-fields-scroll">
+                  <span class="tt-clickable" @click="selectTooltipValue('acetate_um')">acetate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('added_matter')">added_matter</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('age_category')">age_category</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('age_days')">age_days</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('age_months')">age_months</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('age_range')">age_range</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('age_years')">age_years</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('alkalinity')">alkalinity</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ammonium_mg_l')">ammonium_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ammonium_um')">ammonium_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('amy1cn')">amy1cn</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('antibiotic')">antibiotic</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('antibiotic_dosage')">antibiotic_dosage</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('artificial')">artificial</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('available_info')">available_info</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('birth_country')">birth_country</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('birth_gestational_age_weeks')">birth_gestational_age_weeks</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('birth_mode')">birth_mode</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('birth_term_status')">birth_term_status</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('birth_weight_kg')">birth_weight_kg</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('blood_group')">blood_group</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('bmi')">bmi</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('bmi_range')">bmi_range</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('bristol_stool_scale')">bristol_stool_scale</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('butyrate_um')">butyrate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('calcium_mg_l')">calcium_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('captivity_status')">captivity_status</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('captivity_status_full')">captivity_status_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('carbon_dioxide_um')">carbon_dioxide_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('cause_of_death')">cause_of_death</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('chloride_mg_l')">chloride_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('climatic_zone')">climatic_zone</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('cohort')">cohort</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('collection_date')">collection_date</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('collection_date_end')">collection_date_end</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('common_timepoint')">common_timepoint</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('comorbidities')">comorbidities</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('couple_id')">couple_id</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('couple_timepoint')">couple_timepoint</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('cultivation_condition')">cultivation_condition</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('cultivation_duration')">cultivation_duration</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('days_since_antibiotics')">days_since_antibiotics</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('days_since_fmt')">days_since_fmt</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('depth_meters')">depth_meters</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('description')">description</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('diet')">diet</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('diet_full')">diet_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('dissolved_organic_carbon_um')">dissolved_organic_carbon_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('dissolved_oxygen_um')">dissolved_oxygen_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('doi')">doi</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('dol_range')">dol_range</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('donor_d0')">donor_d0</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('donor_d28')">donor_d28</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('drug_antibiotic_last3y')">drug_antibiotic_last3y</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('elevation_meters')">elevation_meters</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('enriched_soil')">enriched_soil</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('environment_biome')">environment_biome</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('environment_feature')">environment_feature</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('environment_material')">environment_material</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('environmental_package')">environmental_package</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ethnicity')">ethnicity</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('family')">family</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ferric_iron_um')">ferric_iron_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ferrous_iron_um')">ferrous_iron_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ferrous_um')">ferrous_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('field_nominal_c')">field_nominal_c</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('filtration_lower_threshold')">filtration_lower_threshold</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('filtration_lower_threshold_kda')">filtration_lower_threshold_kda</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('filtration_lower_threshold_um')">filtration_lower_threshold_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('filtration_upper_threshold_um')">filtration_upper_threshold_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('fmt_donor')">fmt_donor</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('food_name')">food_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('formate_um')">formate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('full_description')">full_description</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('geographic_location')">geographic_location</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('gestational_age_weeks')">gestational_age_weeks</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('gestational_state')">gestational_state</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('group')">group</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('height_cm')">height_cm</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('hip_cm')">hip_cm</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('host')">host</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('host_common_name')">host_common_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('host_scientific_name')">host_scientific_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('host_tax_id')">host_tax_id</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('host_tax_scientific_name')">host_tax_scientific_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('housing_lab')">housing_lab</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('hydrosulfide_um')">hydrosulfide_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('infant_id')">infant_id</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('intervention')">intervention</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('intervention_full')">intervention_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('iron_mg_l')">iron_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('iron_um')">iron_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('isolation_source')">isolation_source</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('land_use_category')">land_use_category</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('land_use_full')">land_use_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('last_change')">last_change</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('latitude')">latitude</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('lifestyle')">lifestyle</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('linked_to')">linked_to</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('location')">location</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('location_name')">location_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('location_resolution')">location_resolution</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('longitude')">longitude</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('magnesium_mg_l')">magnesium_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('manganese_um')">manganese_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('mean_annual_precipitation_mm')">mean_annual_precipitation_mm</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('mean_annual_temperature')">mean_annual_temperature</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medical_history_notduringstudy')">medical_history_notduringstudy</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medical_operation')">medical_operation</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medication')">medication</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medication_full')">medication_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medication_with_parents')">medication_with_parents</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('medicinal_plant')">medicinal_plant</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('menopausal_status')">menopausal_status</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('methane_um')">methane_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrate_mg_l')">nitrate_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrate_nitrite_um')">nitrate_nitrite_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrate_um')">nitrate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrite_mg_l')">nitrite_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrite_um')">nitrite_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrogen_dioxide_um')">nitrogen_dioxide_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('nitrogen_percent')">nitrogen_percent</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('note')">note</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('original_sample_name')">original_sample_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('original_timepoint')">original_timepoint</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('other_meds')">other_meds</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('oxygen_um')">oxygen_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ph')">ph</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('ph_range')">ph_range</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('phenotypic_information')">phenotypic_information</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('phosphate_um')">phosphate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('phosphorus_mg_l')">phosphorus_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('phosphorus_um')">phosphorus_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('plant')">plant</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('pmid')">pmid</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('pooled_individuals')">pooled_individuals</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('potassium_mg_l')">potassium_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('pregnancy_week')">pregnancy_week</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('pregnant')">pregnant</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('probiotic')">probiotic</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('propionate_um')">propionate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('protocol_label')">protocol_label</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('provider')">provider</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('range_days_since_abxs')">range_days_since_abxs</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('range_days_since_antibiotics')">range_days_since_antibiotics</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('range_days_since_medication')">range_days_since_medication</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('recipient_donor')">recipient_donor</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('salinity')">salinity</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('salinity_ppm')">salinity_ppm</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('salinity_ppt')">salinity_ppt</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sample_alias')">sample_alias</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sample_collection_timepoint')">sample_collection_timepoint</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sample_description')">sample_description</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sample_title')">sample_title</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sampling_campaign')">sampling_campaign</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sampling_platform')">sampling_platform</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sampling_site')">sampling_site</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sampling_station')">sampling_station</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sex')">sex</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('silicate_um')">silicate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('site_description')">site_description</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('skin_site_type')">skin_site_type</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('smoker')">smoker</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sodium_mg_l')">sodium_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('specific_material')">specific_material</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('stool_consistency')">stool_consistency</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('strain')">strain</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('study_accession')">study_accession</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('study_code')">study_code</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('subject_disease_status')">subject_disease_status</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('subject_disease_status_full')">subject_disease_status_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('subject_id')">subject_id</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sulfate_mg_l')">sulfate_mg_l</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sulfate_um')">sulfate_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('sulfide_um')">sulfide_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('synbiotic')">synbiotic</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('tax_id')">tax_id</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('temperature')">temperature</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('temperature_range')">temperature_range</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('time_period')">time_period</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('timepoint')">timepoint</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('timepoint_note')">timepoint_note</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('timeseries_available')">timeseries_available</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('timeseries_count')">timeseries_count</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('timeseries_duration')">timeseries_duration</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('tissue_type')">tissue_type</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('total_dissolved_nitrogen_um')">total_dissolved_nitrogen_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('total_iron_um')">total_iron_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('total_manganese_um')">total_manganese_um</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('total_nitrate')">total_nitrate</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('total_organic_carbon')">total_organic_carbon</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('type_of_birth')">type_of_birth</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('vaccine_name')">vaccine_name</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('vaginal_ph')">vaginal_ph</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('vegetation')">vegetation</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('vegetation_full')">vegetation_full</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('village')">village</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('waist_cm')">waist_cm</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('water_depth_meters')">water_depth_meters</span>
+                  <span class="tt-clickable" @click="selectTooltipValue('weight_kg')">weight_kg</span>
                 </div>
               </template>
               <template v-if="active_tooltip === 'platform'">
@@ -398,9 +589,7 @@
 
           <p class="adv-group-title has-text-primary">Taxonomy</p>
           <b-field grouped group-multiline>
-            <b-field label="Organism" label-position="on-border">
-              <b-input v-model="adv.organism" placeholder="e.g. marine metagenome" size="is-small"></b-input>
-            </b-field>
+            <PresenceField label="Organism" v-model="adv.organism" v-model:present="adv_present.organism" placeholder="e.g. marine metagenome" />
             <b-field label="Taxonomy" label-position="on-border">
               <b-input v-model="adv.taxonomy" placeholder="e.g. s__Prochlorococcus" size="is-small"></b-input>
             </b-field>
@@ -408,12 +597,8 @@
 
           <p class="adv-group-title has-text-primary">Study</p>
           <b-field grouped group-multiline>
-            <b-field label="Study title" label-position="on-border">
-              <b-input v-model="adv.study" placeholder="e.g. Tara Oceans" size="is-small"></b-input>
-            </b-field>
-            <b-field label="Abstract" label-position="on-border">
-              <b-input v-model="adv.abstract" placeholder="e.g. coral reef" size="is-small"></b-input>
-            </b-field>
+            <PresenceField label="Study title" v-model="adv.study" v-model:present="adv_present.study" placeholder="e.g. Tara Oceans" />
+            <PresenceField label="Abstract" v-model="adv.abstract" v-model:present="adv_present.abstract" placeholder="e.g. coral reef" />
             <b-field label="BioProject" label-position="on-border">
               <b-input v-model="adv.bioproject" placeholder="e.g. PRJNA12345" size="is-small"></b-input>
             </b-field>
@@ -437,9 +622,7 @@
 
           <p class="adv-group-title has-text-primary">Submitter</p>
           <b-field grouped group-multiline>
-            <b-field label="Organisation" label-position="on-border">
-              <b-input v-model="adv.organisation" placeholder="e.g. MIT or Woods Hole" size="is-small"></b-input>
-            </b-field>
+            <PresenceField label="Organisation" v-model="adv.organisation" v-model:present="adv_present.organisation" placeholder="e.g. MIT or Woods Hole" />
           </b-field>
 
           <p class="adv-group-title has-text-primary">Metadata</p>
@@ -450,6 +633,13 @@
                 <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('metadata', $event)" @mouseleave="hideTooltipDelayed" />
               </template>
               <b-input v-model="adv.attr" placeholder="e.g. sex=male or age=1-2" size="is-small"></b-input>
+            </b-field>
+            <b-field label-position="on-border">
+              <template #label>
+                Metalog metadata
+                <b-icon icon="information-outline" size="is-small" class="info-icon-btn" @mouseenter="showTooltip('metalog_info', $event)" @mouseleave="hideTooltipDelayed" />
+              </template>
+              <b-input v-model="adv.metalog" placeholder="e.g. host=Sus scrofa or diabetes" size="is-small"></b-input>
             </b-field>
           </b-field>
 
@@ -462,6 +652,7 @@
               <span class="keys-syntax-item"><code>&lt;10</code> less than</span>
               <span class="keys-syntax-item"><code>&lt;=10</code> at most</span>
               <span class="keys-syntax-item"><code>10</code> exact / approx</span>
+              <span class="keys-syntax-item"><code>(empty)</code> present, any value e.g. "age:"</span>
             </div>
           </div>
 
@@ -530,11 +721,14 @@
 <script>
 import { fetchTaxonomySearchHints, fetchSandpiperStats, fetchUniversalSearch } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
+import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import debounce from 'lodash/debounce'
+import PresenceField from '@/components/PresenceField.vue'
 
 export default {
   name: 'Search',
   title: 'Search - Sandpiper',
+  components: { PresenceField },
   data () {
     return {
       GTDB_VERSION,
@@ -568,6 +762,24 @@ export default {
         age: '',
         // BioSample attributes
         attr: '',
+        // Metalog (curated/harmonised) metadata
+        metalog: '',
+      },
+      // Per-field "present, any value" toggle -- mirrors the keys of `adv`
+      // that support it. When true for a field, build_query() sends "key: "
+      // (empty value) instead of the text input's value, which the backend
+      // reads as "field is populated" rather than a specific match. Useful
+      // for sparsely-populated fields like age, temperature, or depth where
+      // asking the user for an exact value isn't practical.
+      adv_present: {
+        country: false, location: false, latitude: false, longitude: false,
+        year: false, release_year: false, temperature: false, depth: false, age: false,
+        environment: false, low_complexity: false,
+        spf: false, ksf: false, gbp: false, reads: false, read_length: false,
+        platform: false, instrument: false, library_strategy: false,
+        organism: false,
+        study: false, abstract: false,
+        organisation: false,
       },
       adv_errors: {},
       adv_error_timers: {},
@@ -582,11 +794,11 @@ export default {
       isFetching: false,
       accession: 'ERR1914274',
 
-      random_choice_host: false,
-      random_choice_non_human_host: true,
-      random_choice_ecological: true,
-      random_choice_two_gbp: true,
-      random_exclude_strict_low_complexity: true
+      random_choice_host: RANDOM_DEFAULTS.host,
+      random_choice_non_human_host: RANDOM_DEFAULTS.non_human_host,
+      random_choice_ecological: RANDOM_DEFAULTS.ecological,
+      random_choice_two_gbp: RANDOM_DEFAULTS.two_gbp,
+      random_exclude_strict_low_complexity: RANDOM_DEFAULTS.exclude_strict_low_complexity
     }
   },
 
@@ -616,6 +828,13 @@ export default {
       clearTimeout(this.tooltip_close_timer)
       const rect = event.target.getBoundingClientRect()
       const tooltipW = 420
+      // .info-tooltip-box caps at max-height: 80vh (see CSS) and scrolls
+      // internally past that, so the metalog tooltip -- by far the tallest,
+      // with 200 fields -- can never actually be taller than 80vh. Use that
+      // as its height estimate instead of a fixed guess, otherwise an
+      // undershoot here still lets the fixed-position box get placed too low
+      // and run off the bottom of the viewport even though it isn't really
+      // that tall.
       const tooltipH = {
         instrument_info: 420,
         library_info: 480,
@@ -624,6 +843,7 @@ export default {
         taxonomy_info: 220,
         metadata: 360,
         age_info: 180,
+        metalog_info: Math.round(window.innerHeight * 0.8),
       }[name] ?? 300
 
       // Horizontal: prefer right of icon, flip left if it would overflow
@@ -662,6 +882,7 @@ export default {
       if (this.active_tooltip === 'platform') this.adv.platform = value
       else if (this.active_tooltip === 'instrument') this.adv.instrument = value
       else if (this.active_tooltip === 'library') this.adv.library_strategy = value
+      else if (this.active_tooltip === 'metalog_info') this.adv.metalog = `${value}=`
       this.active_tooltip = null
     },
 
@@ -675,7 +896,7 @@ export default {
     build_query () {
       const parts = []
       // Keep only genuine free-text segments (not key:value pairs) from the current search bar
-      const KEY_RE = /^(longitude|lon|latitude|lat|country|continent|location|geo|year|release_year|temperature|temp|depth|environment|env|low_complexity|spf|prokaryotic_fraction|ksf|known_species_fraction|gbp|bases|size|reads|spots|read_length|platform|instrument|model|library_strategy|strategy|organism|taxon_name|taxonomy|study|study_title|title|abstract|study_abstract|bioproject|sra_study|sra|experiment|exp|sample_acc|sample|biosample|organisation|organization|age|attr|attribute|biosample_attr|metadata)\s*:/i
+      const KEY_RE = /^(longitude|lon|latitude|lat|country|continent|location|geo|year|release_year|temperature|temp|depth|environment|env|low_complexity|spf|prokaryotic_fraction|ksf|known_species_fraction|gbp|bases|size|reads|spots|read_length|platform|instrument|model|library_strategy|strategy|organism|taxon_name|taxonomy|study|study_title|title|abstract|study_abstract|bioproject|sra_study|sra|experiment|exp|sample_acc|sample|biosample|organisation|organization|age|attr|attribute|biosample_attr|metadata|metalog)\s*:/i
       const freetext_parts = this.universal_query.split(',')
         .map(p => p.trim())
         .filter(p => p && !KEY_RE.test(p))
@@ -696,12 +917,18 @@ export default {
         ['organisation', this.adv.organisation],
         ['age', this.adv.age],
         ['metadata', this.adv.attr],
+        ['metalog', this.adv.metalog],
       ]
       for (const [key, val] of text_fields) {
-        if (val && val.trim()) parts.push(`${key}: ${val.trim()}`)
+        // A "present" toggle always wins over the input's value -- pushing
+        // "key: " (empty) tells the backend to match any populated value.
+        if (this.adv_present[key]) parts.push(`${key}: `)
+        else if (val && val.trim()) parts.push(`${key}: ${val.trim()}`)
       }
-      if (this.adv.environment) parts.push(`environment: ${this.adv.environment}`)
-      if (this.adv.low_complexity) parts.push(`low_complexity: ${this.adv.low_complexity}`)
+      if (this.adv_present.environment) parts.push('environment: ')
+      else if (this.adv.environment) parts.push(`environment: ${this.adv.environment}`)
+      if (this.adv_present.low_complexity) parts.push('low_complexity: ')
+      else if (this.adv.low_complexity) parts.push(`low_complexity: ${this.adv.low_complexity}`)
       return parts.join(', ')
     },
 
@@ -717,6 +944,7 @@ export default {
       const range_re = /^-?\d+(\.\d+)?(-(-?\d+(\.\d+)?))?$/
       const op_re = /^[<>]=?-?\d+(\.\d+)?$/
       this.adv_error_timers[field] = setTimeout(() => {
+        if (this.adv_present[field]) return
         const val = (this.adv[field] || '').trim()
         if (val && !range_re.test(val) && !op_re.test(val)) {
           this.adv_errors = { ...this.adv_errors, [field]: 'Use a number, range e.g. 10-20, or operator e.g. >10' }
@@ -729,6 +957,7 @@ export default {
       const range_re = /^-?\d+(\.\d+)?(-(-?\d+(\.\d+)?))?$/
       const op_re = /^[<>]=?-?\d+(\.\d+)?$/
       for (const field of ['year', 'release_year', 'temperature', 'depth', 'latitude', 'longitude', 'spf', 'ksf', 'gbp', 'reads', 'read_length', 'age']) {
+        if (this.adv_present[field]) continue
         const val = (this.adv[field] || '').trim()
         if (val && !range_re.test(val) && !op_re.test(val)) {
           this.adv_errors[field] = 'Use a number, range e.g. 10-20, or operator e.g. >10'
@@ -769,6 +998,7 @@ export default {
         organisation: 'organisation', organization: 'organisation',
         age: 'age',
         attr: 'attr', attribute: 'attr', biosample_attr: 'attr', metadata: 'attr',
+        metalog: 'metalog',
       }
       const freetext = []
       for (const part of this.universal_query.split(',').map(p => p.trim()).filter(Boolean)) {
@@ -919,10 +1149,28 @@ export default {
   padding: 0.8rem 1rem;
   min-width: 280px;
   max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
   font-size: 0.78rem;
   line-height: 1.5;
   pointer-events: auto;
+}
+/* metalog_info is far taller than every other tooltip (200 fields), so it
+   alone gets a flex layout: header text (title/description/examples) keeps
+   its natural height and stays fully visible, while .metalog-fields-scroll
+   below it flexes to fill whatever's left of the box's 80vh cap and scrolls
+   on its own -- the box itself no longer needs to scroll as a whole. */
+.info-tooltip-box.is-scroll-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+}
+.metalog-fields-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.3rem;
 }
 .tt-clickable {
   cursor: pointer;
@@ -930,6 +1178,20 @@ export default {
 .tt-clickable:hover {
   background: rgba(255, 255, 255, 0.28) !important;
   color: #fff;
+}
+/* Buefy's <b-field grouped group-multiline> renders the actual flex-wrap
+   row (the one that needs the vertical gap between wrapped rows) on a
+   SECOND, internal nested b-field one level below the element our own
+   class/style lands on (see Field.vue: grouped+group-multiline sets
+   hasInnerField, which wraps the real slot content in
+   .field-body > b-field.is-grouped-multiline). A plain `style="row-gap"`
+   on the outer <b-field> tag has no visible effect -- that outer element
+   only ever has one child (.field-body), so there's nothing for it to
+   space apart; the actual wrapping happens one level deeper, outside
+   what an inline style on the outer tag can reach. Targeting the real
+   inner flex container directly via CSS descendant selector instead. */
+.sample-group-field > .field-body > .field.is-grouped-multiline {
+  row-gap: 0.75rem;
 }
 </style>
 

@@ -394,15 +394,204 @@ class ParsedSampleAttribute(db.Model):
             domain_only_gtdb=self.domain_only_gtdb,
             domain_only_globdb=self.domain_only_globdb,
             domain_only_both=self.domain_only_both)
-            top1_order_fraction=self.top1_order_fraction,
-            non_metagenome_organism_strict=self.non_metagenome_organism_strict,
-            non_metagenome_organism_loose=self.non_metagenome_organism_loose,
-            synthetic=self.synthetic,
-            rna_or_non_dna_strict=self.rna_or_non_dna_strict,
-            rna_or_non_dna_loose=self.rna_or_non_dna_loose,
-            domain_only_gtdb=self.domain_only_gtdb,
-            domain_only_globdb=self.domain_only_globdb,
-            domain_only_both=self.domain_only_both)
+
+    def metalog_rows(self):
+        """Populated metalog meta_ fields, as RunMetadataTable rows.
+
+        200 meta_ columns are defined but only a handful hold a value for any
+        given run, so this is built from what is actually present rather than
+        from the schema -- returning all of them would be mostly nulls and a
+        large payload. Empty list when the run has no metalog match, which the
+        front end uses to decide whether to show the section at all.
+        """
+        descriptions = {
+            'age_category': 'an automatically generated age category derived from age years and age range. Categories include baby, child, adolescent and adult; combined categories may be used when an age range spans more than one category.',
+            'age_days': 'the subject or animal\'s age in days at the time the sample was collected.',
+            'age_months': 'the subject or animal\'s age in months at the time the sample was collected.',
+            'age_range': 'the subject or animal\'s approximate age range when an exact age is unavailable.',
+            'age_years': 'the subject or animal\'s age in years. Decimal values may be used for ages younger than one year.',
+            'artificial': 'whether the sample was technically modified, experimentally manipulated or substantially affected by the passage of time. An empty value indicates a natural, non-modified sample.',
+            'added_matter': 'matter intentionally added to the sample or experimental system, such as nutrients, oil, dispersant, manure or antibiotics.',
+            'antibiotic': 'the antibiotic administered to or taken by the subject or animal.',
+            'antibiotic_dosage': 'the reported dosage of the antibiotic administered to or taken by the subject or animal.',
+            'alkalinity': 'the alkalinity measured in the sample or at the sampling location.',
+            'amy1cn': 'the subject\'s AMY1 gene copy number.',
+            'birth_country': 'the country in which the subject was born.',
+            'birth_gestational_age_weeks': 'the gestational age at birth, measured in weeks.',
+            'birth_mode': 'the mode by which the subject was born, such as vaginal or caesarean delivery.',
+            'birth_term_status': 'whether the subject was born preterm, at term or post-term.',
+            'birth_weight_kg': 'the subject\'s weight at birth, measured in kilograms.',
+            'blood_group': 'the subject\'s reported blood group.',
+            'birth_year': 'the year in which the subject was born.',
+            'bmi': 'the subject\'s body mass index, measured in kilograms per square metre, at the time the sample was collected.',
+            'bmi_range': 'the approximate range of the subject\'s body mass index when an exact value is unavailable.',
+            'bristol_stool_scale': 'the stool type recorded using the Bristol Stool Form Scale.',
+            'captivity_status': 'whether the sampled animal was captive or free-living.',
+            'captivity_status_full': 'a more detailed description of the sampled animal\'s captivity status.',
+            'cause_of_death': 'the reported cause of the subject or animal\'s death.',
+            'climatic_zone': 'the broad climatic zone of the sampling location.',
+            'collection_date': 'the date on which the sample was collected.',
+            'collection_date_end': 'the end date of the sample collection period when collection spans a date range.',
+            'cohort': 'the study cohort to which the subject or sample belongs, such as an exercise, sedentary or validation cohort.',
+            'common_timepoint': 'a harmonised label for the sampling time point, such as day zero or a specified number of months.',
+            'couple_id': 'the study-specific identifier assigned to a couple.',
+            'couple_timepoint': 'the study-provided sampling time point associated with a couple.',
+            'comorbidities': 'additional diseases or medical conditions reported for the subject.',
+            'cultivation_condition': 'the conditions under which the sample or organisms were cultivated.',
+            'cultivation_duration': 'the length of time for which the sample or organisms were cultivated.',
+            'days_since_antibiotics': 'the number of days between the subject\'s antibiotic exposure and sample collection.',
+            'days_since_fmt': 'the number of days between faecal microbiota transplantation and sample collection.',
+            'description': 'a description of the sample recorded in Metalog or retained from the original study metadata.',
+            'dol_range': 'the reported range for Metalog\'s DOL variable. The meaning and unit of DOL are retained from the source study.',
+            'drug_antibiotic_last3y': 'whether antibiotic drug use was reported during the three years preceding sample collection.',
+            'depth_meters': 'the vertical distance in metres below the relevant surface at which the sample was collected. For soil or sediment, depth is measured below the soil or sediment surface.',
+            'diet': 'information about the subject or animal\'s diet at the time of sample collection. Metalog standardises diets into broad categories.',
+            'diet_full': 'a more detailed description of the subject or animal\'s diet than the standardised diet category.',
+            'doi': 'the Digital Object Identifier of an associated publication.',
+            'donor_d0': 'the identifier of the donor associated with the subject or sample at day zero.',
+            'donor_d28': 'the identifier of the donor associated with the subject or sample at day 28.',
+            'elevation_meters': 'the elevation of the sampling location in metres relative to mean sea level. Negative values indicate locations below mean sea level.',
+            'environment_feature': 'an ENVO ontology term, or a UBERON term when appropriate, describing the environmental setting from which the sample originated.',
+            'environment_material': 'an ENVO ontology term, or a UBERON term when appropriate, describing the physical material collected.',
+            'environment_biome': 'an ENVO ontology term describing the broad biome associated with the sample.',
+            'environmental_package': 'the environmental metadata package or sample-category standard associated with the sample.',
+            'enriched_soil': 'whether the soil sample was experimentally enriched.',
+            'ethnicity': 'the subject\'s ethnicity as reported in the associated publication or study metadata.',
+            'filtration_lower_threshold_um': 'the lower size threshold used during filtration, measured in micrometres. This generally represents the pore size of the collection filter, with retained material kept for sequencing.',
+            'filtration_upper_threshold_um': 'the upper size threshold used during filtration, measured in micrometres. This generally represents the pore size of a pre-filter, with retained material excluded from sequencing for that fraction.',
+            'filtration_lower_threshold_kda': 'the lower molecular-mass threshold used during filtration, reported in kilodaltons.',
+            'filtration_lower_threshold': 'the lower threshold used during filtration. Its unit and exact filtration basis are retained from the source study where provided.',
+            'fmt_donor': 'the identifier or description of the faecal microbiota transplantation donor associated with the sample.',
+            'food_name': 'the name of the food associated with the sample.',
+            'full_description': 'a detailed description of the sample retained from the original study metadata.',
+            'geographic_location': 'the country, territory, ocean or other broad geographic region from which the sample originated.',
+            'gestational_age_weeks': 'the gestational age in weeks at the time the sample was collected.',
+            'gestational_state': 'the subject\'s pregnancy or gestational state at the time the sample was collected.',
+            'height_cm': 'the subject\'s body height in centimetres at the time the sample was collected.',
+            'hip_cm': 'the subject\'s hip circumference in centimetres at the time the sample was collected.',
+            'host': 'the host organism associated with the sample.',
+            'host_common_name': 'the common name of the host organism associated with the sample.',
+            'host_scientific_name': 'the scientific name of the host organism associated with the sample.',
+            'host_tax_id': 'the NCBI Taxonomy identifier of the host organism associated with the sample.',
+            'host_tax_scientific_name': 'the scientific name associated with the recorded host taxonomy identifier.',
+            'housing_lab': 'information about laboratory housing conditions for the sampled animal.',
+            'infant_id': 'the study-specific identifier assigned to the infant subject.',
+            'intervention': 'a broad categorisation of an intervention received by the subject or animal, such as antibiotics, dietary intervention, drug treatment, probiotics or vaccination.',
+            'intervention_full': 'a more detailed description of the intervention than the standardised intervention category.',
+            'isolation_source': 'the source material or environment from which the sample or organism was isolated.',
+            'land_use_category': 'a standardised category describing how land at the sampling location was used.',
+            'land_use_full': 'a more detailed description of land use at the sampling location.',
+            'last_change': 'the date or time of the most recent change to the Metalog record.',
+            'linked_to': 'the identifier of a related subject or sample, such as the mother linked to an infant subject.',
+            'latitude': 'the latitude of the sample\'s geographic origin, reported in decimal degrees.',
+            'location': 'a more detailed description of the sampling location than the broad country or region recorded in geographic location.',
+            'location_resolution': 'the precision of the geographic location, such as exact location, site, city, region, country or continent.',
+            'location_name': 'the name assigned to the sampling location.',
+            'lifestyle': 'the subject\'s lifestyle category as reported in the associated study.',
+            'longitude': 'the longitude of the sample\'s geographic origin, reported in decimal degrees.',
+            'mean_annual_precipitation_mm': 'the mean annual precipitation at the sampling location, reported in millimetres.',
+            'mean_annual_temperature': 'the mean annual temperature at the sampling location, reported in degrees Celsius.',
+            'medication': 'information about medication taken by or administered to the subject or animal. Drug names, drug classes or Anatomical Therapeutic Chemical codes may be recorded.',
+            'medication_full': 'a more detailed description of medication than the standardised medication field.',
+            'medication_with_parents': 'medication represented with its mapped parent drug classes or categories.',
+            'medical_history_notduringstudy': 'medical conditions in the subject\'s history that were not recorded as occurring during the study.',
+            'medicinal_plant': 'a medicinal plant associated with the sample or intervention.',
+            'medical_operation': 'a medical or surgical procedure received by the subject.',
+            'menopausal_status': 'the subject\'s menopausal status at the time the sample was collected.',
+            'note': 'additional notes captured for the sample in Metalog.',
+            'other_meds': 'other medications taken by the subject that are not represented in the primary medication field.',
+            'original_sample_name': 'the sample name used in the original study metadata before Metalog harmonisation.',
+            'original_timepoint': 'the sampling time-point value or label retained from the original study metadata before Metalog harmonisation.',
+            'ph': 'the pH of the soil, water or other environmental material at the sampling site. An exact numerical value is preferred.',
+            'ph_range': 'the reported pH range when an exact pH value is unavailable.',
+            'phenotypic_information': 'information about the phenotype of the sample or host, such as whether a dog was lean to normal or overweight to obese.',
+            'plant': 'the plant species or plant material associated with the sample.',
+            'pmid': 'the PubMed identifier of an associated publication.',
+            'pooled_individuals': 'the number of individuals whose material was combined in the sample, or an indication that the sample was pooled.',
+            'pregnancy_week': 'the week of pregnancy at the time the sample was collected.',
+            'pregnant': 'whether the subject was pregnant at the time the sample was collected.',
+            'probiotic': 'the probiotic administered to or consumed by the subject or animal.',
+            'protocol_label': 'the label identifying the original-publication protocol used to produce the sample, such as its filtration and preservation protocol. It is recorded only when supplied by the original publication.',
+            'provider': 'the person, organisation or facility that provided the sample or associated metadata.',
+            'range_days_since_abxs': 'the approximate range, in days, between antibiotic exposure and sample collection.',
+            'range_days_since_antibiotics': 'the approximate range, in days, between antibiotic exposure and sample collection.',
+            'range_days_since_medication': 'the approximate range, in days, between medication exposure and sample collection.',
+            'recipient_donor': 'whether the sample came from a treatment recipient or a donor.',
+            'salinity': 'the salinity of the water at the time of sample collection, reported in practical salinity units.',
+            'salinity_ppm': 'the salinity of the sample, reported in parts per million.',
+            'salinity_ppt': 'the salinity of the sample, reported in parts per thousand.',
+            'sample_alias': 'a unique sample identifier used to associate the sample with its study and experiment.',
+            'sampling_campaign': 'the finite or ongoing activity under which samples were collected, such as a research cruise, time-series programme, expedition or mesocosm experiment.',
+            'sampling_platform': 'the vessel, structure or other platform from which the sampling equipment was deployed.',
+            'sampling_station': 'the named or numbered station at which the sample or associated environmental measurements were collected.',
+            'sample_collection_timepoint': 'the study-defined sampling time point at which the sample was collected.',
+            'sample_description': 'a description of the sample provided by Metalog or the associated study.',
+            'sample_title': 'the title or short name assigned to the sample.',
+            'sampling_site': 'the named or described site at which the sample was collected.',
+            'site_description': 'a description of the site at which the sample was collected.',
+            'specific_material': 'a more specific description of the environmental material collected, such as hospital wastewater, wastewater influent or effluent, or river sediment.',
+            'sex': 'the subject or animal\'s sex as reported in the associated publication or study metadata.',
+            'skin_site_type': 'the anatomical skin-site category from which the sample was collected.',
+            'smoker': 'whether the subject was reported to smoke at the time of the study.',
+            'stool_consistency': 'the reported consistency of the stool sample.',
+            'group': 'the number or identifier of the study-defined group to which the subject or sample belongs.',
+            'family': 'the study-specific identifier of the family to which the subject belongs.',
+            'strain': 'the microbial, animal or plant strain associated with the sample.',
+            'study_accession': 'the public database accession assigned to the study.',
+            'study_code': 'the code or short identifier used for the study in Metalog.',
+            'subject_disease_status': 'the subject or animal\'s health or disease status. This describes disease status rather than response to treatment.',
+            'subject_disease_status_full': 'a more detailed description of the subject or animal\'s health or disease status.',
+            'subject_id': 'the study-specific identifier assigned to the sampled subject or animal.',
+            'synbiotic': 'the synbiotic administered to or consumed by the subject or animal.',
+            'tax_id': 'the NCBI Taxonomy identifier associated with the sample.',
+            'temperature': 'the temperature in degrees Celsius at the time the sample was collected.',
+            'temperature_range': 'the reported temperature range in degrees Celsius when an exact temperature is unavailable.',
+            'time_period': 'the historical or archaeological period associated with the sample, expressed as a calendar range or as years before present where applicable.',
+            'timepoint_note': 'an explanatory note about the sampling time point, such as the visit window, date precision, or subject age or sample stage.',
+            'timepoint': 'the number of days between collection of this sample and collection of the first sample from the same subject or animal. A longitudinal series begins at day zero.',
+            'timeseries_available': 'an automatically generated field indicating whether more than one sampling time point is available for the subject.',
+            'timeseries_count': 'the number of samples or sampling time points available in the subject\'s longitudinal series.',
+            'timeseries_duration': 'the total duration of the subject\'s longitudinal sampling series, generally expressed in days.',
+            'tissue_type': 'the tissue type from which the sample was collected.',
+            'total_nitrate': 'the total nitrate measured in the sample; the unit is retained in the Metalog value where provided.',
+            'total_organic_carbon': 'the total organic carbon measured in the sample; the unit is retained in the Metalog value where provided.',
+            'type_of_birth': 'the mode by which the subject was born, such as vaginal or caesarean delivery.',
+            'vaccine_name': 'the name of the vaccine administered to the subject or animal.',
+            'vaginal_ph': 'the vaginal pH measured at or around the time of sample collection.',
+            'vegetation': 'a standardised description of vegetation at the sampling location.',
+            'vegetation_full': 'a more detailed description of vegetation at the sampling location.',
+            'village': 'the village associated with the sampling location.',
+            'waist_cm': 'the subject\'s waist circumference in centimetres at the time the sample was collected.',
+            'water_depth_meters': 'the total water-column depth in metres at the sampling location.',
+            'weight_kg': 'the subject or animal\'s body weight in kilograms at the time the sample was collected.',
+        }
+        rows = []
+        for column in self.__table__.columns:
+            if not column.name.startswith('meta_'):
+                continue
+            value = getattr(self, column.name)
+            if value is None or str(value).strip() == '':
+                continue
+            field_name = column.name[len('meta_'):]
+            description = descriptions.get(field_name)
+            if description is None and field_name.endswith('_um'):
+                measurement = field_name[:-3].replace('_', ' ')
+                description = ('the {0} concentration in the sample, reported '
+                               'in micromolar units.'.format(measurement))
+            elif description is None and field_name.endswith('_mg_l'):
+                measurement = field_name[:-5].replace('_', ' ')
+                description = ('the {0} concentration in the sample, reported '
+                               'in milligrams per litre.'.format(measurement))
+            elif description is None and field_name.endswith('_percent'):
+                measurement = field_name[:-8].replace('_', ' ')
+                description = 'the {0} content of the sample, reported as a percentage.'.format(measurement)
+            rows.append(dict(
+                k=field_name.replace('_', ' ').capitalize(),
+                v=value,
+                description=description or
+                            'an additional metadata field recorded in Metalog for this run.',
+                is_custom=False))
+        return sorted(rows, key=lambda row: row['k'])
 
 
 class StudyLink(db.Model):
@@ -578,7 +767,8 @@ class NcbiMetadata(db.Model):
                     read2_length_stdev=self.read2_length_stdev,
                     study_links=study_links,
                     biosample_attributes=[{'k': x.k, 'v': x.v} for x in self.biosample_attributes if x.k != 'primary_search'],
-                    parsed_sample_attributes=self.parsed_sample_attributes[0].to_displayable_dict())
+                    parsed_sample_attributes=self.parsed_sample_attributes[0].to_displayable_dict(),
+                    metalog_metadata=self.parsed_sample_attributes[0].metalog_rows())
 
 class Tag(db.Model):
     __tablename__ = 'tags'

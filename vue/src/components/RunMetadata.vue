@@ -12,9 +12,6 @@
     <div class="container">
       <section>
         <h3 class="title">Sample information</h3>
-        <h4 class="subtitle is-6">Classification flags</h4>
-        <RunMetadataTable :table_data="classification_metadata()" />
-        <br />
         <div v-if="lat_lon() !== null">
           <!-- I cannot get center.sync to reset when reset_map() is clicked, oh well -->
           <l-map :style="map_style" :zoom.sync="zoom" :center.sync="center">
@@ -65,6 +62,40 @@
       </section>
     </div>
 
+    &nbsp;
+    <div class="container">
+      <section>
+        <h3 class="title">
+          Metalog additional information
+          <span class="metalog-info" @click="show_metalog_help = !show_metalog_help">
+            <b-icon icon="information-outline" size="is-small" />
+          </span>
+        </h3>
+        <div v-if="show_metalog_help" class="content metalog-help">
+          <p>
+            Derived from
+            <a href="https://metalog.embl.de/" target="_blank" rel="noopener">Metalog</a>,
+            a curated collection of additional metadata for public metagenomes<span v-if="this.mdata.metalog_retrieved_date">,
+            retrieved on {{ this.mdata.metalog_retrieved_date }}</span>.
+            Please cite Kuhn et al.,
+            <i>Metalog: curated and harmonised contextual data for global metagenomics samples</i>,
+            <i>Nucleic Acids Research</i> (2025),
+            <a href="https://doi.org/10.1093/nar/gkaf1118" target="_blank" rel="noopener">https://doi.org/10.1093/nar/gkaf1118</a>.
+          </p>
+          <p>
+            Metalog records are matched to this page by run accession: the
+            accession shown above is looked up in Metalog, and the fields below
+            are shown only when it matches exactly one Metalog entry. Runs with
+            no match, or with more than one, show nothing here.
+          </p>
+        </div>
+        <div v-if="metalog_metadata().length === 0">
+          <p>No Metalog metadata recorded for this run</p>
+        </div>
+        <RunMetadataTable v-else :table_data="metalog_metadata()" />
+      </section>
+    </div>
+
   </div>
 </template>
 
@@ -111,7 +142,8 @@ export default {
         '&copy; <a target="_blank" href="http://osm.org/copyright">OpenStreetMap</a> contributors',
       zoom: default_zoom,
       center: latLng(0, 0),
-      bounds: null
+      bounds: null,
+      show_metalog_help: false
     }
   },
   mounted () {
@@ -128,6 +160,11 @@ export default {
     },
   },
   methods: {
+    // Populated meta_ fields for this run, already filtered and sorted by the
+    // API. Absent for runs indexed before the metalog merge, hence the guard.
+    metalog_metadata: function () {
+      return this.mdata.metalog_metadata || []
+    },
     get_default_map_center: function () {
       const lat_lon = this.lat_lon()
       if (lat_lon !== null) {
@@ -266,3 +303,17 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.metalog-info {
+  cursor: pointer;
+  vertical-align: middle;
+  color: #7a7a7a;
+}
+.metalog-info:hover {
+  color: #363636;
+}
+.metalog-help {
+  margin-bottom: 1rem;
+}
+</style>

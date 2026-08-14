@@ -179,7 +179,7 @@ rule generate_backend_db_start:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='48h'
+        runtime='17h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -207,7 +207,7 @@ rule generate_backend_db_taxonomy_upload:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='48h'
+        runtime='17h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -249,6 +249,13 @@ rule generate_backend_db_stage2:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=128000,
+        # Raised from 17h after the v40 build was KILLED at exactly 17h04m
+        # (job 24645044, 2026-08-04) with no traceback -- PBS walltime, not a
+        # code error. It had processed all 910k samples and written 277M
+        # condensed profile rows (48 min just to commit those), and had only
+        # just reached "Committing known species fractions" when time ran out.
+        # Note the parent orchestrator job still had 24h of its 48h spare --
+        # each rule is its own PBS job, so THIS value is the binding limit.
         runtime='48h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
@@ -371,6 +378,9 @@ rule extend_parsed_metadata_with_metalog:
         extended='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
+        provenance='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv.metalog_provenance.json'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
         done=touch('{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD'])),
@@ -393,6 +403,9 @@ rule add_parsed_metadata_from_kingfisher:
         parsed_metadata='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
+        metalog_provenance='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv.metalog_provenance.json'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
         done='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
@@ -406,7 +419,7 @@ rule add_parsed_metadata_from_kingfisher:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='24h'
+        runtime='17h'
     output:
         done=touch('{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
@@ -418,6 +431,7 @@ rule add_parsed_metadata_from_kingfisher:
     params:
         # abspath to input.parsed_metadata
         parsed_metadata=lambda wildcards, input: os.path.abspath(input.parsed_metadata),
+        metalog_provenance=lambda wildcards, input: os.path.abspath(input.metalog_provenance),
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -426,7 +440,7 @@ rule add_parsed_metadata_from_kingfisher:
         'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_tags {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher && ' \
         # cp the otus because scratch will be faster than /work/microbiome (didn't end up being any faster)
         # 'cp {config[OTU_TABLE]} {config[SCRATCH_DIR]}/otus && ' \
-        'pixi run -e sandpiper ./bin/generate_backend_db --stage parsed_metadata --parsed-metadata-table {params.parsed_metadata} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher 2> $SNAKE_WORKING_DIR/{log} && ' \
+        'pixi run -e sandpiper ./bin/generate_backend_db --stage parsed_metadata --parsed-metadata-table {params.parsed_metadata} --metalog-provenance {params.metalog_provenance} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher 2> $SNAKE_WORKING_DIR/{log} && ' \
         'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher db/'
 
 rule precompute_api_cache:

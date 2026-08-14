@@ -39,7 +39,16 @@ export default {
       fetchRandomAccession(this.host, this.ecological, this.two_gbp, this.exclude_strict_low_complexity, this.non_human_host)
         .then(response => {
           const acc = response.data.run
-          this.$router.push({ name: 'Run', params: { accession: acc } })
+          // Keep the filters in the run URL so drawing another random run from
+          // the sticky search bar reuses the same criteria.
+          this.$router.push({ name: 'Run', params: { accession: acc }, query: { ...this.$route.query } })
+        })
+        .catch(() => {
+          this.$buefy.toast.open({
+            message: 'Could not pick a random run, please try again',
+            type: 'is-danger'
+          })
+          this.$router.push({ name: 'Search' })
         })
     }
   },

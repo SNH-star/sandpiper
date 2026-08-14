@@ -793,20 +793,11 @@ def add_host_predictions(db, run_accession_to_id, host_predictions_tsv):
         else:
             host_or_not_mature = row.host_or_not
 
-        # Defer to the model prediction when the recorded label is missing, or
-        # when the organism annotation is one whose host label is unreliable
-        # (viral/phage metagenomes wrongly inherit "host" from NCBI's tree).
-        if str(row.host_or_not) == 'nan' or _is_host_label_unreliable(row.organism):
-            host_or_not_mature = row.prediction
-        else:
-            host_or_not_mature = row.host_or_not
-
         update_bindparams.append({
             'id': run_id,
             'host_or_not_prediction': row.prediction,
             'host_or_not_recorded': row.host_or_not,
-            'host_or_not_mature': host_or_not_mature
-            'host_or_not_mature': host_or_not_mature
+            'host_or_not_mature': host_or_not_mature,
         })
 
         num_host_predicted += 1
@@ -1391,7 +1382,13 @@ def add_parsed_metadata(db, run_accession_to_id, parsed_metadata):
     # SRR3401492      35.43885        -138.26435                      2008    9
     # SRR7051324      38.7906 -75.1638                        2016    11
 
-    df = pl.read_csv(parsed_metadata, separator='\t')
+    # infer_schema_length=None scans every row rather than the first 100. The
+    # metalog meta_ columns are free text and can hold multiple values in one
+    # field (e.g. meta_pmid "27054725, 28175320"), which polars types as i64
+    # from an all-integer sample and then fails to parse further down the file.
+    # Values here are only copied into the update dicts below, never used
+    # numerically, so widening a column to String costs nothing.
+    df = pl.read_csv(parsed_metadata, separator='\t', infer_schema_length=None)
     logging.info("Adding {} parsed metadata to DB".format(df.shape[0]))
     updates = []
     cols_to_update = [col for col in df.columns if col != 'run']
@@ -1438,6 +1435,7 @@ if __name__ == '__main__':
     parent_parser.add_argument('--bioproject-associated-publications', help='tsv from bioprjoect_metadata.py')
     parent_parser.add_argument('--smf-file', help='SMF file to read')
     parent_parser.add_argument('--parsed-metadata-table', help='parsed metadata table to read')
+    parent_parser.add_argument('--metalog-provenance', help='derived Metalog provenance JSON')
     parent_parser.add_argument('--otu-parquet-dir', help='directory for OTU parquet chunks')
 
     parent_parser.add_argument('--stage', help='processing stage to run', choices=['start', 'taxonomy_upload', 'stage2', 'update_smf', 'tags', 'otus_parquet', 'otus_load', 'parsed_metadata'], required=True)
@@ -1640,6 +1638,16 @@ if __name__ == '__main__':
 
             run_accession_to_id = read_run_accession_to_id(db)
             add_parsed_metadata(db, run_accession_to_id, args.parsed_metadata_table)
+            if args.metalog_provenance:
+                with open(args.metalog_provenance) as f:
+                    provenance = json.load(f)
+                existing = db.session.get(SandpiperCache, 'metalog_provenance')
+                if existing is None:
+                    db.session.add(SandpiperCache(
+                        key='metalog_provenance', value=json.dumps(provenance)))
+                else:
+                    existing.value = json.dumps(provenance)
+                db.session.commit()
 
         else:
             raise Exception("Unknown stage {}".format(args.stage))

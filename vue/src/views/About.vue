@@ -47,6 +47,24 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 
       <p>Community profiles derived from older versions are available as a bulk download (see above).</p><br />
 
+      <p>
+        Additional contextual metadata was obtained from
+        <a href="https://metalog.embl.de/">Metalog</a><span v-if="metalog_retrieved_date">
+        on {{ metalog_retrieved_date }}</span>. Kuhn et al.,
+        <i>Metalog: curated and harmonised contextual data for global metagenomics samples</i>,
+        <i>Nucleic Acids Research</i> (2025),
+        <a href="https://doi.org/10.1093/nar/gkaf1118">https://doi.org/10.1093/nar/gkaf1118</a>.
+        Information is presented under Metalog additional information within each Run Page. Pages that do not contain any information will report back "No Metalog metadata recorded for this run".<br />
+        <br />
+        <strong><a href="https://metalog.embl.de/">Last metadata update: 2026-04-17</a>:</strong><br />
+        Human: 112,998 Samples<br />
+        Animal: 11,379 Samples<br />
+        Ocean: 5,700 Samples<br />
+        Enviornmental 27,406 Samples<br />
+        Total = 157,483 Samples<br />
+        <i>*Taken from Metalog website at the time of database generation*</i>
+      </p><br />
+
       <h2 class="title is-5">Community profiling</h2>
       <p>For ease of interpretation and search, runs on this website are represented as a 'condensed' profile. These condensed profiles unify the profiles from each marker gene into a single profile (instead of 59 separate profiles), collapsing OTUs from each taxon into unified groups.</p><br />
 
@@ -78,6 +96,21 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
     <section class="section is-small container has-text-justified">
       <h1 class="title">Changelog</h1>
       <p>Note that point releases (e.g. v2.0.x, v2.1.x) may not be listed here, and are only for minor bug/deployment fixes.</p><br />
+      <h2 class="title is-5">2.1.*</h2>
+        <div class="columns has-text-left">
+          <div class="column content">
+            <ul>
+              <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. </li>
+              <li>Addition of an Advanced Search bar option, lets user's input queries and outputs number of samples detected before jumping to random page.</li>
+              <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>
+              <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
+            </ul>
+          </div>
+        </div>
+
+
+
+
 
       <h2 class="title is-5">2.1.*</h2>
         <div class="columns has-text-left">
@@ -202,7 +235,8 @@ export default {
       num_runs: null,
       num_bioprojects: null,
       version: null,
-      scrape_date: null
+      scrape_date: null,
+      metalog_retrieved_date: null
     }
   },
   created () {
@@ -221,6 +255,7 @@ export default {
           this.version = r.version
           this.scrape_date = r.scrape_date
           this.gtdb_version = r.gtdb_version
+          this.metalog_retrieved_date = r.metalog_retrieved_date
         })
     },
 

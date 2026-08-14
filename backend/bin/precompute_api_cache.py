@@ -30,6 +30,8 @@ def main(db_path: str):
     with app.app_context():
         #register_duckdb_limits(db.engine)
         db.create_all()
+        provenance_row = db.session.get(SandpiperCache, 'metalog_provenance')
+        provenance_value = provenance_row.value if provenance_row else None
         SandpiperCache.query.delete()
 
         stats = {
@@ -42,6 +44,10 @@ def main(db_path: str):
         ncbi_infos = NcbiMetadataExtraInfos().extra_info
 
         db.session.add(SandpiperCache(key='stats', value=json.dumps(stats)))
+        if provenance_value is not None:
+            db.session.add(SandpiperCache(
+                key='metalog_provenance', value=provenance_value
+            ))
         db.session.add(
             SandpiperCache(
                 key='marker_id_to_name', value=json.dumps(marker_map)

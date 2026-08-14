@@ -86,7 +86,13 @@
             <a class="bd-anchor-link" href="#geographic-distribution"># </a>
             <span class="bd-anchor-name">Geographic distribution</span>
           </h2>
-          
+
+          <h3 class="subtitle is-4">Sample distribution</h3>
+          <TaxonomySampleMap :taxon="taxonomy" :taxonomy-type="taxonomy_type"
+            @cluster-selected="onClusterSelected" />
+          <br />
+
+          <h3 class="subtitle is-4">Individual runs</h3>
           <div v-if="this.num_lat_lon_runs < 1000">
             {{ this.num_lat_lon_runs.toLocaleString("en-US") }} runs have relative abundance >= 
             {{ parseFloat((this.lat_lons_min_relabund*100).toPrecision(2))}}% and associated latitude/longitude metadata.
@@ -97,7 +103,7 @@
           </div>
           <br /><p>{{ (total_num_results - num_lat_lon_runs).toLocaleString("en-US") }} other runs are not shown on this map.</p><br />
           
-          <l-map style="height: 900px" :zoom.sync="zoom" :center.sync="center">
+          <l-map ref="individualRunsMap" id="individual-runs-map" style="height: 900px" :zoom.sync="zoom" :center.sync="center">
             <l-tile-layer :url="url" :attribution="attribution" />
             <l-marker v-for="markerLatLng in this.lat_lons" v-bind:key="markerLatLng[0]" :lat-lng="markerLatLng['lat_lon']">
               <l-popup :content="html_for_map_popup(markerLatLng)" :options="{ interactive: true }">
@@ -113,6 +119,17 @@
           <a class="bd-anchor-link" href="#matching-samples"># </a>
           <span class="bd-anchor-name">Matching samples</span>
         </h2>
+
+        <div v-if="cluster" class="notification is-info is-light cluster-filter">
+          <span>
+            Showing only samples from the map cluster at
+            <b>{{ cluster.lat }}, {{ cluster.lon }}</b>
+            ({{ cluster.total.toLocaleString("en-US") }} samples). Sorting,
+            paging and the random button all stay within this cluster.
+          </span>
+          <b-button type="is-info" size="is-small" @click="clearCluster">Show all samples</b-button>
+        </div>
+
         <div style="display: flex; align-items: center; gap: 0.75rem;">
           <b-button tag="a" type="is-info" :href="minimal_csv_link()">Download minimal CSV</b-button>
           <b-button tag="a" type="is-info" :href="csv_link()">Download CSV with extra columns</b-button>
@@ -199,6 +216,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 // explicitly import 'leaflet' into your component
 // import L from 'leaflet'
 import { LMap, LTileLayer, LMarker, LPopup } from '@vue-leaflet/vue-leaflet'
+import TaxonomySampleMap from '@/components/TaxonomySampleMap.vue'
 
 import { Icon, latLng } from 'leaflet'
 
@@ -224,6 +242,7 @@ export default {
   },
   props: ['taxonomy'],
   components: {
+    TaxonomySampleMap,
     LMap,
     LTileLayer,
     LMarker,
@@ -240,6 +259,7 @@ export default {
       GLOBDB_VERSION,
       exclude_low_complexity: true,
       shuffled_profiles: null,
+      cluster: null,
       filtered_total: null,
       shuffled_profiles: null,
       page: 1,
@@ -383,7 +403,7 @@ export default {
       }
       this.search_result = null
 
-      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity)
+      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity, this.cluster)
         .then(response => {
           this.search_result = response.data.results
           this.filtered_total = response.data.results.filtered_total ?? null
@@ -408,7 +428,7 @@ export default {
       const scrollY = window.scrollY
       this.sortField = field
       this.sortDirection = direction
-      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity)
+      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity, this.cluster)
         .then(response => {
           this.search_result = response.data.results
           this.filtered_total = response.data.results.filtered_total ?? null
@@ -431,6 +451,58 @@ export default {
         toReturn += '</ul>'
       })
       return toReturn
+    },
+    onClusterSelected (cluster) {
+      // Filtering happens server-side, so reset to page 1 and refetch. The
+      // filter is deliberately sticky: it clears only on navigating back or
+      // reloading, which is what makes the run list and the random button
+      // agree on the same subset.
+      //
+      // Deliberately NOT calling fetchData() here: it nulls search_result
+      // synchronously, which unmounts the whole v-if="search_result !== null"
+      // container (map included) until the refetch resolves. That collapses
+      // the page and snaps window scroll to the top before scrollIntoView
+      // below ever gets a #matching-samples element to target. Fetching
+      // directly and swapping search_result in place (same pattern as
+      // onSort/exclude_low_complexity) keeps the page mounted throughout.
+      this.cluster = cluster
+      this.page = 1
+      this.shuffled_profiles = null
+      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity, this.cluster)
+        .then(response => {
+          this.search_result = response.data.results
+          this.filtered_total = response.data.results.filtered_total ?? null
+        })
+
+      // Zoom the marker map to the cluster, then bring it into view. This is
+      // the "Individual runs" l-map (id="individual-runs-map") that actually
+      // pans/zooms to the cluster -- not #matching-samples further down,
+      // which is a different section (the results table).
+      //
+      // Keep these in sync for reset_map()/display purposes, but don't rely
+      // on the :zoom.sync/:center.sync props alone to move the map: Vue only
+      // pushes a prop update through when the value actually changes, so
+      // clicking a second cluster that also wants zoom 6 (identical to the
+      // previous click's target) is a silent no-op -- the map pans (center
+      // differs) but never re-zooms. Calling setView() on the underlying
+      // Leaflet instance directly applies every click regardless of whether
+      // the target zoom repeats.
+      this.center = latLng(cluster.lat, cluster.lon)
+      this.zoom = 6
+      this.$nextTick(() => {
+        const mapComponent = this.$refs.individualRunsMap
+        if (mapComponent && mapComponent.leafletObject) {
+          mapComponent.leafletObject.setView([cluster.lat, cluster.lon], 6)
+        }
+        const target = document.getElementById('individual-runs-map')
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    },
+    clearCluster () {
+      this.cluster = null
+      this.page = 1
+      this.shuffled_profiles = null
+      this.fetchData()
     },
     shuffle_runs () {
       const arr = [...this.filtered_profiles]
@@ -463,7 +535,7 @@ export default {
     exclude_low_complexity () {
       const scrollY = window.scrollY
       this.page = 1
-      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity)
+      fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection, this.pageSize, this.exclude_low_complexity, this.cluster)
         .then(response => {
           this.search_result = response.data.results
           this.filtered_total = response.data.results.filtered_total ?? null
@@ -490,5 +562,13 @@ export default {
   box-shadow: none;
   color: #111;
   outline: none;
+}
+
+.cluster-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 </style>

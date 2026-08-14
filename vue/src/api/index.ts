@@ -44,13 +44,28 @@ export function fetchRunsByTaxonomy (
   sortField: string,
   sortDirection: string,
   pageSize: number,
-  excludeLowComplexity: boolean = true
+  excludeLowComplexity: boolean = true,
+  // Map cluster to restrict to, as {lat, lon, precision}. Filtered server-side
+  // because this table is paginated server-side.
+  cluster: { lat: number, lon: number, precision: number } | null = null
 ) {
-  return axios.get(`${API_URL}/taxonomy_search_run_data/${taxonomy}?taxonomy_type=${taxonomyType}&sort_field=${sortField}&sort_direction=${sortDirection}&page=${page}&page_size=${pageSize}&exclude_low_complexity=${excludeLowComplexity}`)
+  let url = `${API_URL}/taxonomy_search_run_data/${taxonomy}?taxonomy_type=${taxonomyType}&sort_field=${sortField}&sort_direction=${sortDirection}&page=${page}&page_size=${pageSize}&exclude_low_complexity=${excludeLowComplexity}`
+  if (cluster) {
+    url += `&cluster_lat=${cluster.lat}&cluster_lon=${cluster.lon}&cluster_precision=${cluster.precision}`
+  }
+  return axios.get(url)
 }
 
 export function fetchGlobalDataByTaxonomy (taxonomy: string, taxonomyType: string) {
   return axios.get(`${API_URL}/taxonomy_search_global_data/${taxonomy}?taxonomy_type=${taxonomyType}`)
+}
+
+export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precision = 1) {
+  // Server-side aggregated sample counts per map cell, split by environment
+  // category. Unlike the marker map this is not capped, because the database
+  // returns cells rather than runs.
+  return axios.get(`${API_URL}/taxonomy_map/${taxonomy}`,
+    { params: { taxonomy_type: taxonomyType, precision } })
 }
 
 export function fetchTaxonomySearchHints (taxonomy: string, taxonomyType?: string) {
@@ -72,6 +87,8 @@ export function verifyRecaptcha (token: string) {
   })
 }
 
-export function fetchUniversalSearch (q: string) {
-  return axios.get(`${API_URL}/universal_search`, { params: { q } })
+export function fetchUniversalSearch (q: string, exclude?: string) {
+  // `exclude` keeps the backend from returning the run already being viewed,
+  // so "Next" always moves somewhere new when another match exists.
+  return axios.get(`${API_URL}/universal_search`, { params: { q, exclude } })
 }

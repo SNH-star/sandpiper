@@ -5,6 +5,7 @@
 #=======================================================================
 
 import unittest
+import json
 import os.path
 import tempfile
 import extern
@@ -88,6 +89,22 @@ class Tests(unittest.TestCase):
         ext = [['run', 'meta_sex'], ['ERR1', 'male']]
         with self.assertRaises(Exception):
             self._run(parsed, ext)
+
+    def test_provenance_date_is_derived_from_extension(self):
+        with tempfile.TemporaryDirectory() as d:
+            parsed = os.path.join(d, 'parsed.tsv')
+            ext = os.path.join(d, 'ext.tsv')
+            out = os.path.join(d, 'out.tsv')
+            write(parsed, [['run'], ['ERR1']])
+            write(ext, [['run', 'meta_sex'], ['ERR1', 'male']])
+            os.utime(ext, (1781568000, 1781568000))
+            extern.run(
+                f'{script} --parsed-metadata {parsed} '
+                f'--metalog-extension {ext} --output {out}')
+            with open(out + '.metalog_provenance.json') as f:
+                provenance = json.load(f)
+            self.assertEqual('extension_file_mtime', provenance['derived_from'])
+            self.assertTrue(provenance['fetched_at'].startswith('2026-06-16'))
 
 
 if __name__ == '__main__':

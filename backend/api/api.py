@@ -7,6 +7,7 @@ import csv
 import io
 import re
 import requests
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request, make_response, current_app, Response, stream_with_context
 
@@ -43,11 +44,13 @@ api = Blueprint('api', __name__)
 sandpiper_stats_cache = None
 biosample_attribute_definitions = None
 ncbi_metadata_infos = None
+metalog_provenance = None
 
 def generate_cache():
     global sandpiper_stats_cache
     global biosample_attribute_definitions
     global ncbi_metadata_infos
+    global metalog_provenance
 
     if (
         sandpiper_stats_cache is None
@@ -69,6 +72,8 @@ def generate_cache():
                     k: NcbiMetadataExtraInfo(**v)
                     for k, v in cache['ncbi_metadata_infos'].items()
                 }
+            if 'metalog_provenance' in cache and metalog_provenance is None:
+                metalog_provenance = cache['metalog_provenance']
         except Exception as e:
             current_app.logger.warning(
                 'Failed to load cache table, regenerating dynamically: %s', e
@@ -83,6 +88,21 @@ def generate_cache():
         biosample_attribute_definitions = BioSampleAttributes(current_app.logger).attributes
     if ncbi_metadata_infos is None:
         ncbi_metadata_infos = NcbiMetadataExtraInfos().extra_info
+    if metalog_provenance is None:
+        metalog_provenance = {}
+
+
+def metalog_retrieved_date():
+    """Human-readable retrieval date derived during the Metalog merge."""
+    generate_cache()
+    fetched_at = metalog_provenance.get('fetched_at')
+    if not fetched_at:
+        return None
+    try:
+        return datetime.fromisoformat(fetched_at).strftime('%-d %B %Y')
+    except (TypeError, ValueError):
+        current_app.logger.warning('Invalid Metalog fetched_at value: %r', fetched_at)
+        return None
 
 
 
@@ -129,6 +149,7 @@ def sandpiper_stats():
         'version': __version__,
         'scrape_date': __scrape_date__,
         'gtdb_version': __gtdb_version__,
+        'metalog_retrieved_date': metalog_retrieved_date(),
     })
 
 @api.route('/markers/', methods=('GET',))
@@ -374,7 +395,11 @@ def fetch_metadata(sample_name):
             d2[SAMPLE_INFO_TYPE_METADATA].append(to_add)
 
     for k, v in metadata_dict.items():
-        if k in ['acc', 'biosample_attributes', 'study_links', 'parsed_sample_attributes', 'study_title', 'study_abstract']:
+        # metalog_metadata is already in display-row form and has its own
+        # section; without this it falls through to add_annotation() and gets
+        # rendered as a single custom "metalog metadata" row in Sample
+        # information, with the whole array as its value.
+        if k in ['acc', 'biosample_attributes', 'study_links', 'parsed_sample_attributes', 'study_title', 'study_abstract', 'metalog_metadata']:
             continue
         add_annotation(k, v)
 
@@ -446,6 +471,12 @@ def fetch_metadata(sample_name):
     for k, v in d2.items():
         if len(v) > 0 and 'k' in v[0]: # don't sort e.g. study_links
             d2[k] = sorted(v, key=lambda x: x['k'].lower())
+
+    # Metalog extended metadata. Already sorted and filtered to populated
+    # fields by metalog_rows(); added after the sort above since it is built
+    # in display form rather than from a classification.
+    d2['metalog_metadata'] = metadata_dict['metalog_metadata']
+    d2['metalog_retrieved_date'] = metalog_retrieved_date()
 
     return jsonify({ 
         'metadata': d2,
@@ -762,16 +793,42 @@ def taxonomy_search_core(
 
         hits_query = hits_query.where(CondensedProfileCtas1.taxonomy_id == taxonomy.id)
 
+        # Optional map-cluster filter. The summary map groups samples by
+        # rounded coordinates, so clicking a circle restricts the run list to
+        # exactly the samples that circle represents. Applied here rather than
+        # client-side because this table is paginated server-side -- filtering
+        # a single page would leave the other pages unfiltered.
+        cluster_lat = args.get('cluster_lat')
+        cluster_lon = args.get('cluster_lon')
+        cluster_filters = []
+        if cluster_lat is not None and cluster_lon is not None:
+            try:
+                precision = max(0, min(2, int(args.get('cluster_precision', 1))))
+                cluster_filters = [
+                    func.round(ParsedSampleAttribute.latitude, precision) == float(cluster_lat),
+                    func.round(ParsedSampleAttribute.longitude, precision) == float(cluster_lon),
+                ]
+            except (TypeError, ValueError):
+                cluster_filters = []
+        for condition in cluster_filters:
+            hits_query = hits_query.where(condition)
+
         if exclude_low_complexity:
             hits_query = hits_query.where(ParsedSampleAttribute.low_complexity != 'yes')
-            filtered_total = db.session.execute(
-                select(func.count()).select_from(
-                    CondensedProfileCtas1
-                ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
-                ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
-                ).where(CondensedProfileCtas1.taxonomy_id == taxonomy.id
-                ).where(ParsedSampleAttribute.low_complexity != 'yes')
-            ).scalar()
+
+        # Pagination needs a total that reflects every active filter, otherwise
+        # the pager offers pages that are empty.
+        if exclude_low_complexity or cluster_filters:
+            count_query = select(func.count()).select_from(
+                CondensedProfileCtas1
+            ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
+            ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
+            ).where(CondensedProfileCtas1.taxonomy_id == taxonomy.id)
+            if exclude_low_complexity:
+                count_query = count_query.where(ParsedSampleAttribute.low_complexity != 'yes')
+            for condition in cluster_filters:
+                count_query = count_query.where(condition)
+            filtered_total = db.session.execute(count_query).scalar()
         else:
             filtered_total = None
 
@@ -849,6 +906,119 @@ def get_lat_lons(taxonomy_id, max_to_show):
         # are no lat lons for any sample where this taxon is found.
         min_lat_lon_relabund = 0
     return list(lat_lons.values()), lat_lons_count, min_lat_lon_relabund
+
+# Metalog environment terms -> the four categories Metalog itself uses. Matched
+# as substrings because the source values carry ENVO identifiers, e.g.
+# "animal-associated environment [ENVO:01001002]".
+METALOG_CATEGORY_RULES = (
+    ('human', ('human',)),
+    ('ocean', ('marine', 'ocean', 'sea water', 'seawater')),
+    ('animal', ('animal', 'host-associated')),
+)
+
+
+def metalog_category(biome, package):
+    """human / animal / ocean / other, or None when Metalog has no record."""
+    text = ' '.join(filter(None, (biome, package))).lower()
+    if not text.strip():
+        return None
+    for category, needles in METALOG_CATEGORY_RULES:
+        if any(needle in text for needle in needles):
+            return category
+    return 'other'
+
+
+def get_lat_lon_clusters(taxonomy_id, precision=1):
+    """Sample counts per map cell for one taxon, split by environment category.
+
+    Aggregated in the database rather than in Python: a common taxon matches
+    hundreds of thousands of runs, and get_lat_lons() caps at 1000 for exactly
+    that reason. Grouping by rounded coordinates returns a few thousand cells
+    however many runs match, so the whole distribution can be shown rather than
+    the top slice by abundance.
+
+    Colour category is Metalog's where it exists (~14% of runs with
+    coordinates) and sandpiper's own host/ecological classification otherwise,
+    so every cell is accounted for.
+    """
+    rounded_lat = func.round(ParsedSampleAttribute.latitude, precision)
+    rounded_lon = func.round(ParsedSampleAttribute.longitude, precision)
+
+    rows = db.session.execute(
+        select(
+            rounded_lat.label('lat'),
+            rounded_lon.label('lon'),
+            ParsedSampleAttribute.meta_environment_biome,
+            ParsedSampleAttribute.meta_environmental_package,
+            ParsedSampleAttribute.host_or_not_mature,
+            NcbiMetadata.study_title,
+            func.count().label('n'),
+        ).where(
+            CondensedProfileCtas1.taxonomy_id == taxonomy_id
+        ).where(
+            ParsedSampleAttribute.run_id == CondensedProfileCtas1.run_id
+        ).where(
+            NcbiMetadata.id == CondensedProfileCtas1.run_id
+        ).where(
+            ParsedSampleAttribute.latitude.is_not(None)
+        ).where(
+            ParsedSampleAttribute.longitude.is_not(None)
+        ).group_by(
+            rounded_lat, rounded_lon,
+            ParsedSampleAttribute.meta_environment_biome,
+            ParsedSampleAttribute.meta_environmental_package,
+            ParsedSampleAttribute.host_or_not_mature,
+            NcbiMetadata.study_title,
+        )
+    ).fetchall()
+
+    cells = {}
+    for lat, lon, biome, package, host_or_not, study_title, count in rows:
+        category = metalog_category(biome, package)
+        if category is None:
+            category = {'host': 'host_associated',
+                        'ecological': 'ecological'}.get(host_or_not, 'unclassified')
+        key = (lat, lon)
+        cell = cells.setdefault(key, {'lat': lat, 'lon': lon, 'total': 0,
+                                      'categories': {}, 'studies': {}})
+        cell['total'] += count
+        cell['categories'][category] = cell['categories'].get(category, 0) + count
+        if study_title:
+            cell['studies'][study_title] = cell['studies'].get(study_title, 0) + count
+
+    # Study titles are what make the existing marker map readable ("gut
+    # microbiome of dogs", "wastewater metagenome"), so carry the largest few
+    # per cell rather than dropping them in aggregation.
+    for cell in cells.values():
+        top = sorted(cell['studies'].items(), key=lambda kv: -kv[1])[:5]
+        cell['studies'] = [{'title': title, 'count': n} for title, n in top]
+
+    return sorted(cells.values(), key=lambda c: -c['total'])
+
+
+@api.route('/taxonomy_map/<string:taxon>', methods=('GET',))
+def taxonomy_map(taxon):
+    """Aggregated sample distribution for one taxon, for the summary map."""
+    taxonomy_type = request.args.get('taxonomy_type', 'gtdb')
+    try:
+        precision = max(0, min(2, int(request.args.get('precision', 1))))
+    except ValueError:
+        precision = 1
+
+    taxonomy = db.session.execute(
+        select(Taxonomy).where(Taxonomy.name == taxon).where(
+            Taxonomy.taxonomy_type == taxonomy_type)).scalars().first()
+    if taxonomy is None:
+        return jsonify({'taxon': taxon, 'cells': [], 'total': 0})
+
+    cells = get_lat_lon_clusters(taxonomy.id, precision)
+    return jsonify({
+        'taxon': taxon,
+        'precision': precision,
+        'cells': cells,
+        'total': sum(cell['total'] for cell in cells),
+    })
+
 
 # ?host=${host}&ecological=${ecological}&two_gbp=${two_gbp}
 @api.route('/random_run', methods=('GET',))
@@ -1013,7 +1183,12 @@ def _parse_numeric_range(value):
 def _apply_numeric_filter(column, value, scale=1.0, approx_delta=None):
     """Apply a numeric filter to a SQLAlchemy column.
     scale: multiply parsed float by this (e.g. 1e9 for gbp→bases).
-    approx_delta: tolerance for single-value equality (None = exact)."""
+    approx_delta: tolerance for single-value equality (None = exact).
+    An empty value means "field is populated, any value" rather than a parse
+    failure -- lets sparsely-populated fields (age, temperature, ...) be
+    searched for presence alone."""
+    if not value.strip():
+        return column.isnot(None)
     op, low_str, high_str = _parse_numeric_range(value)
     try:
         low = float(low_str) * scale
@@ -1038,6 +1213,8 @@ def _apply_numeric_filter(column, value, scale=1.0, approx_delta=None):
 
 def _apply_numeric_filter_int(column, value, scale=1.0, approx_delta=None):
     """Like _apply_numeric_filter but casts scaled values to int."""
+    if not value.strip():
+        return column.isnot(None)
     op, low_str, high_str = _parse_numeric_range(value)
     try:
         low = float(low_str)
@@ -1084,6 +1261,8 @@ def _parse_search_condition(key, value):
     elif key in ('study', 'study_title', 'title'):
         return N.study_title.ilike(f'%{value}%'), f'study: {value}', False, False
     elif key in ('environment', 'env'):
+        if not value.strip():
+            return P.host_or_not_mature.isnot(None), 'environment: (any)', True, False
         return func.lower(P.host_or_not_mature) == value.lower(), f'environment: {value}', True, False
     elif key in ('location', 'geo'):
         return N.geo_loc_name.ilike(f'%{value}%'), f'location: {value}', False, False
@@ -1124,6 +1303,8 @@ def _parse_search_condition(key, value):
         if cond is None: return None, None, False, False
         return cond, f'KSF: {value}%', True, False
     elif key == 'low_complexity':
+        if not value.strip():
+            return P.low_complexity.isnot(None), 'low complexity: (any)', True, False
         val_lower = value.lower()
         if val_lower in ('yes', 'true', '1'):
             return P.low_complexity == True, 'low complexity: yes', True, False
@@ -1143,6 +1324,8 @@ def _parse_search_condition(key, value):
         if cond is None: return None, None, False, False
         return cond, f'read length: {value}bp', False, False
     elif key == 'release_year':
+        if not value.strip():
+            return N.published.isnot(None), 'release year: (any)', False, False
         op, low_str, high_str = _parse_numeric_range(value)
         try:
             low = int(low_str)
@@ -1193,6 +1376,11 @@ def _parse_search_condition(key, value):
     # Numeric range on biosample age attributes. Assumes the stored number is meaningful
     # at face value — scale is study-dependent (years for humans, weeks for neonates, etc.)
     elif key == 'age':
+        if not value.strip():
+            subq = select(BiosampleAttribute.run_id).where(
+                BiosampleAttribute.k.in_(['age', 'host_age', 'Age', 'host age'])
+            ).distinct()
+            return N.id.in_(subq), 'age: (any)', False, False
         op, low_str, high_str = _parse_numeric_range(value)
         try:
             low = float(low_str)
@@ -1233,6 +1421,34 @@ def _parse_search_condition(key, value):
             ).distinct()
         return N.id.in_(subq), f'attribute: {value}', False, False
 
+    # --- Metalog (curated/harmonised) metadata search ---
+    # Distinct from 'metadata'/'attr' above, which search the raw NCBI BioSample
+    # attributes as submitted. This searches ParsedSampleAttribute's meta_*
+    # columns instead -- the harmonised fields from the Metalog database (host,
+    # sex, age, diet, environment, chemistry measurements, ...). Same two
+    # formats as 'attr': "key=value" matches one field by name, plain text
+    # matches any field's value.
+    elif key == 'metalog':
+        meta_columns = {
+            c.name[len('meta_'):]: c
+            for c in ParsedSampleAttribute.__table__.columns
+            if c.name.startswith('meta_')
+        }
+        if '=' in value:
+            meta_key, meta_val = value.split('=', 1)
+            normalized_key = meta_key.strip().lower().replace(' ', '_').replace('-', '_')
+            column = meta_columns.get(normalized_key)
+            if column is None:
+                return None, None, False, False
+            subq = select(ParsedSampleAttribute.run_id).where(
+                column.ilike(f'%{meta_val.strip()}%')
+            ).distinct()
+        else:
+            subq = select(ParsedSampleAttribute.run_id).where(
+                or_(*[column.ilike(f'%{value}%') for column in meta_columns.values()])
+            ).distinct()
+        return N.id.in_(subq), f'metalog: {value}', False, False
+
     return None, None, False, False
 
 
@@ -1249,12 +1465,20 @@ def universal_search():
     needs_condensed = False
 
     for part in parts:
-        kv_match = re.match(r'^(\w[\w\s]*?)\s*:\s*(.+)$', part)
+        # (.*) rather than (.+) so "key:" with nothing after it still parses
+        # as a key:value pair with an empty value -- that's the presence-only
+        # query, e.g. "age:" means "age is populated, any value".
+        kv_match = re.match(r'^(\w[\w\s]*?)\s*:\s*(.*)$', part)
         if kv_match:
             key = kv_match.group(1).lower().strip()
             value = kv_match.group(2).strip()
             cond, desc, p_join, c_join = _parse_search_condition(key, value)
             if cond is not None:
+                if not value:
+                    # Generic override so free-text ilike fields (which reach
+                    # a presence condition via ilike('%%'), not a dedicated
+                    # empty-value branch) still get a readable description.
+                    desc = f'{key}: (any)'
                 conditions.append(cond)
                 descriptions.append(desc)
                 needs_parsed = needs_parsed or p_join
@@ -1285,7 +1509,17 @@ def universal_search():
         stmt = stmt.where(cond)
 
     total = db.session.execute(select(func.count()).select_from(stmt.subquery())).scalar()
-    random_row = db.session.execute(stmt.order_by(func.random()).limit(1)).fetchone()
+
+    # Pick a random match, excluding the run the caller is already viewing.
+    # Without this the caller has to sample repeatedly and hope for a different
+    # accession, which never succeeds when the query matches only that run.
+    # 'count' stays the full match total -- it is what the UI displays.
+    exclude = request.args.get('exclude')
+    random_stmt = stmt
+    if exclude:
+        random_stmt = random_stmt.where(NcbiMetadata.acc != exclude)
+    random_row = db.session.execute(
+        random_stmt.order_by(func.random()).limit(1)).fetchone()
 
     return jsonify({
         'count': total,

@@ -124,6 +124,7 @@
                   <span class="sticky-syntax-item"><code>&lt;10</code> less than</span>
                   <span class="sticky-syntax-item"><code>&lt;=10</code> at most</span>
                   <span class="sticky-syntax-item"><code>10</code> exact / approx</span>
+                  <span class="sticky-syntax-item"><code>(empty)</code> present, any value e.g. "age:"</span>
                 </div>
               </div>
               <div class="sticky-example-row">
@@ -133,6 +134,9 @@
               </div>
             </div>
           </div>
+        </div>
+        <div v-if="sticky_visible" class="sticky-close-tab" @click="sticky_visible = false">
+          <span class="sticky-close-label">Close</span>
         </div>
       </div>
       <teleport to="body">
@@ -253,6 +257,7 @@
 
 <script>
 import { fetchUniversalSearch } from '@/api'
+import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import debounce from 'lodash/debounce'
 
 export default {
@@ -346,26 +351,49 @@ export default {
       }
     }, 450),
 
+    // An empty search bar means "no filter", which is a legitimate request:
+    // give the user another random run rather than silently doing nothing.
+    next_random_run () {
+      const q = this.$route.query
+      this.$router.push({ name: 'RunRandom', query: {
+        host: q.host ?? RANDOM_DEFAULTS.host,
+        non_human_host: q.non_human_host ?? RANDOM_DEFAULTS.non_human_host,
+        ecological: q.ecological ?? RANDOM_DEFAULTS.ecological,
+        two_gbp: q.two_gbp ?? RANDOM_DEFAULTS.two_gbp,
+        exclude_strict_low_complexity: q.exclude_strict_low_complexity ?? RANDOM_DEFAULTS.exclude_strict_low_complexity
+      }})
+    },
+
     async next_from_sticky () {
       const query = this.sticky_input.trim()
-      if (!query) return
+      if (!query) { this.next_random_run(); return }
       this.sticky_loading = true
       const current = this.$route.params.accession
       try {
-        let acc = null
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const { data } = await fetchUniversalSearch(query)
-          if (attempt === 0) this.sticky_count = data.count
-          if (data.random_acc && data.random_acc !== current) {
-            acc = data.random_acc
-            break
-          }
-        }
-        if (acc) {
-          this.$router.push({ name: 'Run', params: { accession: acc }, query: { q: query } })
+        // The backend excludes `current`, so a single request either returns a
+        // different run or tells us there isn't one. Sampling repeatedly and
+        // discarding matches never worked when the query matched only the run
+        // already being viewed.
+        const { data } = await fetchUniversalSearch(query, current)
+        this.sticky_count = data.count
+        if (data.random_acc) {
+          this.$router.push({ name: 'Run', params: { accession: data.random_acc }, query: { q: query } })
+        } else if (data.count > 0) {
+          this.$buefy.toast.open({
+            message: 'No other runs match this search',
+            type: 'is-warning'
+          })
+        } else {
+          this.$buefy.toast.open({
+            message: 'No runs match this search',
+            type: 'is-warning'
+          })
         }
       } catch (e) {
-        // silently fail — user stays on current page
+        this.$buefy.toast.open({
+          message: 'Search failed, please try again',
+          type: 'is-danger'
+        })
       } finally {
         this.sticky_loading = false
       }
@@ -531,6 +559,47 @@ export default {
   gap: 0.75rem;
   flex-shrink: 0;
   margin-left: auto;
+}
+/* Lets the dropped bar be dismissed without hunting for the pull tab (fixed
+   at 50vh, which can be far from the reader's eye once the bar is open).
+   Same frosted-glass tab treatment as .sticky-pull-tab, and the same
+   "flat on the attached edge, rounded on the outer edge" logic -- that one
+   hangs off the viewport's right edge, this one hangs off the BAR's
+   bottom edge, so the radii are rotated a quarter turn to match. Anchored
+   to .sticky-search-bar (position: fixed, so it's a valid containing
+   block) rather than the viewport, and offset up by its own border so the
+   seam where it meets the bar disappears. `right: 1.5rem` keeps a margin
+   off the viewport edge without touching the bar's own content, which
+   ends well before the edge inside the bar's 3.5rem side padding. */
+.sticky-close-tab {
+  position: absolute;
+  top: 100%;
+  right: 1.5rem;
+  margin-top: -1px;
+  z-index: 1999;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  transition: background 0.15s ease;
+}
+.sticky-close-tab:hover {
+  background: rgba(255, 255, 255, 0.96);
+}
+.sticky-close-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #555;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .sticky-logo-left {
   height: 75px;
