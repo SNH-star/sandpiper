@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="project-page">
     <div v-if="metadata !== null">
       <section class="section">
         <div class="container" v-if="metadata !== null">
@@ -162,3 +162,21 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+@media (max-width: 768px) {
+  .project-page .has-text-justified {
+    text-align: left !important;
+  }
+  .project-page :deep(.table-wrapper),
+  .project-page :deep(.table),
+  .project-page :deep(td) {
+    max-width: 100%;
+  }
+  .project-page :deep(td) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+</style>
