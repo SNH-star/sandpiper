@@ -35,6 +35,7 @@ zenodo_backpack = "*"
 singlem="*"
 duckdb = "*"
 duckdb-engine = "*"
+polars = "*"
 pigz = "*"
 uwsgi = ">=2.0.31,<3" # For deployment
 
