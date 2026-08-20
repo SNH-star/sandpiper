@@ -18,7 +18,7 @@ class BaseConfig:
     else:
         print("Running in DB production mode")
         # Open read-only to avoid database lock issues.
-        DB_NAME = 'sandpiper_40.duckdb'
+        DB_NAME = 'sandpiper_41.duckdb'
     LYRA_DB_PATH = 'duckdb:///'+os.path.join(os.path.dirname(__file__), '../db/{}'.format(DB_NAME))
     # LYRA_DB_PATH = 'duckdb:////scratch/sandpiper/sandpiper_33.duckdb'
     # LYRA_DB_PATH = 'duckdb:////scratch/sandpiper/sandpiper_19_test.duckdb'
@@ -32,7 +32,11 @@ class BaseConfig:
     print("Connecting to db {}".format(SQLALCHEMY_DATABASE_URI))
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ECHO=True
+    # Was hardcoded True unconditionally -- logging the full SQL text and
+    # params for every query adds real overhead on every request (measured
+    # ~30-50% slower on the heatmap query alone). Opt in explicitly when
+    # debugging a query locally instead.
+    SQLALCHEMY_ECHO = bool(os.environ.get('SANDPIPER_SQL_ECHO'))
     # Set as read-only to avoid locking issues unless we are loading it with data
     if not os.environ.get('SANDPIPER_LOADING_DATA'):
         SQLALCHEMY_ENGINE_OPTIONS = {

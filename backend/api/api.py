@@ -11,7 +11,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, make_response, current_app, Response, stream_with_context
 
-from sqlalchemy import select, distinct, or_
+from sqlalchemy import select, distinct, or_, and_, case, cast, Float
 from sqlalchemy.sql import func, text
 from sqlalchemy.orm import joinedload, lazyload
 
@@ -25,6 +25,7 @@ from .models import (
     CondensedProfileCtas1,
     Taxonomy,
     SandpiperCache,
+    IndicatorHabitatScore,
 )
 import polars as pl
 # from api.models import #for flask shell
@@ -103,6 +104,39 @@ def metalog_retrieved_date():
     except (TypeError, ValueError):
         current_app.logger.warning('Invalid Metalog fetched_at value: %r', fetched_at)
         return None
+
+
+def indicpiper_rows(run_id):
+    """This run's IndicPiper habitat-indicator scores, as RunMetadataTable rows.
+
+    indicator_habitat_scores only has a row for a (run, habitat) pair when the
+    score is nonzero (see IndicatorHabitatScore's docstring in models.py), so
+    most runs have a handful of rows, not one per habitat. Sorted by score
+    descending -- the strongest habitat match first. Empty list when the run
+    has no indicator match, which the front end uses to decide whether to
+    show the section at all.
+    """
+    scores = (IndicatorHabitatScore.query
+              .filter_by(run_id=run_id)
+              .order_by(IndicatorHabitatScore.score.desc())
+              .all())
+    rows = []
+    for s in scores:
+        # indicator_habitat_scores only ever has a row when the raw score is
+        # strictly > 0 (see the HAVING clause in generate_backend_db's
+        # add_indicpiper_scores()), but rounding to 3dp can still bring a
+        # genuinely positive score (e.g. 0.0003) down to 0.000 -- showing a
+        # bare "0" there reads as "no match" when it's actually a real,
+        # if marginal, one. Show the threshold instead of a misleading zero.
+        rounded = round(s.score, 3)
+        v = '<0.001' if rounded == 0 else rounded
+        rows.append(dict(
+            k=s.habitat,
+            v=v,
+            description='Summed relative abundance, in this run, of the genera IndicPiper '
+                         'identified as indicators of the "{}" habitat.'.format(s.habitat),
+            is_custom=False))
+    return rows
 
 
 
@@ -478,6 +512,11 @@ def fetch_metadata(sample_name):
     d2['metalog_metadata'] = metadata_dict['metalog_metadata']
     d2['metalog_retrieved_date'] = metalog_retrieved_date()
 
+    # IndicPiper habitat-indicator scores. Same "built in display form, added
+    # after the classification sort" treatment as metalog_metadata above --
+    # see indicpiper_rows()'s docstring for why most runs only have a few rows.
+    d2['indicpiper_scores'] = indicpiper_rows(meta.id)
+
     return jsonify({ 
         'metadata': d2,
         'metadata_parsed': metadata_parsed})
@@ -518,9 +557,27 @@ def taxonomy_search_global_data(taxon):
     # lat_lons are commented out for now because it is too slow to query and
     # render. SQL needs better querying i.e. in batch, and multiple
     # annotations at a single location need to be collapsed.
-    lat_lons, lat_lons_count, min_lat_lon_relabund = get_lat_lons(taxonomy.id, 1000)
-    return jsonify({ 
-        'total_num_results': total_num_hits,
+    niche_filters = build_niche_filters(request.args)
+    lat_lons, lat_lons_count, min_lat_lon_relabund = get_lat_lons(taxonomy.id, 1000, niche_filters)
+
+    # total_num_results feeds the "Matching Samples" summary count and the "N
+    # other runs are not shown" caption -- both need to reflect the active
+    # Niche Mapping filters, not the taxon's full unfiltered count, otherwise
+    # those numbers contradict what the filtered map/table actually show.
+    if niche_filters:
+        count_query = select(func.count()).select_from(
+            CondensedProfileCtas1
+        ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
+        ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
+        ).where(CondensedProfileCtas1.taxonomy_id == taxonomy.id)
+        for condition in niche_filters:
+            count_query = count_query.where(condition)
+        total_num_results = db.session.execute(count_query).scalar()
+    else:
+        total_num_results = total_num_hits
+
+    return jsonify({
+        'total_num_results': total_num_results,
         'taxon_name': taxonomy.name.split('__')[-1],
         'lineage': taxonomy.split_taxonomy(),
         'taxonomy_level': taxonomy.taxonomy_level,
@@ -813,12 +870,19 @@ def taxonomy_search_core(
         for condition in cluster_filters:
             hits_query = hits_query.where(condition)
 
+        # Niche Mapping filters (pH, temperature, host association). Applied
+        # here for the same reason as cluster_filters above: this query is
+        # paginated server-side, so a single page can't be filtered client-side.
+        niche_filters = build_niche_filters(args)
+        for condition in niche_filters:
+            hits_query = hits_query.where(condition)
+
         if exclude_low_complexity:
             hits_query = hits_query.where(ParsedSampleAttribute.low_complexity != 'yes')
 
         # Pagination needs a total that reflects every active filter, otherwise
         # the pager offers pages that are empty.
-        if exclude_low_complexity or cluster_filters:
+        if exclude_low_complexity or cluster_filters or niche_filters:
             count_query = select(func.count()).select_from(
                 CondensedProfileCtas1
             ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
@@ -827,6 +891,8 @@ def taxonomy_search_core(
             if exclude_low_complexity:
                 count_query = count_query.where(ParsedSampleAttribute.low_complexity != 'yes')
             for condition in cluster_filters:
+                count_query = count_query.where(condition)
+            for condition in niche_filters:
                 count_query = count_query.where(condition)
             filtered_total = db.session.execute(count_query).scalar()
         else:
@@ -876,14 +942,186 @@ def taxonomy_search_hints(taxon):
 
     return jsonify({ 'taxonomies': [t.name for t in taxonomies] })
 
-def get_lat_lons(taxonomy_id, max_to_show):
+_PH_NUMBER_PATTERN = r'^\s*[0-9]+(\.[0-9]+)?\s*$'
+_PH_RANGE_PATTERN = r'^\s*([0-9]+(?:\.[0-9]+)?)\s*-\s*([0-9]+(?:\.[0-9]+)?)\s*$'
+
+
+def ph_value_expr():
+    """SQL expression giving a numeric pH per row, or NULL when unparseable.
+
+    meta_ph and meta_ph_range are free-text columns straight from the
+    heterogeneous metalog import (values like "6.5", "6.5-7.5", "unknown"),
+    so there is no clean numeric pH column to filter on directly. Prefers an
+    exact meta_ph reading; falls back to the midpoint of meta_ph_range.
+    """
+    # This runs against DuckDB, not Postgres -- there is no regexp_match()
+    # returning an array here. DuckDB's equivalent is regexp_extract(string,
+    # pattern, group_index), called once per capture group.
+    range_low = func.regexp_extract(ParsedSampleAttribute.meta_ph_range, _PH_RANGE_PATTERN, 1)
+    range_high = func.regexp_extract(ParsedSampleAttribute.meta_ph_range, _PH_RANGE_PATTERN, 2)
+    return case(
+        (ParsedSampleAttribute.meta_ph.op('~')(_PH_NUMBER_PATTERN),
+         cast(ParsedSampleAttribute.meta_ph, Float)),
+        (ParsedSampleAttribute.meta_ph_range.op('~')(_PH_RANGE_PATTERN),
+         (cast(range_low, Float) + cast(range_high, Float)) / 2.0),
+        else_=None,
+    )
+
+
+def ph_bucket_expr():
+    """pH rounded to the nearest 0.5, so the slider only offers stops that
+    actually collapse multiple raw readings together rather than one stop per
+    float."""
+    return func.round(ph_value_expr() * 2) / 2.0
+
+
+def temperature_bucket_expr():
+    """Temperature rounded to the nearest 1 degree C, matching the column's
+    typical recorded precision.
+
+    Cast explicitly to Float: DuckDB's single-argument round() returns a
+    Decimal, which Flask's jsonify() can't serialize on its own.
+    """
+    return cast(func.round(ParsedSampleAttribute.temperature), Float)
+
+
+def _parse_float_arg(args, key):
+    value = args.get(key)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def ph_condition(args):
+    """0-or-1-element list: exact-bucket condition for the selected pH, if any."""
+    ph = _parse_float_arg(args, 'ph')
+    return [ph_bucket_expr() == ph] if ph is not None else []
+
+
+def temperature_condition(args):
+    """0-or-1-element list: exact-bucket condition for the selected temperature, if any."""
+    temperature = _parse_float_arg(args, 'temperature')
+    return [temperature_bucket_expr() == temperature] if temperature is not None else []
+
+
+def host_condition(args):
+    """0-or-1-element list: equality condition for the selected host association, if any."""
+    host_association = args.get('host_association')
+    if host_association in ('host', 'ecological'):
+        return [ParsedSampleAttribute.host_or_not_mature == host_association]
+    return []
+
+
+def piper_community_condition(args):
+    """0-or-1-element list: condition matching runs with a nonzero IndicPiper
+    indicator score for the selected habitat/community (see
+    IndicatorHabitatScore in models.py). Exact match against the habitat
+    name, mirroring host_condition -- the frontend only ever offers habitats
+    known to exist via /taxonomy_niche_options."""
+    piper_community = args.get('piper_community')
+    if not piper_community:
+        return []
+    subq = select(IndicatorHabitatScore.run_id).where(
+        IndicatorHabitatScore.habitat == piper_community
+    )
+    return [NcbiMetadata.id.in_(subq)]
+
+
+def build_niche_filters(args):
+    """SQLAlchemy conditions for the Niche Mapping filters (pH, temperature,
+    host association, Piper community), read from request.args-like `args`.
+    Each axis is a single selected bucket value (or absent = no filter on
+    that axis), not a range -- the frontend only ever offers values known to
+    exist via /taxonomy_niche_options, so an exact match is enough here."""
+    return (
+        ph_condition(args) + temperature_condition(args) + host_condition(args)
+        + piper_community_condition(args)
+    )
+
+
+def _niche_distinct(taxonomy_id, value_expr, other_filters, extra_join=None):
+    """Distinct bucketed values of `value_expr` available for this taxon,
+    restricted by `other_filters` (the *other* axes' current selections, not
+    this axis' own) -- this is what makes the sliders cascade: picking pH
+    narrows the temperature options, and vice versa. `extra_join` is an
+    optional (target, onclause) pair for axes whose value isn't already
+    reachable from the base join (e.g. Piper community's habitat, which
+    lives on IndicatorHabitatScore)."""
+    stmt = select(distinct(value_expr)).select_from(
+        CondensedProfileCtas1
+    ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
+    ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
+    )
+    if extra_join is not None:
+        stmt = stmt.join(*extra_join)
+    stmt = stmt.where(CondensedProfileCtas1.taxonomy_id == taxonomy_id
+    ).where(value_expr.is_not(None))
+    for condition in other_filters:
+        stmt = stmt.where(condition)
+    values = db.session.execute(stmt).scalars().all()
+    return sorted(v for v in values if v is not None)
+
+
+@api.route('/taxonomy_niche_options/<string:taxon>', methods=('GET',))
+def taxonomy_niche_options(taxon):
+    """Bucketed pH/temperature/host-association/Piper-community values
+    actually available for this taxon, each computed against whatever is
+    currently selected on the *other* three axes -- backs the cascading
+    Niche Mapping sliders."""
+    taxonomy_type = request.args.get('taxonomy_type', 'gtdb')
+    taxonomy = Taxonomy.query.filter_by(name=taxon, taxonomy_type=taxonomy_type).first()
+    if taxonomy is None:
+        return jsonify({
+            'ph_options': [], 'temperature_options': [], 'host_association_options': [],
+            'piper_community_options': [],
+        })
+
+    ph_filter = ph_condition(request.args)
+    temperature_filter = temperature_condition(request.args)
+    host_filter = host_condition(request.args)
+    piper_community_filter = piper_community_condition(request.args)
+
+    ph_options = _niche_distinct(
+        taxonomy.id, ph_bucket_expr(), temperature_filter + host_filter + piper_community_filter
+    )
+    temperature_options = _niche_distinct(
+        taxonomy.id, temperature_bucket_expr(), ph_filter + host_filter + piper_community_filter
+    )
+    host_association_options = _niche_distinct(
+        taxonomy.id, ParsedSampleAttribute.host_or_not_mature,
+        ph_filter + temperature_filter + piper_community_filter
+    )
+    host_association_options = [v for v in host_association_options if v in ('host', 'ecological')]
+    piper_community_options = _niche_distinct(
+        taxonomy.id, IndicatorHabitatScore.habitat, ph_filter + temperature_filter + host_filter,
+        extra_join=(IndicatorHabitatScore, IndicatorHabitatScore.run_id == NcbiMetadata.id)
+    )
+
+    return jsonify({
+        'ph_options': ph_options,
+        'temperature_options': temperature_options,
+        'host_association_options': host_association_options,
+        'piper_community_options': piper_community_options,
+    })
+
+
+def get_lat_lons(taxonomy_id, max_to_show, extra_filters=None):
+    stmt = select(
+        NcbiMetadata.acc, ParsedSampleAttribute.latitude, ParsedSampleAttribute.longitude,
+        NcbiMetadata.study_title, CondensedProfileCtas1.relative_abundance
+    ).where(
+        CondensedProfileCtas1.taxonomy_id == taxonomy_id).where(
+        NcbiMetadata.id == ParsedSampleAttribute.run_id).where(
+        NcbiMetadata.id == CondensedProfileCtas1.run_id).where(
+        ParsedSampleAttribute.latitude.is_not(None))
+    for condition in (extra_filters or []):
+        stmt = stmt.where(condition)
     lat_lon_db_entries = db.session.execute(
-        select(NcbiMetadata.acc, ParsedSampleAttribute.latitude, ParsedSampleAttribute.longitude, NcbiMetadata.study_title, CondensedProfileCtas1.relative_abundance).where(
-            CondensedProfileCtas1.taxonomy_id == taxonomy_id).where(
-            NcbiMetadata.id == ParsedSampleAttribute.run_id).where(
-            NcbiMetadata.id == CondensedProfileCtas1.run_id).where(
-            ParsedSampleAttribute.latitude.is_not(None)
-            ).order_by(CondensedProfileCtas1.relative_abundance.desc(), CondensedProfileCtas1.run_id).limit(max_to_show).distinct()).fetchall()
+        stmt.order_by(CondensedProfileCtas1.relative_abundance.desc(), CondensedProfileCtas1.run_id)
+        .limit(max_to_show).distinct()).fetchall()
 
     lat_lons = {}
     lat_lons_count = 0
@@ -928,7 +1166,7 @@ def metalog_category(biome, package):
     return 'other'
 
 
-def get_lat_lon_clusters(taxonomy_id, precision=1):
+def get_lat_lon_clusters(taxonomy_id, precision=1, extra_filters=None):
     """Sample counts per map cell for one taxon, split by environment category.
 
     Aggregated in the database rather than in Python: a common taxon matches
@@ -940,60 +1178,84 @@ def get_lat_lon_clusters(taxonomy_id, precision=1):
     Colour category is Metalog's where it exists (~14% of runs with
     coordinates) and sandpiper's own host/ecological classification otherwise,
     so every cell is accounted for.
+
+    Deliberately does NOT include per-cell study titles: grouping by
+    study_title roughly doubled the row count here (~35k vs ~19k rows for one
+    mid-sized taxon) and made up over half the response payload (~2MB of a
+    ~3.9MB response), all to back a hover tooltip almost nobody triggers for
+    most cells. That's fetched on demand instead, per cell, by
+    get_cell_study_titles() below.
     """
     rounded_lat = func.round(ParsedSampleAttribute.latitude, precision)
     rounded_lon = func.round(ParsedSampleAttribute.longitude, precision)
 
+    stmt = select(
+        rounded_lat.label('lat'),
+        rounded_lon.label('lon'),
+        ParsedSampleAttribute.meta_environment_biome,
+        ParsedSampleAttribute.meta_environmental_package,
+        ParsedSampleAttribute.host_or_not_mature,
+        func.count().label('n'),
+    ).where(
+        CondensedProfileCtas1.taxonomy_id == taxonomy_id
+    ).where(
+        ParsedSampleAttribute.run_id == CondensedProfileCtas1.run_id
+    ).where(
+        NcbiMetadata.id == CondensedProfileCtas1.run_id
+    ).where(
+        ParsedSampleAttribute.latitude.is_not(None)
+    ).where(
+        ParsedSampleAttribute.longitude.is_not(None)
+    )
+    for condition in (extra_filters or []):
+        stmt = stmt.where(condition)
+
     rows = db.session.execute(
-        select(
-            rounded_lat.label('lat'),
-            rounded_lon.label('lon'),
-            ParsedSampleAttribute.meta_environment_biome,
-            ParsedSampleAttribute.meta_environmental_package,
-            ParsedSampleAttribute.host_or_not_mature,
-            NcbiMetadata.study_title,
-            func.count().label('n'),
-        ).where(
-            CondensedProfileCtas1.taxonomy_id == taxonomy_id
-        ).where(
-            ParsedSampleAttribute.run_id == CondensedProfileCtas1.run_id
-        ).where(
-            NcbiMetadata.id == CondensedProfileCtas1.run_id
-        ).where(
-            ParsedSampleAttribute.latitude.is_not(None)
-        ).where(
-            ParsedSampleAttribute.longitude.is_not(None)
-        ).group_by(
+        stmt.group_by(
             rounded_lat, rounded_lon,
             ParsedSampleAttribute.meta_environment_biome,
             ParsedSampleAttribute.meta_environmental_package,
             ParsedSampleAttribute.host_or_not_mature,
-            NcbiMetadata.study_title,
         )
     ).fetchall()
 
     cells = {}
-    for lat, lon, biome, package, host_or_not, study_title, count in rows:
+    for lat, lon, biome, package, host_or_not, count in rows:
         category = metalog_category(biome, package)
         if category is None:
             category = {'host': 'host_associated',
                         'ecological': 'ecological'}.get(host_or_not, 'unclassified')
         key = (lat, lon)
-        cell = cells.setdefault(key, {'lat': lat, 'lon': lon, 'total': 0,
-                                      'categories': {}, 'studies': {}})
+        cell = cells.setdefault(key, {'lat': lat, 'lon': lon, 'total': 0, 'categories': {}})
         cell['total'] += count
         cell['categories'][category] = cell['categories'].get(category, 0) + count
-        if study_title:
-            cell['studies'][study_title] = cell['studies'].get(study_title, 0) + count
-
-    # Study titles are what make the existing marker map readable ("gut
-    # microbiome of dogs", "wastewater metagenome"), so carry the largest few
-    # per cell rather than dropping them in aggregation.
-    for cell in cells.values():
-        top = sorted(cell['studies'].items(), key=lambda kv: -kv[1])[:5]
-        cell['studies'] = [{'title': title, 'count': n} for title, n in top]
 
     return sorted(cells.values(), key=lambda c: -c['total'])
+
+
+def get_cell_study_titles(taxonomy_id, lat, lon, precision=1, extra_filters=None):
+    """Top 5 study titles for one map cell, by sample count -- the hover
+    tooltip content that get_lat_lon_clusters() above deliberately omits from
+    the bulk response."""
+    rounded_lat = func.round(ParsedSampleAttribute.latitude, precision)
+    rounded_lon = func.round(ParsedSampleAttribute.longitude, precision)
+
+    stmt = select(
+        NcbiMetadata.study_title, func.count().label('n')
+    ).select_from(CondensedProfileCtas1
+    ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
+    ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
+    ).where(CondensedProfileCtas1.taxonomy_id == taxonomy_id
+    ).where(rounded_lat == lat
+    ).where(rounded_lon == lon
+    ).where(NcbiMetadata.study_title.is_not(None))
+    for condition in (extra_filters or []):
+        stmt = stmt.where(condition)
+
+    rows = db.session.execute(
+        stmt.group_by(NcbiMetadata.study_title).order_by(func.count().desc()).limit(5)
+    ).fetchall()
+    return [{'title': title, 'count': n} for title, n in rows]
 
 
 @api.route('/taxonomy_map/<string:taxon>', methods=('GET',))
@@ -1011,13 +1273,37 @@ def taxonomy_map(taxon):
     if taxonomy is None:
         return jsonify({'taxon': taxon, 'cells': [], 'total': 0})
 
-    cells = get_lat_lon_clusters(taxonomy.id, precision)
+    niche_filters = build_niche_filters(request.args)
+    cells = get_lat_lon_clusters(taxonomy.id, precision, niche_filters)
     return jsonify({
         'taxon': taxon,
         'precision': precision,
         'cells': cells,
         'total': sum(cell['total'] for cell in cells),
     })
+
+
+@api.route('/taxonomy_map_cell_studies/<string:taxon>', methods=('GET',))
+def taxonomy_map_cell_studies(taxon):
+    """Study titles for one summary-map cell, fetched on hover rather than
+    bundled into every /taxonomy_map response -- see get_cell_study_titles()."""
+    taxonomy_type = request.args.get('taxonomy_type', 'gtdb')
+    try:
+        precision = max(0, min(2, int(request.args.get('precision', 1))))
+        lat = float(request.args['lat'])
+        lon = float(request.args['lon'])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({'studies': []}), 400
+
+    taxonomy = db.session.execute(
+        select(Taxonomy).where(Taxonomy.name == taxon).where(
+            Taxonomy.taxonomy_type == taxonomy_type)).scalars().first()
+    if taxonomy is None:
+        return jsonify({'studies': []})
+
+    niche_filters = build_niche_filters(request.args)
+    studies = get_cell_study_titles(taxonomy.id, lat, lon, precision, niche_filters)
+    return jsonify({'studies': studies})
 
 
 # ?host=${host}&ecological=${ecological}&two_gbp=${two_gbp}
@@ -1448,6 +1734,21 @@ def _parse_search_condition(key, value):
                 or_(*[column.ilike(f'%{value}%') for column in meta_columns.values()])
             ).distinct()
         return N.id.in_(subq), f'metalog: {value}', False, False
+
+    # --- IndicPiper habitat-indicator search ---
+    # Matches runs with a nonzero indicator_habitat_scores row for the given
+    # habitat -- i.e. this run's genus composition includes at least some of
+    # the genera IndicPiper flagged as indicators of that habitat. Substring
+    # match since habitat names are multi-word ("marine sediment", "human
+    # oral"); empty value means "matches any habitat at all".
+    elif key in ('habitat', 'indicpiper'):
+        if not value.strip():
+            subq = select(IndicatorHabitatScore.run_id).distinct()
+            return N.id.in_(subq), 'habitat: (any)', False, False
+        subq = select(IndicatorHabitatScore.run_id).where(
+            IndicatorHabitatScore.habitat.ilike(f'%{value}%')
+        ).distinct()
+        return N.id.in_(subq), f'habitat: {value}', False, False
 
     return None, None, False, False
 

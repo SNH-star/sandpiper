@@ -793,6 +793,25 @@ class RunTag(db.Model):
             tag_id=self.tag_id)
 
 
+class IndicatorHabitatScore(db.Model):
+    '''Per-sample, per-habitat indicator-genus abundance score from IndicPiper
+    (indicspecies::multipatt IndVal analysis run against Sandpiper's own current
+    data -- see indicpiper_custom/). One row per (run_id, habitat) with a nonzero
+    score: the summed relative_abundance of every genus flagged as an indicator
+    of that habitat, for that sample. Sparse by design -- ~15.6% of the dense
+    (sample x habitat) matrix is nonzero (verified 2026-08 against the live DB),
+    so a row-per-nonzero-pair table is used instead of one column per habitat on
+    parsed_sample_attributes, matching the Tag/RunTag pattern rather than the
+    add_metagenome_classification_flags wide-column pattern. Backend-only for
+    now -- not surfaced via to_displayable_dict / the API response.
+    '''
+    __tablename__ = 'indicator_habitat_scores'
+    id = db.Column(db.Integer, server_default=text("nextval('indicator_habitat_scores_id_seq')"), primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey('ncbi_metadata.id'), nullable=False, index=True)
+    habitat = db.Column(db.String, nullable=False, index=True)
+    score = db.Column(db.Float, nullable=False)
+
+
 class SandpiperCache(db.Model):
     __tablename__ = 'sandpiper_cache'
     key = db.Column(db.String, primary_key=True)
