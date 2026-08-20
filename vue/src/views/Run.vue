@@ -1,15 +1,15 @@
 <template>
-  <div>
+  <div class="run-page">
     <div v-if="metadata !== null">
       <section class="section">
         <div class="container" v-if="metadata !== null">
-          <h1 class="title">{{ metadata.metadata_parsed.study_title }}</h1>
+          <h1 class="title run-study-title">{{ metadata.metadata_parsed.study_title }}</h1>
 
           <p class="subtitle">
             Sample {{ sample_name_mature }}
           </p>
 
-          <div>
+          <div class="run-summary">
             {{ metadata.metadata_parsed.organism }} | 
             {{ metadata.metadata_parsed.host_or_not_mature }} |
             {{ metadata.metadata_parsed.mbases / 1000}} Gbp | 
@@ -43,12 +43,12 @@
             <br />
           </div>
 
-          <div class="has-text-justified">
+          <div class="has-text-justified run-abstract">
             <br />
             <p>{{ metadata.metadata_parsed.study_abstract }}</p>
           </div>
 
-          <div>
+          <div class="run-external-links">
             <br />
             NCBI: <a :href="bioproject_url">{{ metadata.metadata_parsed.bioproject }}</a> | <a :href="'http://www.ncbi.nlm.nih.gov/sra?term=' + accession">{{ accession }}</a>
             <br />
@@ -78,7 +78,7 @@
       <section class="section">
         <div class="container">
           <h3 class="title">Taxonomic profile</h3>
-          <b-field>
+          <b-field class="taxonomy-selector">
             <b-radio-button v-model="taxonomy_db" native-value="gtdb" @input="fetchCondensed" type="is-info">
               GTDB ({{ GTDB_VERSION }})
             </b-radio-button>
@@ -86,7 +86,7 @@
               GlobDB ({{ GLOBDB_VERSION }})<span v-if="db_availability.globdb === false"> - unavailable</span>
             </b-radio-button>
           </b-field>
-          <div class="sunburst">
+          <div class="sunburst run-sunburst">
             <template v-if="condensed_tree != null">
               <Sunburst3 :json_tree="sunburst_tree" :overall_coverage="10.3" :known_species_fraction="known_species_fraction" />
             </template>
@@ -321,3 +321,61 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.run-page,
+.run-page a,
+.run-study-title,
+.run-summary,
+.run-external-links {
+  overflow-wrap: anywhere;
+}
+.run-summary {
+  line-height: 1.7;
+}
+.run-sunburst {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .run-page :deep(.section) {
+    padding: 1.5rem 1rem;
+  }
+  .run-study-title {
+    font-size: 1.5rem;
+    line-height: 1.25;
+  }
+  .run-page :deep(.subtitle) {
+    font-size: 1.1rem;
+  }
+  .run-abstract {
+    text-align: left !important;
+  }
+  .taxonomy-selector :deep(.field-body > .field.has-addons) {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .taxonomy-selector :deep(.button) {
+    height: auto;
+    min-height: 44px;
+    white-space: normal;
+  }
+  .run-page :deep(p),
+  .run-page :deep(li) {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  .taxonomy-selector :deep(.field-body > .field.has-addons) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .taxonomy-selector :deep(.button) {
+    justify-content: flex-start;
+    width: 100%;
+    border-radius: 4px !important;
+  }
+}
+</style>

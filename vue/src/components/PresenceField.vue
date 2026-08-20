@@ -1,5 +1,5 @@
 <template>
-  <b-field :label-position="label ? 'on-border' : undefined" :message="errorMessage" :type="errorMessage ? 'is-danger' : ''">
+  <b-field :label-position="label ? 'on-border' : undefined" :label-for="label ? fieldId : undefined" :message="errorMessage" :type="errorMessage ? 'is-danger' : ''">
     <template v-if="label" #label>
       {{ label }}
       <slot name="label-suffix" />
@@ -7,7 +7,9 @@
     <div class="field has-addons presence-field">
       <div class="control is-expanded">
         <b-input
-          :model-value="modelValue"
+          :id="fieldId"
+          :compat-fallthrough="false"
+          :model-value="present ? '' : modelValue"
           @update:model-value="$emit('update:modelValue', $event)"
           :placeholder="present ? '(any value)' : placeholder"
           :disabled="present"
@@ -20,6 +22,7 @@
           size="is-small"
           class="presence-any-btn"
           :type="present ? 'is-primary' : ''"
+          :aria-pressed="present"
           @click="$emit('update:present', !present)"
           title="Match any run where this field is present, regardless of value"
         >Any</b-button>
@@ -29,6 +32,8 @@
 </template>
 
 <script>
+import { useId } from 'vue'
+
 export default {
   name: 'PresenceField',
   props: {
@@ -39,6 +44,9 @@ export default {
     errorMessage: { type: String, default: '' },
   },
   emits: ['update:modelValue', 'update:present', 'input'],
+  setup() {
+    return { fieldId: useId() }
+  },
 }
 </script>
 

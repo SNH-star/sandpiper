@@ -22,7 +22,10 @@
           <span class="map-tip-label">{{ LABELS[row.key] || row.key }}</span>
           <span class="map-tip-count">{{ row.n.toLocaleString("en-US") }}</span>
         </div>
-        <div v-if="tip.studies.length" class="map-tip-studies">
+        <div v-if="tip.studiesLoading" class="map-tip-studies has-text-grey">
+          Loading studies…
+        </div>
+        <div v-else-if="tip.studies.length" class="map-tip-studies">
           <div v-for="study in tip.studies" :key="study.title" class="map-tip-study">
             {{ study.title }}
             <span class="map-tip-count">{{ study.count.toLocaleString("en-US") }}</span>
@@ -64,7 +67,7 @@
 import * as d3 from 'd3'
 import { feature, mesh } from 'topojson-client'
 import countries110m from 'world-atlas/countries-110m.json'
-import { fetchTaxonomyMap } from '@/api'
+import { fetchTaxonomyMap, fetchTaxonomyMapCellStudies } from '@/api'
 
 // Ordered so the legend never reshuffles between taxa.
 const COLOURS = {
@@ -100,13 +103,20 @@ const DOT_SCALE = 14
 
 export default {
   name: 'TaxonomySampleMap',
-  props: ['taxon', 'taxonomyType'],
+  props: ['taxon', 'taxonomyType', 'nicheFilters'],
   data () {
     return {
       cells: [],
       total: 0,
       precision: 1,
-      tip: { visible: false, x: 0, y: 0, lat: 0, lon: 0, total: 0, categories: [], studies: [] },
+      tip: { visible: false, x: 0, y: 0, lat: 0, lon: 0, total: 0, categories: [], studies: [], studiesLoading: false },
+      // Study titles are fetched per cell on hover rather than bundled into
+      // the main /taxonomy_map response (see fetchTaxonomyMapCellStudies) --
+      // cached per (lat,lon) for this taxon/filter combo so re-hovering the
+      // same cell doesn't refetch. Cleared whenever load() runs since the
+      // taxon or niche filters may have changed underneath it.
+      studyCache: new Map(),
+      tipRequestToken: 0,
       loading: true,
       error: null,
       // All panels use 1 SVG unit = 1 rendered pixel (see the CSS widths), so
@@ -115,6 +125,7 @@ export default {
       W: 960,
       worldH: 500,
       poleSize: 400,
+      resize_observer: null,
       COLOURS,
       LABELS
     }
@@ -147,6 +158,9 @@ export default {
   watch: {
     taxon: 'load',
     taxonomyType: 'load',
+    // deep + a fresh object each time the caller rebuilds it from route
+    // query params, so identity alone can't be relied on to detect changes.
+    nicheFilters: { handler: 'load', deep: true },
     // Safety net for the draw timing: the <svg> elements only exist once the
     // v-else branch has rendered, so redraw whenever the data lands.
     cells () {
@@ -155,17 +169,32 @@ export default {
   },
   mounted () {
     this.load()
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resize_observer = new ResizeObserver(() => this.draw())
+      this.resize_observer.observe(this.$el)
+    }
+  },
+  beforeUnmount () {
+    this.resize_observer?.disconnect()
   },
   methods: {
     async load () {
       if (!this.taxon) return
       this.loading = true
       this.error = null
+      this.studyCache.clear()
       try {
-        const { data } = await fetchTaxonomyMap(this.taxon, this.taxonomyType)
+        // precision=0 rounds coordinates to the nearest whole degree (~111km)
+        // rather than 0.1 degree (~11km). This map is a fixed-size world
+        // overview with no zoom/pan (the separate Leaflet marker map covers
+        // that), so the extra decimal of precision was invisible at render
+        // scale while multiplying the cell count -- for a taxon with ~200k
+        // matching runs that's the difference between ~17,000 and ~5,500
+        // SVG circles to draw, which was the actual bulk of the load time.
+        const { data } = await fetchTaxonomyMap(this.taxon, this.taxonomyType, 0, this.nicheFilters)
         this.cells = data.cells || []
         this.total = data.total || 0
-        this.precision = data.precision ?? 1
+        this.precision = data.precision ?? 0
       } catch (e) {
         // Surface it: an empty map and a failed request look identical
         // otherwise, which is exactly how this went unnoticed the first time.
@@ -281,12 +310,77 @@ export default {
         .attr('stroke', d => COLOURS[this.dominant(d)])
         .attr('stroke-width', 0.4)
         .attr('cursor', 'pointer')
-        .on('click', (event, d) => this.$emit('cluster-selected', {
+
+      const chooseCell = (d) => {
+        this.tip.visible = false
+        this.$emit('cluster-selected', {
           lat: d.lat, lon: d.lon, precision: this.precision, total: d.total
-        }))
-        .on('mouseenter', (event, d) => this.showTip(event, d))
-        .on('mousemove', event => this.moveTip(event))
-        .on('mouseleave', () => { this.tip.visible = false })
+        })
+      }
+
+      // The visible map dots become only a few pixels wide when the 960-unit
+      // viewBox is scaled to a phone. Use one hit surface plus nearest-point
+      // lookup: overlapping target circles would make paint order, rather
+      // than proximity, decide which dense map cell a tap selects.
+      const svgNode = svg.node()
+      const renderedWidth = svgNode.getBoundingClientRect().width
+      const viewBoxWidth = svgNode.viewBox.baseVal.width
+      const viewBoxHeight = svgNode.viewBox.baseVal.height
+      const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches
+      const targetDiameter = coarsePointer ? 44 : 24
+      const minHitRadius = renderedWidth > 0
+        ? (targetDiameter / 2) * (viewBoxWidth / renderedWidth)
+        : dotScale
+      const projected = visible
+        .map(cell => ({ cell, point: projection([cell.lon, cell.lat]) }))
+        .filter(({ point }) => Array.isArray(point))
+      if (!projected.length) return
+      const delaunay = d3.Delaunay.from(projected, d => d.point[0], d => d.point[1])
+      const nearestCell = (event) => {
+        const pointer = d3.pointer(event, svgNode)
+        const nearest = projected[delaunay.find(pointer[0], pointer[1])]
+        const maxDistance = Math.max(this.radius(nearest.cell.total, dotScale), minHitRadius)
+        return Math.hypot(pointer[0] - nearest.point[0], pointer[1] - nearest.point[1]) <= maxDistance
+          ? nearest.cell
+          : null
+      }
+
+      let hoveredCell = null
+      const hitPadding = dotScale
+      const hitSurface = svg.append('rect')
+        .attr('class', 'map-hit-surface')
+        .attr('x', -hitPadding)
+        .attr('y', -hitPadding)
+        .attr('width', viewBoxWidth + (hitPadding * 2))
+        .attr('height', viewBoxHeight + (hitPadding * 2))
+        .attr('fill', 'transparent')
+        .attr('pointer-events', 'all')
+
+      const updateHover = (event) => {
+        const cell = nearestCell(event)
+        hitSurface.attr('cursor', cell ? 'pointer' : 'default')
+        if (!cell) {
+          hoveredCell = null
+          this.tip.visible = false
+        } else if (cell !== hoveredCell) {
+          hoveredCell = cell
+          this.showTip(event, cell)
+        } else {
+          this.moveTip(event)
+        }
+      }
+
+      hitSurface
+        .on('click', (event) => {
+          const cell = nearestCell(event)
+          if (cell) chooseCell(cell)
+        })
+        .on('pointerenter', updateHover)
+        .on('pointermove', updateHover)
+        .on('pointerleave', () => {
+          hoveredCell = null
+          this.tip.visible = false
+        })
     },
 
     showTip (event, cell) {
@@ -296,9 +390,38 @@ export default {
       this.tip.categories = Object.entries(cell.categories)
         .sort((a, b) => b[1] - a[1])
         .map(([key, n]) => ({ key, n }))
-      this.tip.studies = (cell.studies || []).slice(0, 4)
       this.tip.visible = true
+      this.loadCellStudies(cell)
       this.moveTip(event)
+    },
+    async loadCellStudies (cell) {
+      const cacheKey = `${cell.lat},${cell.lon}`
+      const cached = this.studyCache.get(cacheKey)
+      if (cached) {
+        this.tip.studies = cached.slice(0, 4)
+        this.tip.studiesLoading = false
+        return
+      }
+
+      this.tip.studies = []
+      this.tip.studiesLoading = true
+      // Hovering quickly from cell to cell fires one request per cell; only
+      // the most recent should ever land in the tooltip.
+      const requestToken = ++this.tipRequestToken
+      try {
+        const { data } = await fetchTaxonomyMapCellStudies(
+          this.taxon, this.taxonomyType, cell.lat, cell.lon, this.precision, this.nicheFilters
+        )
+        const studies = data.studies || []
+        this.studyCache.set(cacheKey, studies)
+        if (requestToken !== this.tipRequestToken) return
+        this.tip.studies = studies.slice(0, 4)
+        this.tip.studiesLoading = false
+      } catch (e) {
+        if (requestToken !== this.tipRequestToken) return
+        this.tip.studies = []
+        this.tip.studiesLoading = false
+      }
     },
     moveTip (event) {
       // Position against the component, not the page, so the tip follows the
@@ -306,8 +429,11 @@ export default {
       const box = this.$el.getBoundingClientRect()
       const x = event.clientX - box.left
       const y = event.clientY - box.top
-      // Flip to the left of the cursor near the right edge so it stays visible.
-      this.tip.x = x + 260 > box.width ? x - 250 : x + 14
+      const tipElement = this.$el.querySelector('.map-tip')
+      const estimatedWidth = Math.min(320, Math.max(210, box.width))
+      const tipWidth = tipElement?.offsetWidth || estimatedWidth
+      const desiredX = x + tipWidth + 14 <= box.width ? x + 14 : x - tipWidth - 14
+      this.tip.x = Math.max(0, Math.min(desiredX, Math.max(0, box.width - tipWidth)))
       this.tip.y = Math.max(0, y - 10)
     }
   }
@@ -332,6 +458,16 @@ export default {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   font-size: 0.8rem;
   line-height: 1.35;
+}
+@media (max-width: 768px) {
+  .map-tip {
+    width: min(320px, 100%);
+    min-width: 0;
+    max-width: 100%;
+  }
+  .legend {
+    gap: 0.65rem 1rem;
+  }
 }
 .map-tip-head {
   display: flex;

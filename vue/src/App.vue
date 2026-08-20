@@ -15,31 +15,31 @@
 
     <template v-if="$route.name === 'Run'">
       <!-- Pull tab — always visible on Run pages -->
-      <div class="sticky-pull-tab" @click="sticky_visible = !sticky_visible">
+      <button type="button" class="sticky-pull-tab" :class="{ 'is-drawer-open': sticky_visible }" :aria-expanded="sticky_visible" aria-controls="run-search-panel" aria-label="Continue searching runs" @click="sticky_visible = !sticky_visible">
         <span class="sticky-pull-label">Continue searching</span>
-      </div>
+      </button>
 
       <!-- Sticky bar -->
-      <div class="sticky-search-bar" :class="{ 'is-visible': sticky_visible }" @keyup.enter="next_from_sticky">
+      <div id="run-search-panel" class="sticky-search-bar" :class="{ 'is-visible': sticky_visible }" :aria-hidden="!sticky_visible" :inert="!sticky_visible">
         <div class="sticky-inner">
           <div class="sticky-bar-row">
             <b-button v-if="run_history.length > 0" type="is-primary" @click="go_back">← Previous</b-button>
             <img src="./assets/sandpiper_logo.png" class="sticky-logo sticky-logo-left" alt="Sandpiper" />
             <div class="sticky-input-col">
               <b-field class="sticky-field-grow">
-                <b-input v-model="sticky_input" placeholder="e.g. country: Australia" icon="magnify" expanded @input="fetch_count_debounced"></b-input>
+                <b-input v-model="sticky_input" aria-label="Filter runs" placeholder="e.g. country: Australia" icon="magnify" expanded @input="on_sticky_input" @keyup.enter="next_from_sticky"></b-input>
                 <div class="control">
                   <b-button type="is-primary" :loading="sticky_loading" @click="next_from_sticky">Next</b-button>
                 </div>
               </b-field>
               <div class="sticky-sub-row">
                 <span class="sticky-keys-left">
-                  <a class="sticky-keys-toggle has-text-grey is-size-7" @click="sticky_keys_open = !sticky_keys_open">
+                  <button type="button" class="text-toggle sticky-keys-toggle has-text-grey is-size-7" :aria-expanded="sticky_keys_open" aria-controls="run-search-keys" @click="sticky_keys_open = !sticky_keys_open">
                     List of Keys {{ sticky_keys_open ? '▴' : '▾' }}
-                  </a>
-                  <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event)" @mouseleave="hideStickyTooltipDelayed" />
+                  </button>
+                  <InfoTooltipButton controls="run-search-popover" label="Show search syntax help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'keys_info'" @open="showStickyTooltip($event, 'keys_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" />
                 </span>
-                <span v-if="sticky_count !== null" class="sticky-count-below">{{ sticky_count.toLocaleString() }} runs</span>
+                <span v-if="sticky_count !== null" class="sticky-count-below" aria-live="polite" aria-atomic="true">{{ sticky_count.toLocaleString() }} runs</span>
               </div>
             </div>
             <div class="sticky-logos-right">
@@ -47,7 +47,7 @@
               <img src="./assets/QUT_SQUARE_RGB_SVG.svg" class="sticky-logo" alt="QUT" />
             </div>
           </div>
-          <div class="sticky-keys-panel" :class="{ 'is-open': sticky_keys_open }">
+          <div id="run-search-keys" class="sticky-keys-panel" :class="{ 'is-open': sticky_keys_open }">
             <div class="sticky-keys-box">
               <div class="sticky-keys-grid">
                 <div class="keys-group">
@@ -66,8 +66,12 @@
                   <div class="keys-item"><code>environment</code><span class="keys-example">host or ecological</span></div>
                   <div class="keys-item"><code>low_complexity</code><span class="keys-example">yes or no</span></div>
                   <div class="keys-item">
-                    <code class="keys-item-label">age <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'age_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">age <InfoTooltipButton controls="run-search-popover" label="Show age search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'age_info'" @open="showStickyTooltip($event, 'age_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. 25 or 20-30</span>
+                  </div>
+                  <div class="keys-item">
+                    <code class="keys-item-label">habitat <InfoTooltipButton controls="run-search-popover" label="Show IndicPiper habitat values" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'habitat_info'" @open="showStickyTooltip($event, 'habitat_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
+                    <span class="keys-example">e.g. soil</span>
                   </div>
                 </div>
                 <div class="keys-group">
@@ -81,21 +85,21 @@
                 <div class="keys-group">
                   <p class="keys-group-title">Sequencing</p>
                   <div class="keys-item">
-                    <code class="keys-item-label">platform <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'platform_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">platform <InfoTooltipButton controls="run-search-popover" label="Show platform search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'platform_info'" @open="showStickyTooltip($event, 'platform_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. Illumina</span>
                   </div>
                   <div class="keys-item">
-                    <code class="keys-item-label">instrument <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'instrument_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">instrument <InfoTooltipButton controls="run-search-popover" label="Show instrument search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'instrument_info'" @open="showStickyTooltip($event, 'instrument_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. HiSeq 2500</span>
                   </div>
                   <div class="keys-item">
-                    <code class="keys-item-label">library_strategy <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'library_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">library_strategy <InfoTooltipButton controls="run-search-popover" label="Show library strategy search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'library_info'" @open="showStickyTooltip($event, 'library_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. WGS</span>
                   </div>
                   <p class="keys-group-title" style="margin-top: 0.75rem;">Taxonomy</p>
                   <div class="keys-item"><code>organism</code><span class="keys-example">e.g. marine metagenome</span></div>
                   <div class="keys-item">
-                    <code class="keys-item-label">taxonomy <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'taxonomy_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">taxonomy <InfoTooltipButton controls="run-search-popover" label="Show taxonomy search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'taxonomy_info'" @open="showStickyTooltip($event, 'taxonomy_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. s__Prochlorococcus</span>
                   </div>
                 </div>
@@ -107,11 +111,16 @@
                   <p class="keys-group-title" style="margin-top: 0.75rem;">Identifiers</p>
                   <div class="keys-item"><code>sra_study</code><span class="keys-example">e.g. SRP012345</span></div>
                   <div class="keys-item"><code>experiment</code><span class="keys-example">e.g. SRX012345</span></div>
+                  <div class="keys-item"><code>sample_acc</code><span class="keys-example">e.g. SRS012345</span></div>
                   <div class="keys-item"><code>biosample</code><span class="keys-example">e.g. SAMN12345</span></div>
                   <div class="keys-item"><code>organisation</code><span class="keys-example">e.g. MIT</span></div>
                   <div class="keys-item">
-                    <code class="keys-item-label">metadata <b-icon icon="information-outline" size="is-small" class="sticky-info-icon" @mouseenter="showStickyTooltip($event, 'metadata_info')" @mouseleave="hideStickyTooltipDelayed" /></code>
+                    <code class="keys-item-label">metadata <InfoTooltipButton controls="run-search-popover" label="Show BioSample metadata search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'metadata_info'" @open="showStickyTooltip($event, 'metadata_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. host=Sus scrofa</span>
+                  </div>
+                  <div class="keys-item">
+                    <code class="keys-item-label">metalog <InfoTooltipButton controls="run-search-popover" label="Show Metalog metadata search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'metalog_info'" @open="showStickyTooltip($event, 'metalog_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
+                    <span class="keys-example">e.g. host=Sus scrofa or diabetes</span>
                   </div>
                 </div>
               </div>
@@ -130,17 +139,17 @@
               <div class="sticky-example-row">
                 <span class="sticky-example-label">Example:</span>
                 <code class="sticky-example-query">year: 2015-2020, metadata: sex=male</code>
-                <b-button size="is-small" type="is-primary" @click="sticky_input = 'year: 2015-2020, metadata: sex=male'">Try it</b-button>
+                <b-button size="is-small" type="is-primary" @click="try_sticky_example">Try it</b-button>
               </div>
             </div>
           </div>
         </div>
-        <div v-if="sticky_visible" class="sticky-close-tab" @click="sticky_visible = false">
+        <button v-if="sticky_visible" type="button" class="sticky-close-tab" aria-label="Close run search" @click="sticky_visible = false">
           <span class="sticky-close-label">Close</span>
-        </div>
+        </button>
       </div>
       <teleport to="body">
-        <div v-if="sticky_tooltip_visible" class="sticky-info-tooltip" :style="{ left: sticky_tooltip_x + 'px', top: sticky_tooltip_y + 'px' }" @mouseenter="keepStickyTooltipOpen" @mouseleave="hideStickyTooltip">
+        <div v-if="sticky_tooltip_visible" id="run-search-popover" class="sticky-info-tooltip" :style="{ left: sticky_tooltip_x + 'px', top: sticky_tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepStickyTooltipOpen" @mouseleave="hideStickyTooltip" @keydown.esc="hideStickyTooltip">
           <template v-if="sticky_tooltip_name === 'keys_info'">
             <p class="sticky-tooltip-title">Search syntax</p>
             <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
@@ -196,6 +205,23 @@
               <span>Tethered Chromatin Conformation Capture</span><span>NOMe-Seq</span><span>MBD-Seq</span>
             </div>
           </template>
+          <template v-if="sticky_tooltip_name === 'habitat_info'">
+            <p class="sticky-tooltip-title">IndicPiper habitat — all values</p>
+            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+              Matches runs whose genus composition includes indicator genera for this habitat
+              (<a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener" style="color:#8ecbff;">IndicPiper</a> analysis).
+            </p>
+            <div class="sticky-tooltip-grid">
+              <span>activated sludge</span><span>air</span><span>anaerobic digester</span>
+              <span>chicken gut</span><span>compost</span><span>food fermentation</span>
+              <span>freshwater sediment</span><span>freshwater water</span><span>groundwater</span>
+              <span>hot springs</span><span>human nasopharyngeal</span><span>human oral</span>
+              <span>human skin</span><span>human vaginal</span><span>insect</span>
+              <span>invertebrate</span><span>mammalian gut</span><span>marine plankton</span>
+              <span>marine sediment</span><span>marine water</span><span>mouse gut</span>
+              <span>peat</span><span>plant</span><span>soil</span><span>wastewater</span>
+            </div>
+          </template>
           <template v-if="sticky_tooltip_name === 'age_info'">
             <p class="sticky-tooltip-title">Age</p>
             <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
@@ -218,6 +244,16 @@
               <span>host</span><span>tissue</span><span>disease</span><span>treatment</span>
               <span>isolation_source</span><span>env_biome</span><span>body_site</span><span>age</span>
               <span>sex</span><span>phenotype</span><span>genotype</span><span>strain</span>
+            </div>
+          </template>
+          <template v-if="sticky_tooltip_name === 'metalog_info'">
+            <p class="sticky-tooltip-title">Metalog metadata</p>
+            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+              Searches Metalog's curated and harmonised metadata. Use a plain value to search every field, or <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">field=value</code> to search one field.
+            </p>
+            <div class="sticky-tooltip-grid">
+              <span>metalog: diabetes</span>
+              <span>metalog: host=Sus scrofa</span>
             </div>
           </template>
         </div>
@@ -258,10 +294,19 @@
 <script>
 import { fetchUniversalSearch } from '@/api'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
+import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import debounce from 'lodash/debounce'
+
+function queryParamToString (value) {
+  if (Array.isArray(value)) {
+    return value.filter(part => typeof part === 'string' && part.length > 0).join(', ')
+  }
+  return typeof value === 'string' ? value : ''
+}
 
 export default {
   name: 'App',
+  components: { InfoTooltipButton },
   data () {
     return {
       sticky_input: '',
@@ -269,6 +314,8 @@ export default {
       sticky_keys_open: false,
       sticky_loading: false,
       sticky_count: null,
+      sticky_count_request_id: 0,
+      debounced_fetch_count: null,
       last_scroll_y: 0,
       run_history: [],
       sticky_tooltip_visible: false,
@@ -280,18 +327,30 @@ export default {
     }
   },
 
+  created () {
+    // Vue binds functions declared in `methods`, which drops Lodash's custom
+    // `.cancel()` property. Keep the debouncer as per-instance state instead.
+    this.debounced_fetch_count = debounce(this.fetch_count, 450)
+  },
+
   watch: {
     sticky_visible (val) {
-      if (!val) this.sticky_keys_open = false
+      if (!val) {
+        this.sticky_keys_open = false
+        this.hideStickyTooltip()
+      }
     },
     '$route' (to, from) {
       if (from.name === 'Run' && from.params.accession && from.params.accession !== to.params.accession) {
-        this.run_history.push({ accession: from.params.accession, q: from.query.q || '' })
+        this.run_history.push({ accession: from.params.accession, q: queryParamToString(from.query.q) })
       }
-      this.sticky_input = to.query.q || ''
+      this.sticky_count_request_id += 1
+      this.debounced_fetch_count.cancel()
+      this.sticky_loading = false
+      this.sticky_input = queryParamToString(to.query.q)
       this.sticky_visible = false
       this.sticky_count = null
-      if (this.sticky_input) this.fetch_count_debounced()
+      if (this.sticky_input) this.on_sticky_input()
     }
   },
 
@@ -299,13 +358,16 @@ export default {
     this.last_scroll_y = window.scrollY
     window.addEventListener('scroll', this.handle_scroll, { passive: true })
     if (this.$route.query.q) {
-      this.sticky_input = this.$route.query.q
-      this.fetch_count_debounced()
+      this.sticky_input = queryParamToString(this.$route.query.q)
+      this.on_sticky_input()
     }
   },
 
   unmounted () {
     window.removeEventListener('scroll', this.handle_scroll)
+    this.sticky_count_request_id += 1
+    this.debounced_fetch_count.cancel()
+    clearTimeout(this.sticky_tooltip_timer)
   },
 
   methods: {
@@ -324,32 +386,31 @@ export default {
       this.last_scroll_y = current
     },
 
-    // Strip key-value pairs where the value is missing so incomplete filters
-    // like "depth: " don't zero out the count while the user is still typing.
-    strip_incomplete_parts (query) {
-      const parts = query.split(',')
-        .map(p => p.trim())
-        .filter(p => {
-          if (!p) return false
-          const m = p.match(/^[\w\s]+:\s*(.*)$/)
-          if (m) return m[1].trim().length > 0
-          return true
-        })
-      return parts.join(', ')
+    on_sticky_input () {
+      const requestId = ++this.sticky_count_request_id
+      this.sticky_loading = false
+      this.sticky_count = null
+      const raw = this.sticky_input.trim()
+      if (!raw) {
+        this.debounced_fetch_count.cancel()
+        return
+      }
+      this.debounced_fetch_count(requestId)
     },
 
-    fetch_count_debounced: debounce(async function () {
+    async fetch_count (requestId) {
+      if (requestId !== this.sticky_count_request_id) return
       const raw = this.sticky_input.trim()
       if (!raw) { this.sticky_count = null; return }
-      const query = this.strip_incomplete_parts(raw)
-      if (!query) { this.sticky_count = null; return }
       try {
-        const { data } = await fetchUniversalSearch(query)
+        const { data } = await fetchUniversalSearch(raw)
+        if (requestId !== this.sticky_count_request_id) return
         this.sticky_count = data.count
       } catch (e) {
+        if (requestId !== this.sticky_count_request_id) return
         this.sticky_count = null
       }
-    }, 450),
+    },
 
     // An empty search bar means "no filter", which is a legitimate request:
     // give the user another random run rather than silently doing nothing.
@@ -367,6 +428,8 @@ export default {
     async next_from_sticky () {
       const query = this.sticky_input.trim()
       if (!query) { this.next_random_run(); return }
+      const requestId = ++this.sticky_count_request_id
+      this.debounced_fetch_count.cancel()
       this.sticky_loading = true
       const current = this.$route.params.accession
       try {
@@ -375,6 +438,7 @@ export default {
         // discarding matches never worked when the query matched only the run
         // already being viewed.
         const { data } = await fetchUniversalSearch(query, current)
+        if (requestId !== this.sticky_count_request_id) return
         this.sticky_count = data.count
         if (data.random_acc) {
           this.$router.push({ name: 'Run', params: { accession: data.random_acc }, query: { q: query } })
@@ -390,18 +454,25 @@ export default {
           })
         }
       } catch (e) {
+        if (requestId !== this.sticky_count_request_id) return
         this.$buefy.toast.open({
           message: 'Search failed, please try again',
           type: 'is-danger'
         })
       } finally {
-        this.sticky_loading = false
+        if (requestId === this.sticky_count_request_id) this.sticky_loading = false
       }
+    },
+
+    try_sticky_example () {
+      this.sticky_input = 'year: 2015-2020, metadata: sex=male'
+      this.on_sticky_input()
     },
 
     showStickyTooltip (event, name = 'keys_info') {
       clearTimeout(this.sticky_tooltip_timer)
-      const rect = event.target.getBoundingClientRect()
+      const trigger = event.currentTarget || event.target
+      const rect = trigger.getBoundingClientRect()
       const tooltipW = 380
       const tooltipH = {
         instrument_info: 420,
@@ -410,6 +481,7 @@ export default {
         platform_info: 100,
         taxonomy_info: 220,
         age_info: 180,
+        metalog_info: 200,
       }[name] ?? 200
       let x = rect.right + 10
       if (x + tooltipW > window.innerWidth - 10) x = rect.left - tooltipW - 10
@@ -423,6 +495,7 @@ export default {
       this.sticky_tooltip_visible = true
     },
     hideStickyTooltipDelayed () {
+      clearTimeout(this.sticky_tooltip_timer)
       this.sticky_tooltip_timer = setTimeout(() => { this.sticky_tooltip_visible = false }, 250)
     },
     keepStickyTooltipOpen () {
@@ -478,6 +551,7 @@ export default {
 }
 
 .sticky-pull-tab {
+  appearance: none;
   position: fixed;
   top: 50vh;
   right: 0;
@@ -495,6 +569,12 @@ export default {
   box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.08);
   user-select: none;
   transition: background 0.15s ease;
+}
+.sticky-pull-tab:focus-visible,
+.sticky-close-tab:focus-visible,
+.text-toggle:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
 }
 .sticky-pull-tab:hover {
   background: rgba(255, 255, 255, 0.96);
@@ -572,6 +652,7 @@ export default {
    off the viewport edge without touching the bar's own content, which
    ends well before the edge inside the bar's 3.5rem side padding. */
 .sticky-close-tab {
+  appearance: none;
   position: absolute;
   top: 100%;
   right: 1.5rem;
@@ -622,6 +703,11 @@ export default {
   pointer-events: none;
 }
 .sticky-keys-toggle {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
   cursor: pointer;
   font-weight: 600;
   user-select: none;
@@ -773,5 +859,190 @@ export default {
   border-radius: 4px;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .sticky-search-bar {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .sticky-bar-row {
+    gap: 1rem;
+  }
+  .sticky-logo-left {
+    height: 56px;
+    max-width: 150px;
+  }
+  .sticky-logos-right {
+    display: none;
+  }
+  .sticky-keys-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  #app {
+    overflow-x: hidden;
+  }
+  #app .container {
+    min-width: 0;
+  }
+  #app .section {
+    padding: 1.5rem 1rem;
+  }
+  #app .section .section {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  #app .advanced-search-section {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  #app .has-text-justified {
+    text-align: left !important;
+  }
+  #app .title,
+  #app .subtitle,
+  #app p,
+  #app li,
+  #app a {
+    overflow-wrap: anywhere;
+  }
+  #app .table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  #app .button,
+  #app .input,
+  #app .switch {
+    min-height: 44px;
+  }
+  #app .input {
+    font-size: 16px;
+  }
+  #app .sunburst,
+  #app .sunburst-annotation {
+    height: auto;
+    min-height: 0;
+  }
+  #app svg.sunburst,
+  #app svg.sunburst-annotation {
+    display: block;
+    max-width: 100%;
+    aspect-ratio: 1;
+  }
+  #app .footer {
+    padding: 2rem 1rem;
+  }
+  #app .footer-image {
+    display: block;
+    width: auto;
+    height: auto;
+    max-height: 72px;
+    margin: 0 auto;
+  }
+  .sticky-pull-tab {
+    top: auto;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    min-height: 44px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 999px;
+    padding: 0.65rem 0.9rem;
+  }
+  .sticky-pull-tab.is-drawer-open {
+    display: none;
+  }
+  .sticky-pull-label {
+    writing-mode: horizontal-tb;
+    text-orientation: initial;
+  }
+  .sticky-keys-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.5rem 0;
+  }
+  .sticky-search-bar {
+    max-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 3rem 0.75rem 0.75rem;
+  }
+  .sticky-bar-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .sticky-input-col {
+    order: -1;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .sticky-logo-left,
+  .sticky-logos-right {
+    display: none;
+  }
+  .sticky-close-tab {
+    position: fixed;
+    top: 0.35rem;
+    right: 0.35rem;
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+  }
+  .sticky-keys-panel.is-open {
+    max-height: none;
+  }
+  .sticky-keys-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .sticky-info-tooltip {
+    left: 10px !important;
+    top: 10px !important;
+    width: calc(100vw - 20px);
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100dvh - 20px);
+    overflow-y: auto;
+  }
+  .sticky-tooltip-grid span {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  .sticky-keys-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sticky-syntax-row,
+  .sticky-example-row {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .sticky-syntax-item {
+    white-space: normal;
+  }
+  .sticky-example-query {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .sticky-keys-box {
+    padding: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-search-bar,
+  .sticky-keys-panel {
+    transition: none;
+  }
 }
 </style>

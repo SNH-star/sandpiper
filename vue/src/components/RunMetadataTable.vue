@@ -1,16 +1,16 @@
 <template>
-  <div>
+  <div class="run-metadata-table">
     <b-table :data="table_data" :striped="true" detailed :show-detail-icon="false">
       <b-table-column field="is_custom" label="" align="center" v-slot="props" width="20">
-        <span v-if="!props.row.is_custom" @click="props.toggleDetails(props.row)">
+        <button v-if="!props.row.is_custom" type="button" class="metadata-detail-toggle" :aria-label="`Show details for ${props.row.k}`" @click="props.toggleDetails(props.row)">
           <b-icon icon="information-outline" />
-        </span>
+        </button>
       </b-table-column>
 
       <b-table-column field="k" label="" v-slot="props" width="300">
-        <div @click="props.toggleDetails(props.row)">
+        <button type="button" class="metadata-key-toggle" @click="props.toggleDetails(props.row)">
           <b>{{ props.row.k }}</b>
-        </div>
+        </button>
       </b-table-column>
 
       <b-table-column field="v" label="" v-slot="props">
@@ -21,9 +21,9 @@
           <span v-else-if="activeRecaptcha === props.row.k">
             <div :id="'recaptcha-container-' + props.row.k"></div>
           </span>
-          <span v-else class="email-hidden" @click="showRecaptcha(props.row.k)">
+          <button v-else type="button" class="email-hidden" @click="showRecaptcha(props.row.k)">
             (hidden, click to reveal)
-          </span>
+          </button>
         </div>
         <div v-else>
           {{ props.row.v }}
@@ -77,6 +77,7 @@ export default {
       this.$nextTick(() => {
         grecaptcha.render(`recaptcha-container-${k}`, {
           sitekey: this.recaptchaSiteKey,
+          size: window.innerWidth <= 430 ? 'compact' : 'normal',
           callback: (token) => this.verifyCallback(k, token),
           'expired-callback': () => (this.activeRecaptcha = null),
         });
@@ -88,11 +89,69 @@ export default {
 
 <style scoped>
 .email-hidden {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
   cursor: pointer;
   color: #007bff;
   text-decoration: underline;
 }
 .email-hidden:hover {
   color: #0056b3;
+}
+.metadata-detail-toggle,
+.metadata-key-toggle {
+  appearance: none;
+  border: 0;
+  padding: 0.2rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.metadata-detail-toggle:focus-visible,
+.metadata-key-toggle:focus-visible,
+.email-hidden:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .metadata-detail-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .metadata-key-toggle,
+  .email-hidden {
+    min-height: 44px;
+  }
+  .run-metadata-table {
+    max-width: 100%;
+  }
+  .run-metadata-table :deep(.table-wrapper) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .run-metadata-table :deep(table) {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .run-metadata-table :deep(th),
+  .run-metadata-table :deep(td) {
+    height: auto;
+    padding: 0.55rem 0.35rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .run-metadata-table :deep(th:first-child),
+  .run-metadata-table :deep(td:first-child) {
+    width: 2.75rem;
+  }
+  .run-metadata-table :deep(th:nth-child(2)),
+  .run-metadata-table :deep(td:nth-child(2)) {
+    width: 38%;
+  }
 }
 </style>

@@ -15,10 +15,10 @@
         <div v-if="lat_lon() !== null">
           <!-- I cannot get center.sync to reset when reset_map() is clicked, oh well -->
           <l-map :style="map_style" :zoom.sync="zoom" :center.sync="center">
-            <l-tile-layer :url="url" :attribution="attribution" />
+            <l-tile-layer :url="url" :attribution="attribution" :options="tile_layer_options" />
             <l-marker :lat-lng="lat_lon()" />
           </l-map>
-          <div @click="reset_map()"><b-icon icon="refresh" size="is-small" /> reset zoom</div>
+          <button type="button" class="map-reset" @click="reset_map()"><b-icon icon="refresh" size="is-small" /> reset zoom</button>
           <br />
         </div>
         <RunMetadataTable :table_data="this.mdata.sample_info_metadata"  />
@@ -67,11 +67,11 @@
       <section>
         <h3 class="title">
           Metalog additional information
-          <span class="metalog-info" @click="show_metalog_help = !show_metalog_help">
+          <button type="button" class="metalog-info" :aria-expanded="show_metalog_help" aria-controls="metalog-help" aria-label="About Metalog metadata" @click="show_metalog_help = !show_metalog_help">
             <b-icon icon="information-outline" size="is-small" />
-          </span>
+          </button>
         </h3>
-        <div v-if="show_metalog_help" class="content metalog-help">
+        <div v-if="show_metalog_help" id="metalog-help" class="content metalog-help">
           <p>
             Derived from
             <a href="https://metalog.embl.de/" target="_blank" rel="noopener">Metalog</a>,
@@ -93,6 +93,44 @@
           <p>No Metalog metadata recorded for this run</p>
         </div>
         <RunMetadataTable v-else :table_data="metalog_metadata()" />
+      </section>
+    </div>
+
+    &nbsp;
+    <div class="container">
+      <section>
+        <h3 class="title">
+          IndicPiper habitat indicators
+          <button type="button" class="metalog-info" :aria-expanded="show_indicpiper_help" aria-controls="indicpiper-help" aria-label="About IndicPiper habitat indicators" @click="show_indicpiper_help = !show_indicpiper_help">
+            <b-icon icon="information-outline" size="is-small" />
+          </button>
+        </h3>
+        <div v-if="show_indicpiper_help" id="indicpiper-help" class="content metalog-help">
+          <p>
+            <a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener">IndicPiper</a>
+            identifies genera that are strong, specific indicators of particular
+            habitats, using <code>indicspecies::multipatt</code> IndVal analysis
+            across Sandpiper's own current data (not a frozen external
+            snapshot). Each score below is this run's summed relative
+            abundance of the genera flagged as indicators of that habitat --
+            a higher score means this sample's genus composition more closely
+            matches that habitat's characteristic signature.
+          </p>
+          <p>
+            Only habitats with a nonzero score are shown; most runs match a
+            handful of habitats, not all of them. A run with no rows here
+            either predates this analysis or has no genera in common with any
+            indicator set.
+          </p>
+          <p>
+            Values shown as <code>&lt;0.001</code> are real, nonzero matches
+            (this run does contain some of that habitat's indicator genera).
+          </p>
+        </div>
+        <div v-if="indicpiper_scores().length === 0">
+          <p>No IndicPiper habitat indicators recorded for this run</p>
+        </div>
+        <RunMetadataTable v-else :table_data="indicpiper_scores()" />
       </section>
     </div>
 
@@ -137,13 +175,24 @@ export default {
   data () {
     return {
       medata: this.mdata,
-      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      // Use the plain tile.openstreetmap.org host - the a/b/c subdomains are
+      // deprecated by the OSM operations working group and just cost extra TLS
+      // handshakes now that tiles are served over HTTP/2.
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      // OSM's tile servers refuse requests that arrive without a Referer
+      // header, serving an "Access blocked" tile instead of the map. Some
+      // browsers (notably privacy-hardened mobile ones and in-app webviews)
+      // default to no-referrer, so set the policy explicitly on the tile
+      // images rather than relying on the browser default. 'origin' sends
+      // only https://sandpiper.qut.edu.au/, not the page being viewed.
+      tile_layer_options: { referrerPolicy: 'origin' },
       attribution:
         '&copy; <a target="_blank" href="http://osm.org/copyright">OpenStreetMap</a> contributors',
       zoom: default_zoom,
       center: latLng(0, 0),
       bounds: null,
-      show_metalog_help: false
+      show_metalog_help: false,
+      show_indicpiper_help: false
     }
   },
   mounted () {
@@ -151,12 +200,7 @@ export default {
   },
   computed: {
     map_style: function () {
-      // Make the width fit for smaller screens, but max out the width.
-      if (window.innerWidth < 600) {
-        return { height: '300px', width: '100%' }
-      } else {
-        return { height: '300px', width: '550px' }
-      }
+      return { height: '300px', width: '100%', maxWidth: '550px' }
     },
   },
   methods: {
@@ -164,6 +208,12 @@ export default {
     // API. Absent for runs indexed before the metalog merge, hence the guard.
     metalog_metadata: function () {
       return this.mdata.metalog_metadata || []
+    },
+    // This run's IndicPiper habitat-indicator scores, already sorted and
+    // filtered to nonzero matches by the API. Absent for runs indexed before
+    // this analysis was added, hence the guard.
+    indicpiper_scores: function () {
+      return this.mdata.indicpiper_scores || []
     },
     get_default_map_center: function () {
       const lat_lon = this.lat_lon()
@@ -306,6 +356,10 @@ export default {
 
 <style scoped>
 .metalog-info {
+  appearance: none;
+  border: 0;
+  padding: 0.15rem;
+  background: transparent;
   cursor: pointer;
   vertical-align: middle;
   color: #7a7a7a;
@@ -313,7 +367,36 @@ export default {
 .metalog-info:hover {
   color: #363636;
 }
+.metalog-info:focus-visible,
+.map-reset:focus-visible {
+  outline: 2px solid #3273dc;
+  outline-offset: 2px;
+}
+.map-reset {
+  appearance: none;
+  border: 0;
+  padding: 0.4rem 0;
+  background: transparent;
+  color: #3273dc;
+  cursor: pointer;
+  font: inherit;
+}
 .metalog-help {
   margin-bottom: 1rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 768px) {
+  .metalog-info {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .map-reset {
+    min-height: 44px;
+  }
+  .title {
+    font-size: 1.35rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
 }
 </style>

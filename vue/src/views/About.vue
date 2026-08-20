@@ -8,7 +8,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
     <section class="section container is-small">
     <b-image
             :src="sandpiperLogo"
-            style="height: 230px; width: 400px; margin: auto"
+            class="about-logo"
             alt="Sandpiper Logo"
             />
     </section>
@@ -91,6 +91,26 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 
       <p>We define “low complexity” samples as those where 95% or more of the community was assigned to a single order by SingleM when using the GTDB reference database.</p><br />
 
+      <h2 class="title is-5">IndicPiper habitat indicators</h2>
+      <p>
+        <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> identifies genera that
+        are strong, specific indicators of particular habitats, using indicator species analysis
+        (indicspecies:multipatt, IndVal) run against each genus's presence and
+        abundance across many habitat categories. Look up table was generated using the latest version of the database generated. 
+      </p><br />
+      <p>
+        The result is 859 genera flagged as indicators of one of 25 habitats, each with a resampling-stability
+        score from 100 runs of the analysis. For every run in this database, we then compute how
+        strongly its own genus composition matches each of those 25 habitat signatures, as the
+        summed relative abundance of that habitat's indicator genera present in the sample.
+      </p><br />
+      <p>
+        These scores are shown under "IndicPiper habitat indicators" within each Run Page, and can
+        be searched directly via the habitat key in
+        <router-link :to="{ name: 'Search' }">advanced search</router-link>. Only habitats with a
+        real, non-zero match are shown for a given run most runs match a handful of habitats.
+      </p><br />
+
     </section>
 
     <section class="section is-small container has-text-justified">
@@ -104,6 +124,8 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
               <li>Addition of an Advanced Search bar option, lets user's input queries and outputs number of samples detected before jumping to random page.</li>
               <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>
               <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
+              <li>Include Niche Mapping within the Taxonomy page, allows users ability to filter by pH, Temperature and Host assocaition levels to adjust the adapative maps updating the Matching samples table below. </li>
+              <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures. Searchable via the new habitat key in Advanced Search.</li>
             </ul>
           </div>
         </div>
@@ -222,6 +244,23 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
     </section>
   </div>
 </template>
+
+<style scoped>
+.about-logo {
+  width: min(400px, 100%);
+  height: auto;
+  margin: auto;
+}
+.about-logo :deep(img) {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 768px) {
+  .has-text-justified {
+    text-align: left !important;
+  }
+}
+</style>
 
 <script>
 import { fetchSandpiperStats } from '@/api'
