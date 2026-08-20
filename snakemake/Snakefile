@@ -18,6 +18,13 @@ file_list = config['ACCESSIONS_FILE']
 # before the DB is loaded; when absent, the pipeline behaves as before.
 METALOG_EXTENSION_METADATA = config.get('METALOG_EXTENSION_METADATA', '')
 
+# Whether the add_indicpiper_scores_to_backend_db rule below runs its real
+# --stage indicpiper call, or just copies the db forward unchanged. Explicit
+# boolean (unlike METALOG_EXTENSION_METADATA's presence/absence toggle) since
+# INDICPIPER_CSV normally stays set in prod_config.yml even when temporarily
+# disabling this stage.
+INCLUDE_INDICPIPER = config.get('INCLUDE_INDICPIPER', True)
+
 # Process this many in the list at a time.
 chunk_size = 10000
 
@@ -443,9 +450,177 @@ rule add_parsed_metadata_from_kingfisher:
         'pixi run -e sandpiper ./bin/generate_backend_db --stage parsed_metadata --parsed-metadata-table {params.parsed_metadata} --metalog-provenance {params.metalog_provenance} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher 2> $SNAKE_WORKING_DIR/{log} && ' \
         'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher db/'
 
+# Per-version scratch dir for the regenerated IndicPiper inputs/output --
+# keeps this build's files out of indicpiper_custom/'s own fixed
+# interactive-use paths, so nothing here collides with a manual run there
+# (see IndicPiper build_indicpiper_metadata/genus below) or a differently
+# versioned build.
+INDICPIPER_OUTPUT_DIR = '{scratch}/indicpiper/{version}'.format(
+    scratch=config['SCRATCH_DIR'], version=config['SANDPIPER_VERSION'])
+INDICPIPER_OUTPUT_CSV = '{}/genus_habitat_indicators_custom.csv'.format(INDICPIPER_OUTPUT_DIR)
+
+if INCLUDE_INDICPIPER:
+    rule build_indicpiper_metadata:
+        # Cheap phase: QC-filters samples, derives Habitat, writes
+        # habitat_counts.tsv. Reads THIS build's own db (the .after_tags
+        # snapshot -- condensed_profiles/taxonomies/ncbi_metadata are all
+        # populated by then), not indicpiper_custom/config.yml's default
+        # SANDPIPER_DB, which points at a separate, unrelated checkout.
+        input:
+            '{test_or_prod}/{version}/backend_db/tags_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        output:
+            touch('{test_or_prod}/{version}/backend_db/indicpiper_metadata_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION']))
+        log:
+            '{test_or_prod}/{version}/backend_db/indicpiper_metadata.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        params:
+            output_dir=INDICPIPER_OUTPUT_DIR
+        resources:
+            mem_mb=16000,
+            runtime='2h'
+        threads:
+            4
+        shell:
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'mkdir -p {params.output_dir} && ' \
+            'cd ../indicpiper_custom && ' \
+            'pixi run -e sandpiper python scripts/build_indicpiper_inputs.py --config config.yml --phase metadata ' \
+            '--sandpiper-db {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_tags ' \
+            '--output-dir {params.output_dir} ' \
+            '--n-habitats {config[INDICPIPER_N_HABITATS]} ' \
+            '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+    rule build_indicpiper_genus:
+        # Expensive phase: pivots the genus-level condensed profile into the
+        # wide sample-by-genus matrix runIndicPiper() expects. Needed a
+        # 300GB/8-core job in practice (validated interactively this session
+        # against v40 -- 435,072 samples x up to 36,522 genera).
+        input:
+            '{test_or_prod}/{version}/backend_db/indicpiper_metadata_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        output:
+            touch('{test_or_prod}/{version}/backend_db/indicpiper_genus_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION']))
+        log:
+            '{test_or_prod}/{version}/backend_db/indicpiper_genus.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        params:
+            output_dir=INDICPIPER_OUTPUT_DIR,
+            output_csv=INDICPIPER_OUTPUT_CSV
+        resources:
+            mem_mb=300 * 1024,
+            runtime='6h'
+        threads:
+            8
+        shell:
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../indicpiper_custom && ' \
+            'pixi run -e sandpiper python scripts/build_indicpiper_inputs.py --config config.yml --phase genus ' \
+            '--sandpiper-db {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_tags ' \
+            '--output-dir {params.output_dir} ' \
+            '--n-habitats {config[INDICPIPER_N_HABITATS]} ' \
+            '--output-csv {params.output_csv} ' \
+            '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+    rule run_indicpiper:
+        # The actual indicspecies::multipatt IndVal analysis. Took 8h23m on
+        # 16 cores/300GB against v40 (100 runs x 100 permutations). Must run
+        # from indicpiper_custom/IndicPiper/ -- IndicPiper.R's own source()
+        # calls are relative to that directory.
+        #
+        # Caveat: runIndicPiper() itself hardcodes meta_test.csv/genus_test.csv/
+        # subs.rds as bare relative filenames inside its own function body (only
+        # `output`, i.e. the final indicator CSV, is parameterized) -- so those
+        # three intermediate files always land in indicpiper_custom/IndicPiper/
+        # itself and get overwritten by each build, not scoped per-version like
+        # everything else here. Not safe for two versions building concurrently.
+        # Fixing this needs an edit to the vendored IndicPiper.R, not this
+        # Snakefile -- out of scope for this pass.
+        input:
+            '{test_or_prod}/{version}/backend_db/indicpiper_genus_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        output:
+            touch('{test_or_prod}/{version}/backend_db/run_indicpiper_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION']))
+        log:
+            '{test_or_prod}/{version}/backend_db/run_indicpiper.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        params:
+            run_params=INDICPIPER_OUTPUT_DIR + '/run_params.R'
+        resources:
+            mem_mb=300 * 1024,
+            runtime='12h'
+        threads:
+            16
+        shell:
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../indicpiper_custom/IndicPiper && ' \
+            'pixi run Rscript ../scripts/run_indicpiper.R {params.run_params} ' \
+            '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+rule add_indicpiper_scores_to_backend_db:
+    input:
+        parsed_metadata_done='{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        indicpiper_regen_done=(
+            '{test_or_prod}/{version}/backend_db/run_indicpiper_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+            if INCLUDE_INDICPIPER else []
+        ),
+    output:
+        touch('{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']))
+    log:
+        '{test_or_prod}/{version}/backend_db/indicpiper.log'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    params:
+        indicpiper_csv=INDICPIPER_OUTPUT_CSV
+    resources:
+        mem_mb=64000,
+        runtime='6h'
+    benchmark:
+        'backend_db/{test_or_prod}/{version}/indicpiper.txt'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    shell:
+        (
+            # INCLUDE_INDICPIPER: false -- copy the db forward unchanged, same
+            # "false reproduces today's exact DB" contract as every other
+            # optional stage in this pipeline.
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../backend && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper 2> $SNAKE_WORKING_DIR/{log}'
+            if not INCLUDE_INDICPIPER else
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../backend && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
+            'pixi run -e sandpiper ./bin/generate_backend_db --stage indicpiper --indicpiper-csv {params.indicpiper_csv} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb 2> $SNAKE_WORKING_DIR/{log} && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper'
+        )
+
 rule precompute_api_cache:
     input:
-        '{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
+        '{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION'])
     output:
@@ -468,7 +643,7 @@ rule precompute_api_cache:
         'export PYTHONNOUSERSITE=1 && ' \
         'cd ../backend && ' \
         # cp to remain idempotent, e.g. if this step fails
-        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
+        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
         'pixi run -e sandpiper ./bin/precompute_api_cache.py ' \
         '{config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb > ' \
         '$SNAKE_WORKING_DIR/{log} 2>&1 && ' \
