@@ -20,6 +20,20 @@ GLOBDB_CONDENSED_OTU_TABLE: '/scratch/microbiome/sandpiper2-globdb-renew/final_S
 # When set, meta_ columns are merged into parsed_metadata before the DB is loaded.
 # Comment out / remove to disable (pipeline then behaves exactly as before).
 METALOG_EXTENSION_METADATA: '/home/herholdt/metaup_sandpiper/outputs/kingfisher_metadata_meta_slim.tsv'
+
+# Regenerates the IndicPiper habitat-indicator genus table from THIS build's
+# own data every run (build_indicpiper_metadata -> build_indicpiper_genus ->
+# run_indicpiper -> add_indicpiper_scores_to_backend_db -- see indicpiper_custom/),
+# then loads it into indicator_habitat_scores. This is genuinely heavy
+# (phase genus + run_indicpiper together take ~8-10+ hours on a 300GB job) --
+# set INCLUDE_INDICPIPER: false to skip the whole chain and reproduce the
+# exact prior DB instead.
+INCLUDE_INDICPIPER: true
+# Top-N-by-count habitats to include, unattended (see indicpiper_custom's own
+# config.yml for the interactive MIN_HABITAT_SAMPLES alternative this
+# overrides) -- 30 is what was validated interactively against v40 data.
+INDICPIPER_N_HABITATS: 30
+
 GTDB_ARCHAEA_TAXONOMY: '/home/herholdt/Globdb_taxonomy/ar53_taxonomy_r232_reps.tsv'
 GTDB_BACTERIA_TAXONOMY: '/home/herholdt/Globdb_taxonomy/bac120_taxonomy_r232_reps.tsv'
 GLOBDB_TAXONOMY: '/home/herholdt/Globdb_taxonomy/combined_r232_taxonomy.tsv'
