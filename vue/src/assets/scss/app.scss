@@ -27,6 +27,55 @@ $colors: map-merge($colors, $addColors);
 
 // 4. Provide custom buefy overrides and site styles here
 
+:root {
+  // Spacing scale, used instead of retyping rem values throughout templates.
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  // Diffused shadow tokens -- soft ambient depth rather than harsh drop shadows.
+  --shadow-sm: 0 2px 10px rgba(20, 30, 28, 0.06);
+  --shadow-md: 0 8px 28px rgba(20, 30, 28, 0.1);
+  --shadow-lg: 0 16px 48px rgba(20, 30, 28, 0.14);
+  --shadow-inset-hairline: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+
+  // Systemic z-index layers, so overlays don't accumulate ad hoc magic numbers.
+  --z-sticky-nav: 2000;
+  --z-sticky-tab: 2001;
+  --z-sticky-close: 1999;
+  --z-tooltip: 9999;
+
+  --ease-spring: #{$easing};
+}
+
+body {
+  font-family: $family-sans-serif;
+}
+
+.title,
+.subtitle,
+h1, h2, h3 {
+  font-family: $family-display;
+  letter-spacing: -0.01em;
+}
+
+// Button interaction polish: a physical press instead of Bulma's flat
+// background-only hover, using only transform/opacity (GPU-safe).
+.button {
+  transition: transform $speed $easing, box-shadow $speed $easing, background-color $speed $easing, border-color $speed $easing;
+}
+.button:hover {
+  box-shadow: var(--shadow-sm);
+}
+.button:active {
+  transform: scale(0.97);
+}
+
 // For SMF
 // red
 $smf_low: #ff0000;

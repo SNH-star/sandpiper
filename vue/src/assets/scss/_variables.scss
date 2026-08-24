@@ -20,16 +20,21 @@ $white:        hsl(0, 0%, 100%) !default;
 $orange:       hsl(14,  100%, 53%) !default;
 $yellow:       hsl(48,  100%, 67%) !default;
 $green:        hsl(141, 71%,  48%) !default;
-$turquoise:    hsl(171, 100%, 41%) !default;
+// Brand primary: deep marsh teal, replacing Bulma's stock turquoise.
+$turquoise:    hsl(174, 62%,  28%) !default;
 $cyan:         hsl(204, 86%,  53%) !default;
 $blue:         hsl(217, 71%,  53%) !default;
 $purple:       hsl(271, 100%, 71%) !default;
 $red:          hsl(348, 100%, 61%) !default;
 
 // Typography
-
-$family-sans-serif: BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif !default;
-$family-monospace: monospace !default;
+//
+// Editorial serif for display type gives the site a point of view; the sans
+// stack drops the Roboto/Helvetica/Arial fallbacks Bulma ships by default
+// and prefers the OS-native UI faces instead.
+$family-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Georgia", serif !default;
+$family-sans-serif: system-ui, -apple-system, "Segoe UI", "Ubuntu", "Cantarell", sans-serif !default;
+$family-monospace: "SF Mono", "Cascadia Code", Consolas, monospace !default;
 $render-mode: optimizeLegibility !default;
 
 $size-1: 3rem !default;
@@ -61,12 +66,12 @@ $fullhd: 1344px + (2 * $gap) !default;
 
 // Miscellaneous
 
-$easing: ease-out !default;
-$radius-small: 2px !default;
-$radius: 3px !default;
-$radius-large: 5px !default;
+$easing: cubic-bezier(0.32, 0.72, 0, 1) !default;
+$radius-small: 6px !default;
+$radius: 10px !default;
+$radius-large: 18px !default;
 $radius-rounded: 290486px !default;
-$speed: 86ms !default;
+$speed: 220ms !default;
 
 // Flags
 

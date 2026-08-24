@@ -21,13 +21,15 @@
 <script>
 
 import { fetchAccession } from '@/api'
+import { stopPageLoading } from '@/store/pageLoading'
 
 export default {
   name: 'Accession',
   title: 'Accession search - Sandpiper',
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
+    // The template always shows something (an error, or "Searching for
+    // accession X.."), so it's never actually a blank page.
+    stopPageLoading()
     this.fetchData()
   },
   data () {

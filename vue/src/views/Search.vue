@@ -8,12 +8,17 @@
       </b-field>
       <p class="help">
         Key: value, comma-separated for multiple (e.g. "country: Australia, year: 2020").
-        <button type="button" class="text-toggle keys-toggle" :aria-expanded="keys_open" aria-controls="advanced-search-keys" @click="keys_open = !keys_open">List of Keys {{ keys_open ? '▴' : '▾' }}</button>
+        <button type="button" class="inline-toggle" :class="{ 'is-open': keys_open }" :aria-expanded="keys_open" aria-controls="advanced-search-keys" @click="keys_open = !keys_open">
+          List of keys
+          <span class="disclosure-chevron" aria-hidden="true">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
         <InfoTooltipButton controls="advanced-search-popover" label="Show search syntax help" :expanded="active_tooltip === 'keys_info'" @open="showTooltip('keys_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" />
       </p>
 
       <div id="advanced-search-keys" class="keys-panel" :class="{ 'is-open': keys_open }">
-        <div class="box mt-2 keys-box">
+        <div class="keys-box">
           <div class="keys-columns">
 
             <div class="keys-group">
@@ -117,14 +122,19 @@
         </div>
       </div>
 
-      <button type="button" class="text-toggle advanced-toggle has-text-grey is-size-7" :aria-expanded="advanced_open" aria-controls="advanced-search-options" @click="toggle_advanced">
-        Advanced options {{ advanced_open ? '▴' : '▾' }}
-      </button>
+      <div class="disclosure-row disclosure-row-standalone">
+        <button type="button" class="disclosure-toggle" :class="{ 'is-open': advanced_open }" :aria-expanded="advanced_open" aria-controls="advanced-search-options" @click="toggle_advanced">
+          Advanced options
+          <span class="disclosure-chevron" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+      </div>
 
       <div id="advanced-search-options" class="advanced-panel" :class="{ 'is-open': advanced_open }">
-        <div class="box mt-3">
+        <div class="adv-box">
 
-          <p class="adv-group-title has-text-primary">Location</p>
+          <p class="adv-group-title">Location</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="Country" v-model="adv.country" v-model:present="adv_present.country" placeholder="e.g. Australia" />
             <PresenceField class="adv-field" label="Location" v-model="adv.location" v-model:present="adv_present.location" placeholder="e.g. Pacific Ocean" />
@@ -132,7 +142,7 @@
             <PresenceField class="adv-field" label="Longitude" v-model="adv.longitude" v-model:present="adv_present.longitude" placeholder="e.g. 151.2 or 140-160" :error-message="adv_errors.longitude" @input="on_adv_field_input('longitude')" />
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Sample</p>
+          <p class="adv-group-title">Sample</p>
           <b-field grouped group-multiline class="sample-group-field adv-group-row">
             <PresenceField class="adv-field" label="Collection year" v-model="adv.year" v-model:present="adv_present.year" placeholder="e.g. 2010 or 2010-2015" :error-message="adv_errors.year" @input="on_adv_field_input('year')" />
             <PresenceField class="adv-field" label="Release year" v-model="adv.release_year" v-model:present="adv_present.release_year" placeholder="e.g. 2018 or 2015-2020" :error-message="adv_errors.release_year" @input="on_adv_field_input('release_year')" />
@@ -168,7 +178,7 @@
             </b-field>
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Quality / Size</p>
+          <p class="adv-group-title">Quality / Size</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="SPF %" v-model="adv.spf" v-model:present="adv_present.spf" placeholder="e.g. 80 or 50-100" :error-message="adv_errors.spf" @input="on_adv_field_input('spf')" />
             <PresenceField class="adv-field" label="Known species fraction %" v-model="adv.ksf" v-model:present="adv_present.ksf" placeholder="e.g. 90 or 70-100" :error-message="adv_errors.ksf" @input="on_adv_field_input('ksf')" />
@@ -177,7 +187,7 @@
             <PresenceField class="adv-field" label="Read length (bp)" v-model="adv.read_length" v-model:present="adv_present.read_length" placeholder="e.g. 150 or 100-250" :error-message="adv_errors.read_length" @input="on_adv_field_input('read_length')" />
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Sequencing</p>
+          <p class="adv-group-title">Sequencing</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="Platform" v-model="adv.platform" v-model:present="adv_present.platform" placeholder="e.g. Illumina">
               <template #label-suffix>
@@ -618,7 +628,7 @@
             </div>
           </teleport>
 
-          <p class="adv-group-title has-text-primary">Taxonomy</p>
+          <p class="adv-group-title">Taxonomy</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="Organism" v-model="adv.organism" v-model:present="adv_present.organism" placeholder="e.g. marine metagenome" />
             <b-field label="Taxonomy" label-for="adv-taxonomy" label-position="on-border" class="adv-field">
@@ -626,7 +636,7 @@
             </b-field>
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Study</p>
+          <p class="adv-group-title">Study</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="Study title" v-model="adv.study" v-model:present="adv_present.study" placeholder="e.g. Tara Oceans" />
             <PresenceField class="adv-field" label="Abstract" v-model="adv.abstract" v-model:present="adv_present.abstract" placeholder="e.g. coral reef" />
@@ -635,7 +645,7 @@
             </b-field>
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Identifiers</p>
+          <p class="adv-group-title">Identifiers</p>
           <b-field grouped group-multiline class="adv-group-row">
             <b-field label="SRA study" label-for="adv-sra-study" label-position="on-border" class="adv-field">
               <b-input id="adv-sra-study" :compat-fallthrough="false" v-model="adv.sra_study" placeholder="e.g. SRP012345" size="is-small"></b-input>
@@ -651,12 +661,12 @@
             </b-field>
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Submitter</p>
+          <p class="adv-group-title">Submitter</p>
           <b-field grouped group-multiline class="adv-group-row">
             <PresenceField class="adv-field" label="Organisation" v-model="adv.organisation" v-model:present="adv_present.organisation" placeholder="e.g. MIT or Woods Hole" />
           </b-field>
 
-          <p class="adv-group-title has-text-primary">Metadata</p>
+          <p class="adv-group-title">Metadata</p>
           <b-field grouped group-multiline class="adv-group-row">
             <b-field label-for="adv-attr" label-position="on-border" class="adv-field">
               <template #label>
@@ -752,6 +762,7 @@
 import { fetchTaxonomySearchHints, fetchSandpiperStats, fetchUniversalSearch } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
+import { stopPageLoading } from '@/store/pageLoading'
 import debounce from 'lodash/debounce'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import PresenceField from '@/components/PresenceField.vue'
@@ -890,6 +901,8 @@ export default {
   },
 
   created () {
+    // The template has no data gate -- the search form renders immediately.
+    stopPageLoading()
     // Vue binds functions declared in `methods`, which drops Lodash's custom
     // `.cancel()` property. Keep the debouncer as per-instance state instead.
     this.debounced_universal_preview = debounce(this.fetch_universal_preview, 450)
@@ -1388,7 +1401,7 @@ export default {
 }
 .info-tooltip-box {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
   color: #fff;
   border-radius: 8px;
@@ -1484,20 +1497,30 @@ export default {
 </style>
 
 <style scoped>
+/* Query syntax / example rows: a plain separated row by default (used
+   inline inside .adv-box, which already has its own padding), upgraded to
+   a tinted footer strip when it's the last thing inside .keys-box -- that
+   box clips to its own border-radius via overflow:hidden, so the tint
+   naturally picks up rounded bottom corners for free. */
 .keys-syntax-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.4rem 0.75rem 0.1rem;
-  border-top: 1px solid rgba(0,0,0,0.07);
-  margin-top: 0.4rem;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-1);
+  border-top: 1px solid hsl(174, 25%, 89%);
+  margin-top: var(--space-3);
+}
+.keys-box .keys-syntax-row {
+  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-1);
+  background: hsl(174, 30%, 95%);
 }
 .keys-syntax-title {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #999;
+  color: hsl(174, 40%, 38%);
   white-space: nowrap;
 }
 .keys-syntax-items {
@@ -1511,14 +1534,19 @@ export default {
   white-space: nowrap;
 }
 .keys-syntax-item code {
-  color: hsl(271, 100%, 71%);
+  color: hsl(174, 55%, 30%);
+  font-weight: 600;
   margin-right: 0.2rem;
 }
 .keys-example-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0.25rem;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 0;
+}
+.keys-box .keys-example-row {
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  background: hsl(174, 30%, 95%);
 }
 .keys-example-label {
   font-size: 0.75rem;
@@ -1530,49 +1558,118 @@ export default {
   color: #444;
   flex: 1;
 }
-.advanced-toggle {
-  cursor: pointer;
-  display: inline-block;
-  margin-top: 0.5rem;
-  user-select: none;
-}
-.text-toggle {
+
+/* "List of keys" sits inline in the help sentence -- a minimal text link,
+   deliberately not styled like the standalone "Advanced options" pill below
+   (see .disclosure-toggle) since it isn't a section-level control. */
+.inline-toggle {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   border: 0;
-  padding: 0;
   background: transparent;
-  color: inherit;
+  padding: 0;
+  margin-left: 0.3rem;
+  color: hsl(174, 62%, 28%);
   font: inherit;
-  text-decoration: underline;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: border-color 220ms var(--ease-spring), color 220ms var(--ease-spring);
 }
-.text-toggle:focus-visible {
-  outline: 2px solid currentColor;
+.inline-toggle:hover {
+  border-bottom-color: currentColor;
+}
+.inline-toggle:focus-visible {
+  outline: 2px solid hsl(174, 62%, 28%);
   outline-offset: 2px;
   border-radius: 2px;
+}
+.inline-toggle .disclosure-chevron {
+  transform: translateY(1px);
+}
+.inline-toggle.is-open .disclosure-chevron {
+  transform: translateY(1px) rotate(180deg);
+}
+
+/* "Advanced options" -- plain text + chevron, same minimal language as the
+   inline "List of keys" link, just standalone on its own line rather than
+   sitting inside a sentence. No pill/button chrome. */
+.disclosure-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.disclosure-row-standalone {
+  margin-top: var(--space-4);
+}
+.disclosure-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: hsl(174, 62%, 26%);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.6rem 0;
+  min-height: 44px;
+  cursor: pointer;
+  transition: border-color 220ms var(--ease-spring), color 220ms var(--ease-spring);
+}
+.disclosure-toggle:hover {
+  border-bottom-color: currentColor;
+}
+.disclosure-toggle:focus-visible {
+  outline: 2px solid hsl(174, 62%, 28%);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.disclosure-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 300ms var(--ease-spring);
+}
+.disclosure-toggle.is-open .disclosure-chevron {
+  transform: rotate(180deg);
 }
 .advanced-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.35s var(--ease-spring);
 }
 .advanced-panel.is-open {
   max-height: 4000px;
 }
+.adv-box {
+  background: hsl(174, 25%, 98.5%);
+  border: 1px solid hsl(174, 25%, 91%);
+  border-radius: 12px;
+  padding: var(--space-4);
+  margin-top: var(--space-2);
+}
 .adv-group-title {
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
   font-weight: 700;
+  color: hsl(174, 62%, 24%);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-top: 1.75rem;
-  margin-bottom: 0.6rem;
+  letter-spacing: 0.07em;
+  padding-bottom: var(--space-1);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+  border-bottom: 2px solid hsl(174, 45%, 85%);
 }
 .adv-group-title:first-child {
   margin-top: 0;
-}
-.keys-toggle {
-  cursor: pointer;
-  font-weight: 600;
-  margin-left: 0.2rem;
 }
 .info-icon-btn {
   cursor: help;
@@ -1618,36 +1715,41 @@ export default {
 .keys-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.35s var(--ease-spring);
 }
 .keys-panel.is-open {
   max-height: 1200px;
 }
 .keys-box {
-  padding: 1rem 1.25rem;
+  background: hsl(174, 25%, 98.5%);
+  border: 1px solid hsl(174, 25%, 91%);
+  border-radius: 12px;
+  margin-top: var(--space-2);
+  overflow: hidden;
 }
 .keys-columns {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem 2rem;
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-4) var(--space-2);
 }
 .keys-group {
-  min-width: 160px;
+  min-width: 150px;
   flex: 1;
 }
 .keys-group-title {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #999;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.2rem;
-  margin-bottom: 0.45rem;
+  color: hsl(174, 62%, 24%);
+  border-bottom: 2px solid hsl(174, 45%, 85%);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 .keys-item {
-  font-size: 0.82rem;
-  margin-bottom: 0.3rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
   display: flex;
   flex-direction: column;
   gap: 0.05rem;
@@ -1658,7 +1760,7 @@ export default {
   gap: 0.2rem;
 }
 .keys-example {
-  color: #aaa;
+  color: #a3a3a3;
   font-size: 0.75rem;
   padding-left: 0.25rem;
 }
@@ -1745,12 +1847,12 @@ export default {
     max-height: none;
     overflow: visible;
   }
-  .keys-box,
-  .advanced-panel > .box {
-    padding: 1rem;
+  .adv-box {
+    padding: var(--space-3);
   }
   .keys-columns {
     gap: 1rem;
+    padding: var(--space-4) var(--space-4) var(--space-2);
   }
   .keys-group {
     flex: 1 1 calc(50% - 0.5rem);
@@ -1760,8 +1862,11 @@ export default {
   .keys-example-row {
     align-items: flex-start;
     flex-direction: column;
-    padding-left: 0;
-    padding-right: 0;
+  }
+  .keys-box .keys-syntax-row,
+  .keys-box .keys-example-row {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
   .keys-example-query {
     width: 100%;
@@ -1796,13 +1901,6 @@ export default {
   }
   .advanced-search-section :deep(.button) {
     min-height: 44px;
-  }
-  .text-toggle {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
   }
 }
 

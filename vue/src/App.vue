@@ -1,6 +1,5 @@
 <template>
   <div id="app">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@5.8.55/css/materialdesignicons.min.css">
     <b-navbar :centered="true" type="is-light">
         <template #start>
             <b-navbar-item tag="router-link" :to="{ path: '/' }">Home</b-navbar-item>
@@ -34,8 +33,11 @@
               </b-field>
               <div class="sticky-sub-row">
                 <span class="sticky-keys-left">
-                  <button type="button" class="text-toggle sticky-keys-toggle has-text-grey is-size-7" :aria-expanded="sticky_keys_open" aria-controls="run-search-keys" @click="sticky_keys_open = !sticky_keys_open">
-                    List of Keys {{ sticky_keys_open ? '▴' : '▾' }}
+                  <button type="button" class="sticky-keys-toggle" :class="{ 'is-open': sticky_keys_open }" :aria-expanded="sticky_keys_open" aria-controls="run-search-keys" @click="sticky_keys_open = !sticky_keys_open">
+                    List of keys
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
                   </button>
                   <InfoTooltipButton controls="run-search-popover" label="Show search syntax help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'keys_info'" @open="showStickyTooltip($event, 'keys_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" />
                 </span>
@@ -260,9 +262,11 @@
       </teleport>
     </template>
 
-    <router-view :key="$route.name + ($route.params.accession || '')" />
+    <div class="route-content">
+      <img v-if="pageLoadingState.isLoading" src="./assets/sandpiper.jpg" alt="" aria-hidden="true" class="route-content-image" />
+      <router-view :key="$route.name + ($route.params.accession || '')" />
+    </div>
 
-    &nbsp;
     <footer class="footer">
       <div class="content">
         <div class="columns">
@@ -295,6 +299,7 @@
 import { fetchUniversalSearch } from '@/api'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
+import { pageLoadingState, startPageLoading } from '@/store/pageLoading'
 import debounce from 'lodash/debounce'
 
 function queryParamToString (value) {
@@ -324,6 +329,7 @@ export default {
       sticky_tooltip_y: 0,
       sticky_tooltip_timer: null,
       scroll_up_accum: 0,
+      pageLoadingState,
     }
   },
 
@@ -341,6 +347,17 @@ export default {
       }
     },
     '$route' (to, from) {
+      // Only start the loading window when the router-view key (below)
+      // is actually about to change -- that's the only case where the view
+      // remounts and its created() hook runs stopPageLoading() to end this
+      // window. A same-route query change (e.g. Search's "Try it" example,
+      // which does $router.replace({ query }) without changing name/
+      // accession) fires this watcher too, but doesn't remount anything --
+      // starting the loading state there left it stuck on forever, since
+      // nothing was ever going to call stopPageLoading() again.
+      const routeKeyChanged = (to.name + (to.params.accession || '')) !== (from.name + (from.params.accession || ''))
+      if (routeKeyChanged) startPageLoading()
+
       if (from.name === 'Run' && from.params.accession && from.params.accession !== to.params.accession) {
         this.run_history.push({ accession: from.params.accession, q: queryParamToString(from.query.q) })
       }
@@ -546,8 +563,49 @@ export default {
     background-size: 100%;
   }
   .footer-image {
-    height: 50%;
+    max-height: 6.75rem;
+    width: auto;
   }
+}
+
+.footer {
+  margin-top: var(--space-12);
+}
+
+.route-content {
+  /* Every route fully remounts on navigation (see the router-view key
+     above), and most pages fetch their data async with little/no static
+     content to show while waiting. Without a floor here, the footer
+     visibly jumps up to fill that gap right after navigating and then
+     jumps back down once the new page's data loads. */
+  position: relative;
+  /* Establishes route-content's own stacking context, so the backdrop
+     image's z-index: -1 resolves *within it* (painting above this
+     background, below the router-view content) instead of escaping to
+     whatever ancestor stacking context is next up -- without this, adding
+     an opaque background below risked painting behind the backdrop image
+     entirely, which would have silently broken the loading backdrop. */
+  z-index: 0;
+  min-height: 60vh;
+  /* Explicit, not inherited from body's near-white Bulma default -- every
+     page except Home should sit on genuine white regardless of what the
+     loading-state JS is doing. */
+  background: #fff;
+}
+.route-content-image {
+  /* Only in the DOM while pageLoadingState.isLoading is true (see
+     src/store/pageLoading.ts) -- shown for the "waiting page" moment right
+     after navigating, removed again once the new view's created() hook
+     confirms its own content is actually ready. Every other page stays
+     plain white behind its own content, as intended. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  filter: contrast(1.3) saturate(1.4) brightness(0.96);
+  z-index: -1;
 }
 
 .sticky-pull-tab {
@@ -555,7 +613,7 @@ export default {
   position: fixed;
   top: 50vh;
   right: 0;
-  z-index: 2001;
+  z-index: var(--z-sticky-tab);
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -568,11 +626,11 @@ export default {
   align-items: center;
   box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.08);
   user-select: none;
-  transition: background 0.15s ease;
+  transition: background 0.2s var(--ease-spring);
 }
 .sticky-pull-tab:focus-visible,
 .sticky-close-tab:focus-visible,
-.text-toggle:focus-visible {
+.sticky-keys-toggle:focus-visible {
   outline: 2px solid #3273dc;
   outline-offset: 2px;
 }
@@ -594,15 +652,15 @@ export default {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 2000;
+  z-index: var(--z-sticky-nav);
   background: rgba(255, 255, 255, 1);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--shadow-md);
   padding: 0.9rem 3.5rem 0.7rem;
   transform: translateY(-110%);
-  transition: transform 0.25s ease;
+  transition: transform 0.35s var(--ease-spring);
 }
 .sticky-search-bar.is-visible {
   transform: translateY(0);
@@ -657,7 +715,7 @@ export default {
   top: 100%;
   right: 1.5rem;
   margin-top: -1px;
-  z-index: 1999;
+  z-index: var(--z-sticky-close);
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.82);
@@ -670,7 +728,7 @@ export default {
   cursor: pointer;
   user-select: none;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  transition: background 0.15s ease;
+  transition: background 0.2s var(--ease-spring);
 }
 .sticky-close-tab:hover {
   background: rgba(255, 255, 255, 0.96);
@@ -702,20 +760,42 @@ export default {
   white-space: nowrap;
   pointer-events: none;
 }
+/* Matches Search.vue's redesigned "List of keys" / "Advanced options"
+   toggles: plain text + chevron, no pill/button chrome, and a teal-tinted
+   card for the expanded content instead of the old frosted grey box. */
 .sticky-keys-toggle {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 0;
+  border-bottom: 1px solid transparent;
   padding: 0;
   background: transparent;
+  color: hsl(174, 62%, 26%);
   font: inherit;
-  cursor: pointer;
+  font-size: 0.78rem;
   font-weight: 600;
+  cursor: pointer;
   user-select: none;
+  transition: border-color 220ms var(--ease-spring), color 220ms var(--ease-spring);
+}
+.sticky-keys-toggle:hover {
+  border-bottom-color: currentColor;
+}
+.disclosure-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 300ms var(--ease-spring);
+}
+.sticky-keys-toggle.is-open .disclosure-chevron {
+  transform: rotate(180deg);
 }
 .sticky-keys-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height 0.35s var(--ease-spring);
 }
 .sticky-keys-panel.is-open {
   max-height: 650px;
@@ -723,17 +803,17 @@ export default {
 .sticky-syntax-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.4rem 0.75rem 0.1rem;
-  border-top: 1px solid rgba(0,0,0,0.07);
-  margin-top: 0.4rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-1);
+  background: hsl(174, 30%, 95%);
 }
 .sticky-syntax-title {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #999;
+  color: hsl(174, 40%, 38%);
   white-space: nowrap;
 }
 .sticky-syntax-items {
@@ -747,14 +827,16 @@ export default {
   white-space: nowrap;
 }
 .sticky-syntax-item code {
-  color: hsl(271, 100%, 71%);
+  color: hsl(174, 55%, 30%);
+  font-weight: 600;
   margin-right: 0.2rem;
 }
 .sticky-example-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem 0.25rem;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  background: hsl(174, 30%, 95%);
 }
 .sticky-example-label {
   font-size: 0.75rem;
@@ -767,45 +849,46 @@ export default {
   flex: 1;
 }
 .sticky-keys-box {
-  background: rgba(225, 225, 225, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 6px;
-  padding: 0.75rem 1.25rem;
-  margin-top: 0.4rem;
+  background: hsl(174, 25%, 98.5%);
+  border: 1px solid hsl(174, 25%, 91%);
+  border-radius: 12px;
+  margin-top: var(--space-2);
+  overflow: hidden;
 }
 .sticky-keys-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-4) var(--space-2);
 }
 .sticky-keys-grid code {
-  color: hsl(271, 100%, 71%);
+  color: hsl(174, 55%, 30%);
 }
 .keys-group {
-  min-width: 0;
+  min-width: 150px;
+  flex: 1;
 }
 .keys-group-title {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #999;
-  border-bottom: 1px solid rgba(0,0,0,0.1);
-  padding-bottom: 0.2rem;
-  margin-bottom: 0.35rem;
+  color: hsl(174, 62%, 24%);
+  border-bottom: 2px solid hsl(174, 45%, 85%);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 .keys-item {
-  font-size: 0.8rem;
-  margin-bottom: 0.25rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.02rem;
+  gap: 0.05rem;
 }
 .keys-example {
-  color: #aaa;
-  font-size: 0.72rem;
-  padding-left: 0.2rem;
+  color: #a3a3a3;
+  font-size: 0.75rem;
+  padding-left: 0.25rem;
 }
 .sticky-keys-left {
   display: flex;
@@ -828,7 +911,7 @@ export default {
 }
 .sticky-info-tooltip {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
   color: #fff;
   border-radius: 8px;
@@ -875,9 +958,6 @@ export default {
   }
   .sticky-logos-right {
     display: none;
-  }
-  .sticky-keys-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -939,7 +1019,7 @@ export default {
     display: block;
     width: auto;
     height: auto;
-    max-height: 72px;
+    max-height: 4.5rem;
     margin: 0 auto;
   }
   .sticky-pull-tab {
@@ -996,10 +1076,6 @@ export default {
   .sticky-keys-panel.is-open {
     max-height: none;
   }
-  .sticky-keys-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
   .sticky-info-tooltip {
     left: 10px !important;
     top: 10px !important;
@@ -1017,15 +1093,15 @@ export default {
 }
 
 @media (max-width: 430px) {
-  .sticky-keys-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .keys-group {
+    flex-basis: 100%;
   }
   .sticky-syntax-row,
   .sticky-example-row {
     align-items: flex-start;
     flex-direction: column;
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
   }
   .sticky-syntax-item {
     white-space: normal;
@@ -1034,8 +1110,8 @@ export default {
     width: 100%;
     overflow-wrap: anywhere;
   }
-  .sticky-keys-box {
-    padding: 0.75rem;
+  .sticky-keys-grid {
+    padding: var(--space-3) var(--space-3) var(--space-1);
   }
 }
 

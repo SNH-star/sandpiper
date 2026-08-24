@@ -9,12 +9,14 @@
 <script>
 
 import { fetchRandomAccession } from '@/api'
+import { stopPageLoading } from '@/store/pageLoading'
 
 export default {
   name: 'Random',
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
+    // The template has no data gate -- it always shows the "choosing..."
+    // message, so it's never actually a blank page.
+    stopPageLoading()
     this.fetchData()
   },
   computed: {

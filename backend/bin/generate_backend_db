@@ -1410,6 +1410,103 @@ def add_parsed_metadata(db, run_accession_to_id, parsed_metadata):
     logging.info("Added parsed metadata for {} samples to DB".format(len(updates)))
 
 
+def add_indicpiper_scores(db_path, indicpiper_csv_path):
+    '''Populate indicator_habitat_scores from a pre-built IndicPiper indicator
+    table (genus_habitat_indicators_custom.csv -- see indicpiper_custom/,
+    which is NOT regenerated here; this stage only consumes an already-built,
+    already-validated CSV referenced by --indicpiper-csv).
+
+    For every (sample, habitat) pair, sums condensed_profiles.relative_abundance
+    over every genus flagged as an indicator of that habitat in the CSV. Only
+    nonzero-score pairs get a row -- see IndicatorHabitatScore's docstring in
+    api/models.py for why this is a normalized table rather than one column
+    per habitat (~15.6% of the dense sample x habitat matrix is nonzero,
+    verified against the live DB in 2026-08).
+    '''
+    logging.info("Adding IndicPiper habitat indicator scores ..")
+
+    if not os.path.exists(indicpiper_csv_path):
+        raise Exception("IndicPiper indicator CSV not found: {}".format(indicpiper_csv_path))
+
+    # Deliberately NOT db.session.connection().connection here, unlike the
+    # other add_* stage functions in this file. db.session is bound to Flask's
+    # SQLALCHEMY_DATABASE_URI (api/config.py), which is a config-level constant
+    # (backend/db/sandpiper_40.duckdb) completely independent of --o/db_path --
+    # it silently ignores whatever -o was actually given. Confirmed the hard
+    # way: backend/db/sandpiper_40.duckdb is a symlink to the real production
+    # sandpiper-advanced-search checkout, so a db.session-based connection here
+    # would open a read-write connection (generate_backend_db sets
+    # SANDPIPER_LOADING_DATA=1, which disables the read-only guard) straight to
+    # the live prod DB regardless of -o -- it only failed harmlessly that time
+    # because indicator_habitat_scores didn't exist there yet. Opening our own
+    # connection directly against db_path is the only way this stage actually
+    # respects -o.
+    conn = duckdb.connect(db_path)
+
+    # Self-sufficient regardless of whether 'start' already created this
+    # table via db.create_all() against this exact db_path (see the note
+    # above -- that path has the same -o-independence problem, and separately,
+    # a db that predates indicator_habitat_scores being added to the schema
+    # -- e.g. an existing build this stage is being applied to after the fact
+    # -- genuinely never had 'start' run against it with this table defined).
+    conn.execute("CREATE SEQUENCE IF NOT EXISTS indicator_habitat_scores_id_seq")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS indicator_habitat_scores (
+            id INTEGER PRIMARY KEY DEFAULT nextval('indicator_habitat_scores_id_seq'),
+            run_id INTEGER NOT NULL REFERENCES ncbi_metadata(id),
+            habitat VARCHAR NOT NULL,
+            score DOUBLE NOT NULL
+        )
+    """)
+
+    # Safe to re-run: clear any scores from a previous run of this stage
+    # before inserting, rather than relying on 'start' having wiped the DB.
+    conn.execute("DELETE FROM indicator_habitat_scores")
+
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE indicpiper_indicators AS
+        SELECT "Taxonomy" AS taxonomy, "Habitat" AS habitat
+        FROM read_csv_auto('{csv_path}')
+    """.format(csv_path=indicpiper_csv_path))
+
+    # genus_habitat_indicators_custom.csv's Taxonomy has GTDB rank prefixes
+    # stripped -- runIndicPiper() does this itself (IndicPiper.R:258's
+    # gsub("Root; |d__|p__|c__|o__|f__|g__", "", Taxonomy)) before writing the
+    # output CSV. taxonomies.full_name keeps them (e.g. "d__Archaea; p__X;
+    # ..."), so the join has to strip the same prefixes or it silently matches
+    # nothing -- verified empirically against the live DB in 2026-08, a naive
+    # exact-string join returned zero rows across all 913k samples.
+    conn.execute("""
+        INSERT INTO indicator_habitat_scores (id, run_id, habitat, score)
+        SELECT
+            nextval('indicator_habitat_scores_id_seq'),
+            g.run_id,
+            i.habitat,
+            sum(g.relative_abundance) AS score
+        FROM (
+            SELECT
+                cp.run_id,
+                regexp_replace(t.full_name, 'd__|p__|c__|o__|f__|g__', '', 'g') AS genus,
+                cp.relative_abundance
+            FROM condensed_profiles cp
+            JOIN taxonomies t ON t.id = cp.taxonomy_id
+            WHERE cp.taxonomy_type = 'gtdb' AND t.taxonomy_level = 'genus'
+        ) g
+        JOIN indicpiper_indicators i ON i.taxonomy = g.genus
+        GROUP BY g.run_id, i.habitat
+        HAVING sum(g.relative_abundance) > 0
+    """)
+    conn.commit()
+
+    n_rows = conn.execute("SELECT count(*) FROM indicator_habitat_scores").fetchone()[0]
+    n_samples = conn.execute("SELECT count(DISTINCT run_id) FROM indicator_habitat_scores").fetchone()[0]
+    n_habitats = conn.execute("SELECT count(DISTINCT habitat) FROM indicator_habitat_scores").fetchone()[0]
+    logging.info("  {} (sample, habitat) score rows, {} samples, {} habitats".format(
+        n_rows, n_samples, n_habitats))
+    conn.close()
+    logging.info("Added IndicPiper habitat indicator scores")
+
+
 if __name__ == '__main__':
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument('--debug', help='output debug information', action="store_true")
@@ -1437,8 +1534,11 @@ if __name__ == '__main__':
     parent_parser.add_argument('--parsed-metadata-table', help='parsed metadata table to read')
     parent_parser.add_argument('--metalog-provenance', help='derived Metalog provenance JSON')
     parent_parser.add_argument('--otu-parquet-dir', help='directory for OTU parquet chunks')
+    parent_parser.add_argument('--indicpiper-csv',
+        help='IndicPiper genus_habitat_indicators_custom.csv path (see indicpiper_custom/) -- '
+             'a direct reference to the pre-built indicator table for now, not regenerated by this run')
 
-    parent_parser.add_argument('--stage', help='processing stage to run', choices=['start', 'taxonomy_upload', 'stage2', 'update_smf', 'tags', 'otus_parquet', 'otus_load', 'parsed_metadata'], required=True)
+    parent_parser.add_argument('--stage', help='processing stage to run', choices=['start', 'taxonomy_upload', 'stage2', 'update_smf', 'tags', 'otus_parquet', 'otus_load', 'parsed_metadata', 'indicpiper'], required=True)
 
     parent_parser.add_argument('--gtdb-archaea-taxonomy', help='GTDB archaea taxonomy TSV (two columns: accession, taxonomy)')
     parent_parser.add_argument('--gtdb-bacteria-taxonomy', help='GTDB bacteria taxonomy TSV (two columns: accession, taxonomy)')
@@ -1513,6 +1613,7 @@ if __name__ == '__main__':
                 'ncbi_metadata_id_seq',
                 'tags_id_seq',
                 'run_tags_id_seq',
+                'indicator_habitat_scores_id_seq',
             ]
             for seq in seqs:
                 conn.execute(f"CREATE SEQUENCE {seq}")
@@ -1648,6 +1749,12 @@ if __name__ == '__main__':
                 else:
                     existing.value = json.dumps(provenance)
                 db.session.commit()
+
+        elif args.stage == 'indicpiper':
+            if not args.indicpiper_csv:
+                raise Exception("indicpiper-csv must be specified for stage {}".format(args.stage))
+
+            add_indicpiper_scores(db_path, args.indicpiper_csv)
 
         else:
             raise Exception("Unknown stage {}".format(args.stage))

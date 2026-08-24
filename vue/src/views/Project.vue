@@ -67,6 +67,7 @@
 <script>
 
 import { fetchProjectMetadata } from '@/api'
+import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
 export default {
   name: 'Project',
@@ -135,6 +136,10 @@ export default {
       const model_bioproject = this.$route.query.model_bioproject
       this.model_bioproject = model_bioproject
 
+      // Captured now, not read lazily inside .finally() -- see
+      // src/store/pageLoading.ts for why a stale token must not clear a
+      // newer navigation's loading state.
+      const loadingToken = currentLoadingToken()
       fetchProjectMetadata(model_bioproject)
         .then(response => {
           if (response.data.error !== undefined) {
@@ -143,6 +148,9 @@ export default {
             this.metadata = response.data
           }
         })
+        // The template gates on metadata/error_message, so the page is
+        // genuinely blank until this settles either way.
+        .finally(() => stopPageLoading(loadingToken))
     },
     get_smf_category1: function (smf, smf_warning) {
       if (smf_warning === true) {

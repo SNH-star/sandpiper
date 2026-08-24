@@ -264,6 +264,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 
 <script>
 import { fetchSandpiperStats } from '@/api'
+import { stopPageLoading } from '@/store/pageLoading'
 
 export default {
   name: 'About',
@@ -279,8 +280,8 @@ export default {
     }
   },
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
+    // The template has no data gate -- the page renders immediately.
+    stopPageLoading()
     this.fetchData()
   },
   methods: {

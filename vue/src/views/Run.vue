@@ -161,6 +161,7 @@ import RunMetadata from '@/components/RunMetadata.vue'
 
 import { api_url, fetchRunMetadata, fetchRunCondensed } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
+import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
 export default {
   name: 'Run',
@@ -297,6 +298,10 @@ export default {
       this.fetchCondensed('gtdb')
       this.fetchCondensed('globdb')
 
+      // Captured now, not read lazily inside .finally() -- see
+      // src/store/pageLoading.ts for why a stale token must not clear a
+      // newer navigation's loading state.
+      const loadingToken = currentLoadingToken()
       fetchRunMetadata(accession)
         .then(response => {
           if (response.data.error !== undefined) {
@@ -305,6 +310,9 @@ export default {
             this.metadata = response.data
           }
         })
+        // The template gates on metadata/error_message, so the page is
+        // genuinely blank until this settles either way.
+        .finally(() => stopPageLoading(loadingToken))
     },
     study_toplink (link) {
       if (link['database'].toLowerCase()==='pubmed') {

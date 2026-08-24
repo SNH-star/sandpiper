@@ -84,11 +84,11 @@
 
           <div class="has-text-centered mapping-mode-switcher">
             <b-field grouped position="is-centered">
-              <b-radio-button v-model="mode" native-value="geographic" type="is-info"
+              <b-radio-button v-model="mode" native-value="geographic" :type="mode === 'geographic' ? 'is-primary' : ''"
                 @input="onModeChange('geographic')">
                 Geographical Mapping
               </b-radio-button>
-              <b-radio-button v-model="mode" native-value="niche" type="is-warning"
+              <b-radio-button v-model="mode" native-value="niche" :type="mode === 'niche' ? 'is-primary' : ''"
                 @input="onModeChange('niche')">
                 Niche Mapping
               </b-radio-button>
@@ -98,57 +98,59 @@
 
           <div v-if="mode === 'niche'" class="niche-mapping-panel">
             <div class="niche-mapping-panel-header">
-              <h3 class="subtitle is-4">Niche Mapping</h3>
+              <p class="niche-mapping-eyebrow">Filter by niche</p>
               <b-button v-if="activeNicheFilters" type="is-text" size="is-small" icon-left="close"
                 @click="resetNicheFilters">
                 Reset filters
               </b-button>
             </div>
-            <p class="help">
+            <p class="help niche-mapping-help">
               Filter the maps and matching samples below by pH, temperature,
-              host association, and Piper community. Sliders only stop on
+              host association, and IndicPiper community. Sliders only stop on
               values actually present for this taxon, and narrow each other
               as you pick.
             </p>
 
-            <b-field label="pH">
-              <div v-if="phOptions.length" class="niche-slider-row">
-                <b-slider v-model="phIndex" :min="0" :max="phOptions.length" :step="1" ticks
-                  :custom-formatter="formatPhIndex" @change="onPhIndexChange" />
-                <span class="niche-slider-value">{{ ph !== null ? ph : 'Any' }}</span>
-              </div>
-              <p v-else class="help">No pH data available for the current filters.</p>
-            </b-field>
+            <div class="niche-field-grid">
+              <b-field label="pH" class="niche-field">
+                <div v-if="phOptions.length" class="niche-slider-row">
+                  <b-slider v-model="phIndex" type="is-primary" :min="0" :max="phOptions.length" :step="1" ticks
+                    :custom-formatter="formatPhIndex" @change="onPhIndexChange" />
+                  <span class="niche-slider-value">{{ ph !== null ? ph : 'Any' }}</span>
+                </div>
+                <p v-else class="help">No pH data available for the current filters.</p>
+              </b-field>
 
-            <b-field label="Temperature (°C)">
-              <div v-if="temperatureOptions.length" class="niche-slider-row">
-                <b-slider v-model="temperatureIndex" :min="0" :max="temperatureOptions.length" :step="1" ticks
-                  :custom-formatter="formatTemperatureIndex" @change="onTemperatureIndexChange" />
-                <span class="niche-slider-value">{{ temperature !== null ? temperature : 'Any' }}</span>
-              </div>
-              <p v-else class="help">No temperature data available for the current filters.</p>
-            </b-field>
+              <b-field label="Temperature (°C)" class="niche-field">
+                <div v-if="temperatureOptions.length" class="niche-slider-row">
+                  <b-slider v-model="temperatureIndex" type="is-primary" :min="0" :max="temperatureOptions.length" :step="1" ticks
+                    :custom-formatter="formatTemperatureIndex" @change="onTemperatureIndexChange" />
+                  <span class="niche-slider-value">{{ temperature !== null ? temperature : 'Any' }}</span>
+                </div>
+                <p v-else class="help">No temperature data available for the current filters.</p>
+              </b-field>
 
-            <b-field label="Host association">
-              <b-select v-model="hostAssociation" @update:model-value="onHostAssociationChange">
-                <option value="">Any</option>
-                <option v-for="opt in hostAssociationOptions" :key="opt" :value="opt">
-                  {{ opt === 'host' ? 'Host-associated' : 'Ecological' }}
-                </option>
-              </b-select>
-            </b-field>
-
-            <b-field label="Piper community">
-              <div v-if="piperCommunityOptions.length">
-                <b-select v-model="piperCommunity" @update:model-value="onPiperCommunityChange">
+              <b-field label="Host association" class="niche-field">
+                <b-select v-model="hostAssociation" expanded @update:model-value="onHostAssociationChange">
                   <option value="">Any</option>
-                  <option v-for="opt in piperCommunityOptions" :key="opt" :value="opt">
-                    {{ opt }}
+                  <option v-for="opt in hostAssociationOptions" :key="opt" :value="opt">
+                    {{ opt === 'host' ? 'Host-associated' : 'Ecological' }}
                   </option>
                 </b-select>
-              </div>
-              <p v-else class="help">No IndicPiper community data available for the current filters.</p>
-            </b-field>
+              </b-field>
+
+              <b-field label="IndicPiper community" class="niche-field">
+                <div v-if="piperCommunityOptions.length">
+                  <b-select v-model="piperCommunity" expanded @update:model-value="onPiperCommunityChange">
+                    <option value="">Any</option>
+                    <option v-for="opt in piperCommunityOptions" :key="opt" :value="opt">
+                      {{ opt }}
+                    </option>
+                  </b-select>
+                </div>
+                <p v-else class="help">No IndicPiper community data available for the current filters.</p>
+              </b-field>
+            </div>
           </div>
 
           <h3 class="subtitle is-4">Sample distribution</h3>
@@ -283,6 +285,7 @@
 <script>
 import { api_url, fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, fetchTaxonomyNicheOptions } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
+import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
 // If you need to reference 'L', such as in 'L.icon', then be sure to
 // explicitly import 'leaflet' into your component
@@ -415,9 +418,12 @@ export default {
     }
   },
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
-    this.fetchGlobalData()
+    // The template gates on search_result/total_num_results, so the page is
+    // genuinely blank until this settles either way. Token captured now,
+    // not read lazily inside .finally() -- see src/store/pageLoading.ts
+    // for why a stale token must not clear a newer navigation's state.
+    const loadingToken = currentLoadingToken()
+    this.fetchGlobalData().finally(() => stopPageLoading(loadingToken))
   },
   methods: {
     reset_map: function () {
@@ -861,26 +867,44 @@ export default {
   text-align: center;
 }
 .niche-mapping-panel {
-  max-width: 640px;
+  max-width: 720px;
   margin: 0 auto 1.5rem;
-  padding: 1.25rem 1.5rem;
-  background: #fafaf7;
-  border: 1px solid #eee7d8;
-  border-radius: 6px;
+  padding: var(--space-6);
+  background: hsl(174, 25%, 98.5%);
+  border: 1px solid hsl(174, 25%, 91%);
+  border-radius: 12px;
+  text-align: left;
 }
 .niche-mapping-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
 }
-.niche-mapping-panel-header .subtitle {
-  margin-bottom: 0;
+.niche-mapping-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(174, 62%, 24%);
+  margin: 0;
+}
+.niche-mapping-help {
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+.niche-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-6);
+}
+.niche-field {
+  min-width: 0;
 }
 .niche-slider-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-3);
   width: 100%;
 }
 .niche-slider-row :deep(.b-slider) {
@@ -888,10 +912,11 @@ export default {
 }
 .niche-slider-value {
   flex: 0 0 auto;
-  min-width: 5rem;
+  min-width: 4rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: #555;
+  font-size: 0.85rem;
+  color: #666;
 }
 .individual-runs-map {
   width: 100%;
@@ -937,6 +962,13 @@ export default {
 @media (max-width: 768px) {
   .taxonomy-switcher :deep(.field-body > .field.is-grouped) {
     flex-wrap: wrap;
+  }
+  .niche-mapping-panel {
+    padding: var(--space-4);
+  }
+  .niche-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
   .individual-runs-map {
     height: clamp(320px, 60vh, 500px);
