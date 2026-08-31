@@ -36,13 +36,14 @@ future upstream release.
 2. Make IndicPiper a properly tracked git submodule, so pulling a future
    upstream release is a deliberate, reproducible `git submodule
    update --remote` + commit, not a manual file copy.
-3. Show which indicator genera are actually present (by relative
+3. Remove the manual regenerate-from-Sandpiper-data pipeline entirely --
+   no local/custom versioning, only what the IndicPiper submodule itself
+   ships.
+4. Show which indicator genera are actually present (by relative
    abundance) next to each habitat's score on a run's page.
 
 ## Non-goals
 
-- Keeping the regenerate-from-Sandpiper-data pipeline as part of the
-  automated build. It remains available as opt-in manual tooling only.
 - Changing how the per-habitat score itself is computed (still the sum of
   `condensed_profiles.relative_abundance` over that habitat's indicator
   genera, for genera present in the run).
@@ -76,9 +77,7 @@ the highest version number found. This means a future submodule bump that
 ships a `v3.csv` is picked up automatically, with no Snakefile edit.
 
 Remove `build_indicpiper_metadata`, `build_indicpiper_genus`, and
-`run_indicpiper` from the rule graph entirely (they stay defined in
-`indicpiper_custom/scripts/` and `config.yml` for optional manual use, but
-nothing in the automated build calls them). `add_indicpiper_scores_to_backend_db`
+`run_indicpiper` from the rule graph entirely. `add_indicpiper_scores_to_backend_db`
 now depends only on `parsed_metadata_done` (plus the submodule's checked-out
 CSV, which is part of the repo, not a build product).
 
@@ -87,9 +86,19 @@ read by anything). `INCLUDE_INDICPIPER` keeps its existing on/off meaning
 (off = copy the db forward unchanged, matching every other optional stage's
 contract).
 
-`indicpiper_custom/config.yml`: re-comment as manual/optional tooling for
-regenerating a custom indicator set from Sandpiper's own data, explicitly
-noting it is no longer invoked by the Snakefile.
+**No manual regeneration path is kept.** Delete the whole
+regenerate-from-Sandpiper-data pipeline outright, so `indicpiper_custom/`
+contains nothing but the `IndicPiper` submodule:
+
+- `indicpiper_custom/scripts/build_indicpiper_inputs.py`
+- `indicpiper_custom/scripts/run_indicpiper.R`
+- `indicpiper_custom/scripts/check_indicpiper.R`
+- `indicpiper_custom/scripts/check_sparsity.py`
+- `indicpiper_custom/scripts/diagnose.py`
+- `indicpiper_custom/outputs/run_params.R` (tracked)
+- `indicpiper_custom/config.yml` (untracked, remove from working tree)
+- `indicpiper_custom/outputs/*.csv.gz`, `outputs/*.tsv` (untracked scratch
+  outputs from prior manual runs, remove from working tree)
 
 ### 3. Guard against a future GTDB-version mismatch
 
@@ -143,6 +152,10 @@ manual, against a real (or representative sample of) duckdb build:
 
 - After registering the submodule: `git submodule status` shows a clean,
   committed gitlink (no `-`/`+` prefix).
+- After deletion: `indicpiper_custom/` contains only the `IndicPiper`
+  submodule directory -- `git status` shows no leftover tracked or
+  untracked files under `indicpiper_custom/` other than the submodule
+  itself.
 - After the Snakefile change: `snakemake -n` (dry run) shows
   `add_indicpiper_scores_to_backend_db` no longer depends on
   `run_indicpiper_done`, and resolves `INDICPIPER_OUTPUT_CSV` to the
