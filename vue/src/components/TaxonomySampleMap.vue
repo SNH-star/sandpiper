@@ -110,8 +110,7 @@ const DOT_SCALE = 14
 
 export default {
   name: 'TaxonomySampleMap',
-  // Either a taxon, or a search-box query (the "Explore tabled results" page;
-  // taxonomyType 'amplicon' then means the amplicon search).
+  // Either a taxon, or a search-box query (the "Explore tabled results" page).
   props: ['taxon', 'taxonomyType', 'nicheFilters', 'query'],
   data () {
     return {
@@ -144,9 +143,6 @@ export default {
     }
   },
   computed: {
-    queryDataset () {
-      return this.taxonomyType === 'amplicon' ? 'amplicon' : 'metagenome'
-    },
     land () {
       return feature(countries110m, countries110m.objects.land)
     },
@@ -209,7 +205,7 @@ export default {
         // matching runs that's the difference between ~17,000 and ~5,500
         // SVG circles to draw, which was the actual bulk of the load time.
         const { data } = this.query
-          ? await fetchQueryMap(this.query, this.queryDataset, 0, this.nicheFilters)
+          ? await fetchQueryMap(this.query, 0, this.nicheFilters)
           : await fetchTaxonomyMap(this.taxon, this.taxonomyType, 0, this.nicheFilters)
         this.cells = data.cells || []
         this.total = data.total || 0
@@ -429,7 +425,7 @@ export default {
       const requestToken = ++this.tipRequestToken
       try {
         const { data } = this.query
-          ? await fetchQueryMapCellStudies(this.query, this.queryDataset, cell.lat, cell.lon, this.precision, this.nicheFilters)
+          ? await fetchQueryMapCellStudies(this.query, cell.lat, cell.lon, this.precision, this.nicheFilters)
           : await fetchTaxonomyMapCellStudies(
             this.taxon, this.taxonomyType, cell.lat, cell.lon, this.precision, this.nicheFilters
           )

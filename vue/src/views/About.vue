@@ -132,7 +132,6 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
         <div class="columns has-text-left">
           <div class="column content">
             <ul>
-            <li>Additional information Amplicons gathered using <a href="https://github.com/R-Nurdiansyah/Wagtail">Wagtail</a>. ----------Need More Context -----------</li>
               <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. </li>
               <li>Addition of an Advanced Search bar option, lets user's input queries and outputs number of samples detected before jumping to random page.</li>
               <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>

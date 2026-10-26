@@ -1,6 +1,6 @@
 """
 keywords.py
-- Shared parsing for the `keywords:` search key (metagenome and amplicon).
+- Shared parsing for the `keywords:` search key (metagenome search).
 
 A keywords value is comma-separated terms. Each term is an exact phrase that
 must appear in at least one searched field, and every term must match, so a

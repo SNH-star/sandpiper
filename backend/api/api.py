@@ -2511,7 +2511,7 @@ def split_query_parts(query: str) -> list[str]:
 
     Search queries are comma-separated, but real values can contain commas
     (e.g. "Pacific Ocean: Oahu, Kaneohe Bay"), so a comma inside double
-    quotes does not split. Shared with the amplicon search in amplicon.py.
+    quotes does not split. Shared with other query parsing.
     """
     parts, current, quoted = [], [], False
     for ch in query:

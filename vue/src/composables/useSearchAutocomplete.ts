@@ -154,9 +154,8 @@ function liveRowsToSuggestions (field: SearchFieldDef, rows: { value: string; co
   }))
 }
 
-// `getFields` lets one bar switch key sets (metagenome / amplicon) without
-// a second engine; it is read on every keystroke, so it can follow a mode
-// that changes while the bar is mounted.
+// `getFields` supplies the searchable key set; it is read on every keystroke,
+// so it can follow a set that changes while the bar is mounted.
 export function useSearchAutocomplete (
   fetchLiveValues: FetchLiveValues,
   getFields: () => SearchFieldDef[] = () => SEARCH_FIELDS

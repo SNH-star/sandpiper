@@ -9,7 +9,7 @@
             <span class="query-part-value">{{ part.key ? (part.value || 'any value') : part.text }}</span>
           </li>
         </ul>
-        <div v-if="query_taxon && !is_amplicon" class="has-text-centered taxonomy-switcher">
+        <div v-if="query_taxon" class="has-text-centered taxonomy-switcher">
           <b-field grouped position="is-centered">
             <b-radio-button
               v-model="taxonomy_type"
@@ -32,14 +32,11 @@
             runs where it was only found in the other database show –.
           </p>
         </div>
-        <p v-else-if="query_taxon" class="has-text-centered help">
-          Relative abundance is {{ query_taxon.name }}'s share of each run's reads.
-        </p>
         <p v-else-if="query_names_partial_taxon" class="has-text-centered help">
           Give a full taxon name (e.g. g__Prochlorococcus) to see relative abundance and coverage.
         </p>
         <p class="has-text-centered help">
-          {{ is_amplicon ? 'Amplicon runs' : 'Metagenome runs' }} matching this search.
+          Metagenome runs matching this search.
           <router-link :to="back_to_search">Edit search</router-link>
         </p>
         <b-message v-if="total_num_results === 0" type="is-warning" has-icon :closable="false" class="mt-4">
@@ -56,10 +53,7 @@
           </h1>
         <p style="text-align: center;">{{ lineage.join('; ') }}</p>
         <br />
-        <div v-if="is_amplicon" class="has-text-centered taxonomy-switcher">
-          <p class="help">Amplicon runs (marker-gene sequencing). Abundance is the taxon's share of each run's reads.</p>
-        </div>
-        <div v-else class="has-text-centered taxonomy-switcher">
+        <div class="has-text-centered taxonomy-switcher">
           <b-field grouped position="is-centered">
             <b-radio-button
               v-model="taxonomy_type"
@@ -97,18 +91,7 @@
               </div>
             </div>
           </div>
-          <div v-if="is_amplicon" class="level-item has-text-centered">
-            <div class="level-item">
-              <div>
-                <a href="#geographic-distribution">
-                  <p class="heading">Marine realms</p>
-                  <p class="title">{{ num_realms }}</p>
-                </a>
-                <p>realms where it was found</p>
-              </div>
-            </div>
-          </div>
-          <div v-else class="level-item has-text-centered">
+          <div class="level-item has-text-centered">
             <div class="level-item">
               <div>
                 <a href="#host-association-overview">
@@ -163,13 +146,7 @@
                 Reset filters
               </b-button>
             </div>
-            <p v-if="is_amplicon" class="help niche-mapping-help">
-              Filter the maps and matching samples below by modelled pH and
-              temperature, marine realm and depth zone. Sliders only stop on
-              values actually present {{ is_query ? 'in these results' : 'for this taxon' }}, and narrow each other
-              as you pick.
-            </p>
-            <p v-else class="help niche-mapping-help">
+            <p class="help niche-mapping-help">
               Filter the maps and matching samples below by pH, temperature,
               host association, and IndicPiper community. Sliders only stop on
               values actually present {{ is_query ? 'in these results' : 'for this taxon' }}, and narrow each other
@@ -177,7 +154,7 @@
             </p>
 
             <div class="niche-field-grid">
-              <b-field :label="is_amplicon ? 'pH (modelled)' : 'pH'" class="niche-field">
+              <b-field label="pH" class="niche-field">
                 <div v-if="phOptions.length" class="niche-slider-row">
                   <input type="number" class="niche-range-input" :step="0.5" :value="phMinDisplay"
                     aria-label="Minimum pH" @change="onPhMinInput($event.target.value)" />
@@ -190,7 +167,7 @@
                 <p v-else class="help">No pH data available for the current filters.</p>
               </b-field>
 
-              <b-field :label="is_amplicon ? 'Temperature (°C, modelled)' : 'Temperature (°C)'" class="niche-field">
+              <b-field label="Temperature (°C)" class="niche-field">
                 <div v-if="temperatureOptions.length" class="niche-slider-row">
                   <input type="number" class="niche-range-input" :step="1" :value="temperatureMinDisplay"
                     aria-label="Minimum temperature" @change="onTemperatureMinInput($event.target.value)" />
@@ -203,16 +180,16 @@
                 <p v-else class="help">No temperature data available for the current filters.</p>
               </b-field>
 
-              <b-field :label="is_amplicon ? 'Marine realm' : 'Host association'" class="niche-field">
+              <b-field label="Host association" class="niche-field">
                 <b-select v-model="hostAssociation" expanded @update:model-value="onHostAssociationChange">
                   <option value="">Any</option>
                   <option v-for="opt in hostAssociationOptions" :key="opt" :value="opt">
-                    {{ is_amplicon ? opt : (opt === 'host' ? 'Host-associated' : 'Ecological') }}
+                    {{ opt === 'host' ? 'Host-associated' : 'Ecological' }}
                   </option>
                 </b-select>
               </b-field>
 
-              <b-field :label="is_amplicon ? 'Depth zone' : 'IndicPiper community'" class="niche-field">
+              <b-field label="IndicPiper community" class="niche-field">
                 <div v-if="piperCommunityOptions.length">
                   <b-select v-model="piperCommunity" expanded @update:model-value="onPiperCommunityChange">
                     <option value="">Any</option>
@@ -221,7 +198,7 @@
                     </option>
                   </b-select>
                 </div>
-                <p v-else class="help">No {{ is_amplicon ? 'depth zone' : 'IndicPiper community' }} data available for the current filters.</p>
+                <p v-else class="help">No IndicPiper community data available for the current filters.</p>
               </b-field>
             </div>
           </div>
@@ -300,8 +277,8 @@
             <b-button tag="a" type="is-info" :href="csv_link()">Download CSV with extra columns</b-button>
           </template>
           <b-button type="is-light" icon-left="shuffle-variant" class="mobile-shuffle-button" @click="shuffle_runs">Shuffle runs</b-button>
-          <b-switch v-if="!is_amplicon" v-model="exclude_low_complexity">Exclude low complexity</b-switch>
-          <span v-if="!is_amplicon && !exclude_low_complexity" class="low-complexity-summary">{{ is_query ? num_low_complexity_runs : low_complexity_count }} / {{ total_num_results }} runs have ≥95% reads from one order (Low Complexity)</span>
+          <b-switch v-model="exclude_low_complexity">Exclude low complexity</b-switch>
+          <span v-if="!exclude_low_complexity" class="low-complexity-summary">{{ is_query ? num_low_complexity_runs : low_complexity_count }} / {{ total_num_results }} runs have ≥95% reads from one order (Low Complexity)</span>
         </div>
         <b-table
           :data="display_profiles"
@@ -336,7 +313,7 @@
             {{ props.row.organism }}
           </b-table-column>
 
-          <b-table-column field='release_year' :label="is_amplicon ? 'Collection year' : 'Release year'" v-slot="props" centered sortable>
+          <b-table-column field='release_year' label="Release year" v-slot="props" centered sortable>
             {{ props.row.release_year }}
           </b-table-column>
 
@@ -344,7 +321,7 @@
             {{ props.row.relative_abundance ?? '–' }}
           </b-table-column>
 
-          <b-table-column v-if="!is_query || query_taxon" field='coverage' :label="is_amplicon ? 'Reads' : 'Genome coverage'" v-slot="props" centered sortable>
+          <b-table-column v-if="!is_query || query_taxon" field='coverage' label="Genome coverage" v-slot="props" centered sortable>
             {{ props.row.coverage ?? '–' }}
           </b-table-column>
 
@@ -377,7 +354,7 @@
 
 <script>
 import {
-  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, fetchTaxonomyNicheOptions, taxonomyApiUrl,
+  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, fetchTaxonomyNicheOptions, api_url,
   fetchQueryGlobalData, fetchQueryRunData, fetchQueryNicheOptions, queryCsvUrl
 } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
@@ -411,12 +388,11 @@ export default {
   name: 'SearchResults',
   title () {
     if (this.query) return `Search results for ${this.query} - Sandpiper`
-    return `${this.dataset === 'amplicon' ? 'Amplicon runs' : 'Runs'} with ${this.taxonomy} - Sandpiper`
+    return `Runs with ${this.taxonomy} - Sandpiper`
   },
-  // dataset: 'amplicon' (from the /amplicon/taxonomy route) shows the same page on amplicon data.
   // query: set instead of taxonomy by "Explore tabled results" on the advanced
   // search (/search/results?q=) -- the page then shows every run matching it.
-  props: ['taxonomy', 'dataset', 'query'],
+  props: ['taxonomy', 'query'],
   components: {
     TaxonomySampleMap,
     LMap,
@@ -470,7 +446,6 @@ export default {
       piperCommunity: '',
       piperCommunityOptions: [],
 
-      num_realms: null,
       lat_lons: null,
       lat_lons_min_relabund: null,
       num_lat_lon_runs: null,
@@ -500,14 +475,8 @@ export default {
     }
   },
   computed: {
-    is_amplicon () {
-      return this.dataset === 'amplicon'
-    },
     is_query () {
       return this.query !== undefined && this.query !== null
-    },
-    queryDataset () {
-      return this.is_amplicon ? 'amplicon' : 'metagenome'
     },
     // "environment: host, year: 2015, bog" -> one box per part:
     // [{key: 'environment', value: 'host'}, {key: 'year', value: '2015'}, {text: 'bog'}]
@@ -518,7 +487,7 @@ export default {
       })
     },
     back_to_search () {
-      return { name: 'Search', query: this.is_amplicon ? { mode: 'amplicon', q: this.query } : { q: this.query } }
+      return { name: 'Search', query: { q: this.query } }
     },
     // Whole percent, but never a misleading 0% or 100%: a few host runs among
     // thousands (e.g. 24 of 5,295) shows "<1%", a few ecological ones ">99%".
@@ -538,7 +507,7 @@ export default {
       return `${shown} run${this.num_lat_lon_runs === 1 ? '' : 's'} with latitude/longitude${this.cluster ? ' in your selected map cluster' : ''}.`
     },
     query_csv_link () {
-      return queryCsvUrl(this.query, this.queryDataset, !this.is_amplicon && this.exclude_low_complexity, this.cluster,
+      return queryCsvUrl(this.query, this.exclude_low_complexity, this.cluster,
         this.activeNicheFilters, this.taxonomy_type)
     },
     disableGtdb () {
@@ -551,8 +520,7 @@ export default {
     },
     // A taxonomy/taxon term that isn't a whole taxon name (e.g. "Prochlorococcus").
     query_names_partial_taxon () {
-      const key = this.is_amplicon ? 'taxon' : 'taxonomy'
-      return !this.query_taxon && this.query_parts.some(p => p.key && p.key.toLowerCase() === key && p.value)
+      return !this.query_taxon && this.query_parts.some(p => p.key && p.key.toLowerCase() === 'taxonomy' && p.value)
     },
     query_names_low_complexity () {
       return this.query_parts.some(p => p.key && p.key.toLowerCase() === 'low_complexity')
@@ -677,7 +645,7 @@ export default {
           piperCommunity: this.piperCommunity || undefined
         }
         const response = this.is_query
-          ? await fetchQueryNicheOptions(this.query, this.queryDataset, selection)
+          ? await fetchQueryNicheOptions(this.query, selection)
           : await fetchTaxonomyNicheOptions(this.taxonomy, this.taxonomy_type, selection)
         this.phOptions = response.data.ph_options || []
         this.temperatureOptions = response.data.temperature_options || []
@@ -729,7 +697,7 @@ export default {
       this.total_num_results = null
       this.syncNicheStateFromRoute()
 
-      const requestedTaxonomyType = this.is_amplicon ? 'amplicon' : this.$route.query.taxonomy_type
+      const requestedTaxonomyType = this.$route.query.taxonomy_type
 
       // The niche-options lookup and the marker-map fetch below are
       // independent queries -- start it now rather than after awaiting the
@@ -766,8 +734,7 @@ export default {
         this.piperCommunityOptions = []
       }
 
-      if (this.is_amplicon) this.other_taxonomy_type = null
-      else this.other_taxonomy_type = this.taxonomy_type === 'gtdb' ? 'globdb' : 'gtdb'
+      this.other_taxonomy_type = this.taxonomy_type === 'gtdb' ? 'globdb' : 'gtdb'
       this.fetchData()
       this.checkOtherTaxonomyAvailability()
     },
@@ -791,7 +758,7 @@ export default {
       this.cluster = null
       this.page = 1
       this.sortDirection = 'desc'
-      this.taxonomy_type = this.is_amplicon ? 'amplicon' : (this.$route.query.taxonomy_type === 'globdb' ? 'globdb' : 'gtdb')
+      this.taxonomy_type = this.$route.query.taxonomy_type === 'globdb' ? 'globdb' : 'gtdb'
       this.syncNicheStateFromRoute()
       if (!this.query.trim()) {
         this.error_message = 'No search query given.'
@@ -832,7 +799,7 @@ export default {
     async requestGlobalData () {
       const request = ++this.global_request
       const response = this.is_query
-        ? await fetchQueryGlobalData(this.query, this.queryDataset, this.cluster, this.activeNicheFilters)
+        ? await fetchQueryGlobalData(this.query, this.cluster, this.activeNicheFilters)
         : await fetchGlobalDataByTaxonomy(this.taxonomy, this.taxonomy_type, this.activeNicheFilters, this.cluster)
       if (request !== this.global_request) return false
       this.populateGlobalData(response.data)
@@ -843,8 +810,8 @@ export default {
     async requestRuns () {
       const request = ++this.runs_request
       const response = this.is_query
-        ? await fetchQueryRunData(this.query, this.queryDataset, this.page, this.sortField, this.sortDirection,
-          this.pageSize, !this.is_amplicon && this.exclude_low_complexity, this.cluster, this.activeNicheFilters,
+        ? await fetchQueryRunData(this.query, this.page, this.sortField, this.sortDirection,
+          this.pageSize, this.exclude_low_complexity, this.cluster, this.activeNicheFilters,
           this.taxonomy_type)
         : await fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection,
           this.pageSize, this.exclude_low_complexity, this.cluster, this.activeNicheFilters)
@@ -866,7 +833,6 @@ export default {
       if (this.is_query) this.query_taxon = data.taxon ?? null
       this.num_host_runs = data.num_host_runs
       this.num_ecological_runs = data.num_ecological_runs
-      this.num_realms = data.num_realms ?? null
       this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
     },
     async determineInitialTaxonomyType () {
@@ -1148,13 +1114,13 @@ export default {
       return suffix
     },
     run_path (acc) {
-      return (this.is_amplicon ? '/amplicon/run/' : '/run/') + acc
+      return '/run/' + acc
     },
     csv_link () {
-      return taxonomyApiUrl(this.taxonomy_type) + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
+      return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
     },
     minimal_csv_link () {
-      return taxonomyApiUrl(this.taxonomy_type) + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
+      return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
     },
     shuffle_runs () {
       const arr = [...this.filtered_profiles]

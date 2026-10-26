@@ -2,7 +2,7 @@
   <section class="section container">
 
     <section class="section">
-      <p class="title is-4">Search for public {{ is_amplicon ? 'amplicon runs' : 'metagenomes' }} by taxonomy</p>
+      <p class="title is-4">Search for public metagenomes by taxonomy</p>
       <b-field>
         <div class="search-bar-row">
         <div class="search-autocomplete-wrap">
@@ -16,13 +16,9 @@
           <template #empty>No results found</template>
         </b-autocomplete>
         </div>
-        <SearchModeSwitch :model-value="search_mode" @update:model-value="set_search_mode" />
         </div>
       </b-field>
-      <p v-if="is_amplicon" class="help">
-        Suggestions are the taxa found in the amplicon runs, e.g. g__Lepraria or f__Aspergillaceae.
-      </p>
-      <p v-else class="help">
+      <p class="help">
         Suggestions include <a href='http://gtdb.ecogenomic.org'>Genome Taxonomy Database (GTDB)</a> ({{ GTDB_VERSION }})
         and <a href='http://globdb.org'>GlobDB</a> ({{ GLOBDB_VERSION }}) taxonomies.
       </p>
@@ -32,12 +28,12 @@
     <section class="section advanced-search-section">
       <div class="advanced-search-header">
         <p class="title is-4">Advanced search</p>
-        <b-button type="is-light" size="is-small" icon-left="shuffle-variant" class="random-search-button" :loading="random_loading" @click="random_from_advanced">Random Search</b-button>
+        <b-button type="is-light" size="is-small" icon-left="shuffle-variant" class="random-search-button" @click="search_by_random">Random Search</b-button>
       </div>
       <b-field label="Search query" label-for="advanced-search-query">
         <div class="search-bar-row">
         <div class="search-autocomplete-wrap">
-          <b-input id="advanced-search-query" :compat-fallthrough="false" v-model="universal_query" :placeholder="is_amplicon ? 'e.g. marker: ITS, realm: Central Indo-Pacific' : 'e.g. country: Australia, year: 2010-2015'" icon="magnify" :loading="universal_loading" expanded
+          <b-input id="advanced-search-query" :compat-fallthrough="false" v-model="universal_query" placeholder="e.g. country: Australia, year: 2010-2015" icon="magnify" :loading="universal_loading" expanded
             @input="on_universal_input" @keydown="on_universal_keydown"></b-input>
           <div v-if="ghost_suffix" ref="universalGhost" class="search-ghost-overlay" aria-hidden="true">
             <span class="search-ghost-typed">{{ universal_query }}</span><span class="search-ghost-suffix">{{ ghost_suffix }}</span>
@@ -49,11 +45,10 @@
             </li>
           </ul>
         </div>
-        <SearchModeSwitch :model-value="search_mode" @update:model-value="set_search_mode" />
         </div>
       </b-field>
       <p class="help">
-        Key: value, comma-separated for multiple (e.g. "{{ is_amplicon ? 'marker: ITS, year: 2020' : 'country: Australia, year: 2020' }}").
+        Key: value, comma-separated for multiple (e.g. "country: Australia, year: 2020").
         <button type="button" class="inline-toggle" :class="{ 'is-open': keys_open }" :aria-expanded="keys_open" aria-controls="advanced-search-keys" @click="toggle_keys()">
           List of keys
           <span class="disclosure-chevron" aria-hidden="true">
@@ -66,7 +61,6 @@
       <div id="advanced-search-keys" class="keys-panel"
         :class="{ 'is-open': keys_open, 'is-settled': keys_settled }">
         <div class="keys-box">
-          <template v-if="!is_amplicon">
           <div class="keys-columns">
 
             <div class="keys-group">
@@ -179,29 +173,6 @@
             <code class="keys-example-query">year: 2015-2020, metadata: sex=male</code>
             <b-button size="is-small" type="is-primary" @click="try_universal_example">Try it</b-button>
           </div>
-          </template>
-          <template v-else>
-          <div class="keys-columns">
-            <div v-for="group in amplicon_groups" :key="group" class="keys-group">
-              <p class="keys-group-title">{{ group }}</p>
-              <div v-for="f in amplicon_fields_in(group)" :key="f.key" class="keys-item"><code>{{ f.key }}</code><span class="keys-example">e.g. {{ f.example }}</span></div>
-            </div>
-          </div>
-          <div class="keys-syntax-row">
-            <span class="keys-syntax-title">Query Syntax</span>
-            <div class="keys-syntax-items">
-              <span class="keys-syntax-item"><code>ITS</code> exact value</span>
-              <span class="keys-syntax-item"><code>2010-2015</code> year range</span>
-              <span class="keys-syntax-item"><code>yes</code> / <code>no</code> QC flags</span>
-              <span class="keys-syntax-item"><code>"Oahu, Kaneohe Bay"</code> quotes keep a comma inside one value</span>
-            </div>
-          </div>
-          <div class="keys-example-row">
-            <span class="keys-example-label">Example:</span>
-            <code class="keys-example-query">{{ amplicon_example }}</code>
-            <b-button size="is-small" type="is-primary" @click="try_amplicon_example">Try it</b-button>
-          </div>
-          </template>
         </div>
       </div>
 
@@ -218,39 +189,6 @@
         :class="{ 'is-open': advanced_open, 'is-settled': advanced_settled }">
         <div class="advanced-panel-clip">
         <div class="adv-box">
-          <template v-if="is_amplicon">
-            <section v-for="group in amplicon_groups" :key="group" class="adv-group" :class="{ 'is-open': adv_groups[amp_group_id(group)] }">
-              <button type="button" class="adv-group-toggle" :aria-expanded="!!adv_groups[amp_group_id(group)]" :aria-controls="amp_group_id(group)" @click="toggle_adv_group(amp_group_id(group))">
-                <span class="adv-group-title">{{ group }}</span>
-                <span class="adv-group-chevron" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-                <span class="adv-group-hint">{{ amp_group_hint(group) }}</span>
-              </button>
-              <div class="adv-group-collapse"
-                :class="{ 'is-open': adv_groups[amp_group_id(group)], 'is-settled': adv_group_settled[amp_group_id(group)] }"
-                :inert="!adv_groups[amp_group_id(group)]">
-                <div :id="amp_group_id(group)" class="adv-group-body">
-                  <p v-if="group === 'Keywords'" class="adv-group-note">{{ AMPLICON_KEYWORDS_NOTE }}</p>
-                  <b-field grouped group-multiline class="adv-group-row">
-                    <b-field v-for="f in amplicon_fields_in(group)" :key="f.key" class="adv-field" :class="{ 'adv-field-keywords': f.key === 'keywords' }" :label="f.label" :label-for="'amp-' + f.key">
-                      <b-input v-if="f.kind === 'text'" :id="'amp-' + f.key" v-model="amp[f.key]" :placeholder="'e.g. ' + f.example" size="is-small" />
-                      <b-select v-else :id="'amp-' + f.key" v-model="amp[f.key]" size="is-small" expanded>
-                        <option value="">Any</option>
-                        <template v-if="f.kind === 'flag'">
-                          <option value="yes">Flagged</option>
-                          <option value="no">Not flagged</option>
-                        </template>
-                        <template v-else>
-                          <option v-for="opt in amp_facets[f.key] || []" :key="opt.value" :value="opt.value">{{ opt.value }} ({{ opt.count }})</option>
-                        </template>
-                      </b-select>
-                    </b-field>
-                  </b-field>
-                </div>
-              </div>
-            </section>
-          </template>
-
-          <template v-if="!is_amplicon">
           <section class="adv-group" :class="{ 'is-open': adv_groups.keywords }">
             <button type="button" class="adv-group-toggle" :aria-expanded="adv_groups.keywords" aria-controls="adv-group-keywords" @click="toggle_adv_group('keywords')">
               <span class="adv-group-title">Keywords</span>
@@ -414,7 +352,6 @@
               </div>
             </div>
           </section>
-          </template>
 
           <teleport to="body">
             <div v-if="active_tooltip" id="advanced-search-popover" class="info-tooltip-box" :class="{ 'is-scroll-list': active_tooltip === 'metalog_info' }" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltipDelayed" @focusin="keepTooltipOpen" @focusout="hideTooltipDelayed" @keydown.esc="hideTooltip">
@@ -947,7 +884,6 @@
             </div>
           </teleport>
 
-          <template v-if="!is_amplicon">
           <section class="adv-group" :class="{ 'is-open': adv_groups.taxonomy }">
             <button type="button" class="adv-group-toggle" :aria-expanded="adv_groups.taxonomy" aria-controls="adv-group-taxonomy" @click="toggle_adv_group('taxonomy')">
               <span class="adv-group-title">Taxonomy</span>
@@ -1075,13 +1011,10 @@
               <span class="keys-syntax-item"><code>"Oahu, Kaneohe Bay"</code> quotes keep a comma inside one value</span>
             </div>
           </div>
-          </template>
 
         </div>
         </div>
       </div>
-
-      <b-message v-if="amp_error" type="is-warning" class="mt-4" :closable="false">{{ amp_error }}</b-message>
 
       <div v-if="universal_result" ref="universalResult" tabindex="-1" class="mt-4" aria-live="polite" aria-atomic="true">
         <b-message v-if="universal_result.count === 0" type="is-warning" has-icon>
@@ -1126,10 +1059,6 @@
 
 <script>
 import { fetchTaxonomySearchHints, fetchSandpiperStats, fetchUniversalSearch, fetchSearchFieldValues } from '@/api'
-import { fetchAmpliconTaxonHints, fetchAmpliconUniversalSearch } from '@/api/amplicon'
-import { AMPLICON_GROUPS, AMPLICON_EXAMPLE, parseAmpliconQuery, ampliconQueryText } from '@/constants/ampliconFields'
-import { ampliconFacets, loadAmpliconFacets, ampliconAutocompleteFields, fetchAmpliconLiveValues, availableAmpliconFields, unavailableAmpliconKeys } from '@/composables/ampliconAutocomplete'
-import { ref } from 'vue'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import { ADVANCED_KEY_MAP, ADVANCED_GROUP_FIELDS, SEARCH_FIELDS } from '@/constants/searchFields'
@@ -1138,11 +1067,9 @@ import { stopPageLoading } from '@/store/pageLoading'
 import debounce from 'lodash/debounce'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import PresenceField from '@/components/PresenceField.vue'
-import SearchModeSwitch from '@/components/SearchModeSwitch.vue'
 
 // Blurbs for the Keywords group. Plain prose: the search syntax itself lives in the List of keys.
 const KEYWORDS_NOTE = 'Search a study\'s title, abstract, location, organism and accessions at once. Separate terms with commas: each term is matched as an exact phrase and every term must be found. A sample that matches in several places still counts once.'
-const AMPLICON_KEYWORDS_NOTE = 'Search a run\'s accession, BioProject, organism, environment, marker and location details at once. Separate terms with commas: each term is matched as an exact phrase and every term must be found. A run that matches in several places still counts once.'
 
 const ADVANCED_KEY_RE = new RegExp(`^(${Object.keys(ADVANCED_KEY_MAP).join('|')})\\s*:`, 'i')
 
@@ -1156,27 +1083,21 @@ function queryParamToString (value) {
 export default {
   name: 'Search',
   title: 'Search - Sandpiper',
-  components: { InfoTooltipButton, PresenceField, SearchModeSwitch },
+  components: { InfoTooltipButton, PresenceField },
   setup () {
-    // Metagenome / Amplicon slider. Lives in setup (not data) so the
-    // autocomplete engine below can follow it: same dropdown, different keys.
-    const search_mode = ref('metagenome')
     const autocomplete = useSearchAutocomplete(async (field, q, signal) => {
-      if (search_mode.value === 'amplicon') return fetchAmpliconLiveValues(field, q)
       if (field === 'taxonomy') {
         const { data } = await fetchTaxonomySearchHints(q, undefined, signal)
         return (data.taxonomies || []).map(name => ({ value: name, count: null }))
       }
       const { data } = await fetchSearchFieldValues(field, q, signal)
       return data.values
-    }, () => (search_mode.value === 'amplicon' ? ampliconAutocompleteFields() : SEARCH_FIELDS))
+    }, () => SEARCH_FIELDS)
     // Returned as flat top-level refs (not nested inside one `autocomplete`
     // object) so Vue's Options API interop auto-unwraps them -- both in the
     // template and via `this.ac_suggestions` etc. in methods below, with no
     // `.value` needed either place.
     return {
-      search_mode,
-      amp_facets: ampliconFacets,
       ac_suggestions: autocomplete.suggestions,
       ac_active_index: autocomplete.activeIndex,
       ac_on_input: autocomplete.onInput,
@@ -1190,13 +1111,6 @@ export default {
       GTDB_VERSION,
       GLOBDB_VERSION,
       KEYWORDS_NOTE,
-      AMPLICON_KEYWORDS_NOTE,
-      amp: {},
-      amp_error: null,
-      random_loading: false,
-      syncing_amp: false,
-      amplicon_groups: AMPLICON_GROUPS,
-      amplicon_example: AMPLICON_EXAMPLE,
       gtdb_version: null,
 
       universal_query: '',
@@ -1220,7 +1134,6 @@ export default {
       adv_groups: {
         ...Object.fromEntries(Object.keys(ADVANCED_GROUP_FIELDS).map(name => [name, false])),
         keywords: true,
-        'amp-group-keywords': true,
       },
       // True once a group's open transition has finished -- see
       // .adv-group-collapse.is-settled in the CSS for why this matters:
@@ -1231,7 +1144,6 @@ export default {
       adv_group_settled: {
         ...Object.fromEntries(Object.keys(ADVANCED_GROUP_FIELDS).map(name => [name, false])),
         keywords: true,
-        'amp-group-keywords': true,
       },
       advanced_settled: false,
       keys_settled: false,
@@ -1312,14 +1224,7 @@ export default {
     // Vue binds functions declared in `methods`, which drops Lodash's custom
     // `.cancel()` property. Keep the debouncer as per-instance state instead.
     this.debounced_universal_preview = debounce(this.fetch_universal_preview, 450)
-    if (this.$route.query.mode === 'amplicon') {
-      // Deep link, e.g. a shared /search?mode=amplicon&q=... URL.
-      this.search_mode = 'amplicon'
-      this.universal_query = queryParamToString(this.$route.query.q)
-      this.sync_amp_from_query()
-      this.load_amp_facets()
-      if (this.universal_query) this.refresh_universal_state()
-    } else if (this.$route.query.q) {
+    if (this.$route.query.q) {
       // e.g. "Edit search" on the search results page: keep the query in the
       // search bar and show its match count (and buttons) again.
       this.universal_query = queryParamToString(this.$route.query.q)
@@ -1357,10 +1262,6 @@ export default {
       deep: true,
       handler: 'on_advanced_change',
     },
-    amp: {
-      deep: true,
-      handler: 'on_amplicon_change',
-    },
     adv_present: {
       deep: true,
       handler: 'on_advanced_change',
@@ -1379,9 +1280,6 @@ export default {
   },
 
   computed: {
-    is_amplicon () {
-      return this.search_mode === 'amplicon'
-    },
     // Only rendered when the active suggestion's underlying value actually
     // starts with what's typed (case-insensitive) -- the dropdown itself
     // allows substring matches (e.g. typing "seq" can suggest "Illumina
@@ -1401,83 +1299,9 @@ export default {
   },
 
   methods: {
-    // ---- Amplicon mode ----
-    amplicon_fields_in (group) {
-      return availableAmpliconFields(group)
-    },
-
-    // Amplicon groups share adv_groups / toggle_adv_group with the metagenome ones.
-    amp_group_id (group) {
-      return 'amp-group-' + group.toLowerCase()
-    },
-
-    amp_group_hint (group) {
-      if (this.adv_groups[this.amp_group_id(group)]) return ''
-      const count = this.amplicon_fields_in(group).filter(f => this.amp[f.key]).length
-      return count ? `${count} set` : 'expand for keys'
-    },
-
-    set_search_mode (mode) {
-      if (mode === this.search_mode) return
-      this.search_mode = mode
-      // Start each mode with a clean box -- the two key sets don't overlap.
-      this.universal_request_id += 1
-      this.debounced_universal_preview.cancel()
-      this.preview_abort?.abort()
-      this.ac_clear()
-      this.universal_query = ''
-      this.universal_result = null
-      this.universal_loading = false
-      this.amp_error = null
-      this.taxonomy = ''
-      this.autocomplete_taxons = []
-      this.sync_amp_from_query()
-      if (mode === 'metagenome') this.parse_query_to_advanced()
-      this.$router.replace({ query: mode === 'amplicon' ? { mode } : {} })
-      if (mode === 'amplicon') this.load_amp_facets()
-    },
-
-    async load_amp_facets () {
-      try {
-        await loadAmpliconFacets()
-      } catch (err) {
-        console.error('Amplicon facets request failed', err)
-        this.amp_error = 'Could not load amplicon field values. You can still type a query.'
-      }
-    },
-
-    // Query box -> amplicon fields (without the amp watcher rewriting the box).
-    sync_amp_from_query () {
-      this.syncing_amp = true
-      this.amp = parseAmpliconQuery(this.universal_query).values
-      this.$nextTick(() => { this.syncing_amp = false })
-    },
-
-    // Amplicon fields -> query box, with the same live count preview the
-    // metagenome Advanced options give.
-    on_amplicon_change () {
-      if (this.syncing_amp) return
-      this.universal_query = ampliconQueryText(this.amp)
-      this.refresh_universal_state()
-    },
-
-    // Unknown amplicon keys are caught here rather than sent to the backend
-    // (which would reject them), so the user sees which key is wrong.
-    amplicon_query_ok () {
-      if (!this.is_amplicon) return true
-      const { unknown } = parseAmpliconQuery(this.universal_query)
-      const unavailable = unavailableAmpliconKeys(this.universal_query)
-      this.amp_error = unknown.length > 0
-        ? `Unknown amplicon key(s): ${unknown.join(', ')}. See "List of keys".`
-        : unavailable.length > 0
-          ? `Not available in the current amplicon data: ${unavailable.join(', ')}.`
-          : null
-      return this.amp_error === null
-    },
-
-    // Mode-aware pieces shared by the preview, Enter and "Explore" paths.
+    // Pieces shared by the preview, Enter and "Explore" paths.
     fetch_matches (query, exclude, signal) {
-      return this.is_amplicon ? fetchAmpliconUniversalSearch(query, exclude, signal) : fetchUniversalSearch(query, exclude, signal)
+      return fetchUniversalSearch(query, exclude, signal)
     },
 
     // Start a new match request, dropping the one it replaces: a query the user
@@ -1501,22 +1325,15 @@ export default {
     },
 
     run_route (accession, query) {
-      return { name: this.is_amplicon ? 'AmpliconRun' : 'Run', params: { accession }, query: query ? { q: query } : undefined }
+      return { name: 'Run', params: { accession }, query: query ? { q: query } : undefined }
     },
 
     search_route_query (query) {
-      return this.is_amplicon ? { mode: 'amplicon', q: query } : { q: query }
+      return { q: query }
     },
 
     sync_advanced_from_query () {
-      if (this.is_amplicon) this.sync_amp_from_query()
-      else this.parse_query_to_advanced()
-    },
-
-    try_amplicon_example () {
-      this.universal_query = AMPLICON_EXAMPLE
-      this.sync_amp_from_query()
-      this.search_universal()
+      this.parse_query_to_advanced()
     },
 
     // Grid-row collapse (see the CSS comment above .adv-group-collapse) is
@@ -1861,7 +1678,7 @@ export default {
       this.query_generated_from_advanced = false
       this.universal_query = query
       this.sync_advanced_from_query()
-      if (query.trim() && this.amplicon_query_ok()) this.debounced_universal_preview(requestId)
+      if (query.trim()) this.debounced_universal_preview(requestId)
     },
 
     on_universal_input () {
@@ -1885,7 +1702,7 @@ export default {
       this.universal_result = null
       this.query_generated_from_advanced = false
       this.sync_advanced_from_query()
-      if (!this.universal_query.trim() || !this.amplicon_query_ok()) {
+      if (!this.universal_query.trim()) {
         this.debounced_universal_preview.cancel()
         this.universal_result = null
         return
@@ -2091,7 +1908,6 @@ export default {
         this.expand_adv_groups(Object.keys(this.adv_errors))
         return
       }
-      if (!this.amplicon_query_ok()) return
       const query = this.universal_query.trim()
       if (!query) {
         this.universal_request_id += 1
@@ -2173,15 +1989,10 @@ export default {
       // may have been edited since (the preview is debounced).
       const query = this.universal_result && this.universal_result.query
       if (!query) return
-      this.$router.push({ name: this.is_amplicon ? 'AmpliconQueryResults' : 'QueryResults', query: { q: query } })
+      this.$router.push({ name: 'QueryResults', query: { q: query } })
     },
 
     search_by_taxonomy () {
-      if (this.is_amplicon) {
-        if (!this.taxonomy.trim()) return
-        this.$router.push({ name: 'AmpliconTaxonomy', params: { taxonomy: this.taxonomy.trim() } })
-        return
-      }
       this.$router.push({ name: 'SearchResults', params: { taxonomy: this.taxonomy } })
     },
     getAsyncData: debounce(function (name) {
@@ -2191,13 +2002,8 @@ export default {
         return
       }
       this.isFetching = true
-      const mode = this.search_mode
-      const request = mode === 'amplicon'
-        ? fetchAmpliconTaxonHints(name).then(({ data }) => data.taxa.map(t => t.taxon))
-        : fetchTaxonomySearchHints(name).then(({ data }) => data.taxonomies)
-      request
+      fetchTaxonomySearchHints(name).then(({ data }) => data.taxonomies)
         .then((taxa) => {
-          if (mode !== this.search_mode) return // slider moved while waiting
           this.autocomplete_taxons = taxa
           if (this.autocomplete_taxons != undefined && this.autocomplete_taxons.length >= 30) {
             this.autocomplete_taxons.push('.. possibly more')
@@ -2215,31 +2021,6 @@ export default {
     search_by_accession() {
       const uppercaseAccession = this.accession.toUpperCase();
       this.$router.push({ name: 'Accession', params: { accession: uppercaseAccession } });
-    },
-
-    // Advanced search's Random button follows the slider.
-    random_from_advanced () {
-      if (this.is_amplicon) this.random_amplicon_run()
-      else this.search_by_random()
-    },
-
-    // Any amplicon run: an empty query matches all of them.
-    async random_amplicon_run () {
-      this.random_loading = true
-      this.amp_error = null
-      try {
-        const { data } = await fetchAmpliconUniversalSearch('')
-        if (!data.random_acc) {
-          this.amp_error = 'No amplicon runs are available.'
-          return
-        }
-        this.$router.push({ name: 'AmpliconRun', params: { accession: data.random_acc } })
-      } catch (err) {
-        console.error('Random amplicon run failed', err)
-        this.amp_error = 'Could not pick a random amplicon run. Please try again.'
-      } finally {
-        this.random_loading = false
-      }
     },
 
     search_by_random () {
@@ -2649,7 +2430,7 @@ export default {
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
-/* Search box + Metagenome/Amplicon slider on one row; slider drops below on narrow screens. */
+/* Search box row. */
 .search-bar-row {
   display: flex;
   align-items: center;

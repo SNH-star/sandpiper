@@ -1,257 +1,6 @@
 <template>
   <div class="run-page">
-    <!-- Amplicon runs (/amplicon/run/:accession): same page, amplicon data. -->
-    <div v-if="is_amplicon && metadata !== null" class="amplicon-run">
-      <section class="section">
-        <div class="container">
-          <p class="amplicon-eyebrow">{{ parsed.amplicon_marker }} amplicon · {{ parsed.amplicon_environment }}</p>
-          <h1 class="title run-study-title">Run {{ accession }}</h1>
-
-          <dl class="run-facts">
-            <div class="run-fact">
-              <dt>Organism</dt>
-              <dd>{{ parsed.organism || 'Not recorded' }}</dd>
-            </div>
-            <div class="run-fact">
-              <dt>Sequencing</dt>
-              <dd>{{ amplicon_sequencing_summary }}</dd>
-            </div>
-            <div class="run-fact">
-              <dt>Collected</dt>
-              <dd>{{ parsed.collection_date || parsed.collection_time || 'Not recorded' }}</dd>
-            </div>
-            <div class="run-fact" v-if="parsed.realm || parsed.ecoregion">
-              <dt>Location</dt>
-              <dd>{{ [parsed.ecoregion, parsed.realm].filter(Boolean).join(' · ') }}</dd>
-            </div>
-          </dl>
-
-          <div class="run-qc-flags">
-            <button
-              v-for="flag in amplicon_qc_flags"
-              :key="flag.key"
-              type="button"
-              class="run-qc-flag"
-              :class="flag.active ? flag.activeClass : 'run-qc-flag-clear'"
-              aria-haspopup="dialog"
-              :aria-expanded="qc_tooltip_key === flag.key"
-              @mouseenter="showQcTooltip(flag, $event)"
-              @mouseleave="hideQcTooltipDelayed"
-              @focus="showQcTooltip(flag, $event)"
-              @blur="hideQcTooltipDelayed"
-              @keydown.esc="hideQcTooltip"
-            >
-              <b-icon :icon="flag.active ? flag.activeIcon : 'check-circle-outline'" size="is-small" />
-              {{ flag.active ? flag.activeLabel : flag.clearLabel }}
-            </button>
-          </div>
-
-          <div
-            v-if="amplicon_qc_tooltip_flag"
-            class="run-qc-tooltip"
-            role="tooltip"
-            :style="{ left: qc_tooltip_x + 'px', top: qc_tooltip_y + 'px' }"
-            @mouseenter="keepQcTooltipOpen"
-            @mouseleave="hideQcTooltipDelayed"
-          >
-            {{ qc_tooltip_text }}
-            <span class="run-qc-tooltip-search">Search: {{ amplicon_qc_tooltip_flag.search }}</span>
-          </div>
-
-          <div class="run-subhead">
-            <div class="run-link-pills">
-              <a :href="'https://www.ncbi.nlm.nih.gov/bioproject/' + parsed.bioproject" class="run-link-pill">
-                <b-icon icon="link-variant" size="is-small" /> BioProject {{ parsed.bioproject }}
-              </a>
-              <a :href="'https://www.ncbi.nlm.nih.gov/sra?term=' + accession" class="run-link-pill">
-                <b-icon icon="link-variant" size="is-small" /> SRA {{ accession }}
-              </a>
-            </div>
-            <div v-if="uniqueness" class="run-bioproject-similarity">
-              <span
-                class="unique-badge"
-                role="button"
-                :aria-pressed="unique_only"
-                tabindex="0"
-                aria-describedby="unique-tip"
-                @pointerenter="onUniqueEnter"
-                @pointerleave="onUniqueLeave"
-                @focus="onUniqueFocus"
-                @blur="hideUniqueTip"
-                @keydown.esc="hideUniqueTip"
-                @click="toggleUniqueOnly"
-                @keydown.enter.prevent="toggleUniqueOnly"
-                @keydown.space.prevent="toggleUniqueOnly">
-                <span class="unique-bar" aria-hidden="true">
-                  <span class="unique-bar-unique" :style="{ width: uniqueness.percent + '%' }"></span>
-                  <span class="unique-bar-shared"></span>
-                </span>
-                {{ unique_only ? 'Showing ' : '' }}{{ uniqueness.unique }} unique {{ uniqueness.unique === 1 ? 'field' : 'fields' }}
-                <b-icon v-if="unique_only" icon="close" size="is-small" aria-hidden="true" />
-              </span>
-              <span class="unique-badge-hint">{{ unique_only ? 'Press to show all fields' : 'Press to toggle filter to unique fields only' }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container">
-          <h3 class="title section-heading">
-            <span>
-              Community profile
-              <button type="button" class="section-info" :aria-expanded="help_open.profile" aria-controls="profile-help" aria-label="About the community profile" @click="help_open.profile = !help_open.profile">
-                <b-icon icon="information-outline" size="is-small" />
-              </button>
-            </span>
-          </h3>
-          <div v-if="help_open.profile" id="profile-help" class="content section-help">
-            <p>
-              The {{ parsed.amplicon_marker }} marker gene was amplified and sequenced, so each slice is the share of
-              this run's <b>reads</b> assigned to a taxon, not genome coverage as on metagenome run pages.
-              Click a taxon to see every amplicon run it is found in.
-            </p>
-            <p v-if="profiling_method">
-              Profiled with Wagtail {{ profiling_method.wagtail }} against the {{ profiling_method.database }}
-              reference database.
-            </p>
-          </div>
-          <p v-if="condensed === null">Loading profile ..</p>
-          <p v-else-if="condensed.no_data">No community profile is available for this run.</p>
-          <template v-else>
-            <Sunburst3
-              :json_tree="condensed.condensed"
-              :show_known_fraction="false"
-              taxa_link_base="/amplicon/taxonomy/"
-              coverage_label="Reads"
-              :show_coverage_help="false"
-              search_placeholder="Highlight taxa e.g. Ascomycota or g__Aspergillus" />
-          </template>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container is-large">
-          <h3 class="title section-heading">
-            <span>
-              Sample information
-              <button type="button" class="section-info" :aria-expanded="help_open.sample" aria-controls="sample-help" aria-label="About sample information" @click="help_open.sample = !help_open.sample">
-                <b-icon icon="information-outline" size="is-small" />
-              </button>
-            </span>
-          </h3>
-          <div v-if="help_open.sample" id="sample-help" class="content section-help">
-            <p>
-              Details about the sample this run was sequenced from, such as where and when it was collected, the host or
-              environment, and anything else the submitter recorded. Each row is coloured by where it came from. Links take you to each of the database's pages
-            </p>
-            <p>
-              <b><a href="https://www.ncbi.nlm.nih.gov/sra" target="_blank" rel="noopener" class="source-link src-ncbi">NCBI</a> </b>: the US National Center for Biotechnology Information, home of the Sequence Read Archive.
-            </p>
-            <p>
-              <b><a href="https://www.ebi.ac.uk/ena/browser/home" target="_blank" rel="noopener" class="source-link src-ena">ENA</a> </b>: the European Nucleotide Archive, run by EMBL-EBI.
-            </p>
-            <p>
-              <b><a href="https://ddbj.nig.ac.jp/search" target="_blank" rel="noopener" class="source-link src-ddbj">DDBJ</a> </b>: the DNA Data Bank of Japan.
-            </p>
-            <p>
-              <b><a href="https://metalog.embl.de/downloads" target="_blank" rel="noopener" class="source-link src-metalog">Metalog</a></b>: curated extra details from Metalog, added only when this sample is found there.
-            </p>
-            <p>
-              The three archives share their data, so the colour shows the archive this run was submitted to, not who wrote each value.
-            </p>
-          </div>
-          <div v-if="latLon !== null" class="amplicon-map">
-            <l-map :zoom="2" :center="latLon" :use-global-leaflet="false" style="height: 300px; width: 100%; max-width: 550px">
-              <l-tile-layer :url="tileUrl" :attribution="attribution" :options="{ referrerPolicy: 'origin' }" />
-              <l-marker :lat-lng="latLon" />
-            </l-map>
-          </div>
-          <RunMetadataTable :table_data="sample_rows" :unique_only="unique_only" />
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container is-large">
-          <h3 class="title section-heading">
-            <span>
-              Derived information
-              <button type="button" class="section-info" :aria-expanded="help_open.derived" aria-controls="derived-help" aria-label="About the derived information" @click="help_open.derived = !help_open.derived">
-                <b-icon icon="information-outline" size="is-small" />
-              </button>
-            </span>
-          </h3>
-          <p class="section-note">Calculated for Sandpiper rather than recorded by the submitter.</p>
-          <div v-if="help_open.derived" id="derived-help" class="content section-help">
-            <p>
-              <b>Ecoregion, realm and biome</b> come from the sample's coordinates, using the
-              <a href="https://www.arcgis.com/home/item.html?id=903c3ae05b264c00a3b5e58a4561b7e6">UNEP-WCMC</a>
-              marine ecoregions or
-              <a href="https://data-gis.unep-wcmc.org/portal/home/item.html?id=db0b298237f544c8a08302b9908229b0">Terrestrial Ecoregions of the World</a>.
-            </p>
-            <p>
-              <b>Latitude zone</b> comes from the latitude: tropics up to 23.5°, subtropics 23.5–35°, temperate
-              35–60° and polar 60–90°, north or south of the equator. <b>Predicted season</b> comes from the
-              collection month and zone, reversed in the southern hemisphere; the tropics have a dry and a wet season.
-            </p>
-            <p>
-              <b>Depth zone</b> uses the <a href="https://www.noaa.gov/jetstream/ocean/layers-of-ocean">NOAA ocean layers</a>
-              for marine samples and the <a href="https://www.nrcs.usda.gov/sites/default/files/2022-11/from-the-surface-down.pdf">USDA soil layers</a>
-              for terrestrial ones.
-            </p>
-            <p>
-              <b>Modelled temperature, pH and oxygen</b> are looked up for the sample's coordinates, depth and
-              collection date. Marine samples use the <a href="https://www.ncei.noaa.gov/products/world-ocean-atlas">World Ocean Atlas</a>
-              (temperature, dissolved oxygen) and <a href="https://glodap.info/">GLODAP</a> (pH). Terrestrial samples use
-              <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land-monthly-means">ERA5-Land monthly means</a> (temperature) and
-              <a href="https://developers.google.com/earth-engine/datasets/catalog/OpenLandMap_SOL_SOL_PH-H2O_USDA-4C1A2A_M_v02">OpenLandMap</a> (soil pH).
-            </p>
-            <p>
-              <b>Berger-Parker dominance</b> (<a href="https://www.statology.org/how-to-calculate-interpret-berger-parker-index/">what it measures</a>)
-              <template v-if="has_derived('Inverse Simpson diversity')">and <b>inverse Simpson diversity</b> are</template><template v-else>is</template>
-              calculated from the community profile at order level.
-            </p>
-          </div>
-          <RunMetadataTable :table_data="metadata.metadata.amplicon_derived_metadata" :unique_only="unique_only" />
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container is-large">
-          <h3 class="title section-heading">
-            <span>
-              Quality checks
-              <button type="button" class="section-info" :aria-expanded="help_open.qc" aria-controls="qc-help" aria-label="About the quality checks" @click="help_open.qc = !help_open.qc">
-                <b-icon icon="information-outline" size="is-small" />
-              </button>
-            </span>
-          </h3>
-          <p class="section-note">Quality checks are derived values calculated for additional specific information.</p>
-          <div v-if="help_open.qc" id="qc-help" class="content section-help">
-            <p>
-              <b>Low complexity</b> means more than 95% of the reads are assigned to a single order (Berger-Parker
-              index at order level above 0.95), close to the metagenome low complexity check. Runs that fail it are
-              left out of the current amplicon data, so every run shown here is complex.
-            </p>
-            <p v-if="parsed.low_richness != null"><b>Low richness</b> means the order count is low: fewer than 20 orders were detected in the run.</p>
-            <p v-if="parsed.low_effective_diversity != null">
-              <b>Low effective diversity</b> means the inverse Simpson diversity, calculated at order level (shown under
-              Derived information), is low: a few orders hold most of the reads even if many are present.
-            </p>
-          </div>
-          <RunMetadataTable :table_data="metadata.metadata.qc_metadata" :unique_only="unique_only" />
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container is-large">
-          <h3 class="title">Download</h3>
-          <p>The community profile of this run can be downloaded as a <a :href="csvUrl">tab-separated file</a> with the read count and relative abundance of each taxon.</p>
-        </div>
-      </section>
-    </div>
-
-    <div v-else-if="metadata !== null">
+    <div v-if="metadata !== null">
       <section class="section">
         <div class="container" v-if="metadata !== null">
           <h1 class="title run-study-title">{{ metadata.metadata_parsed.study_title }}</h1>
@@ -481,12 +230,6 @@
       </section>
     </div>
 
-    <section v-else-if="is_amplicon" class="section container amplicon-run">
-      <b-message v-if="error_message !== null" title="Error" type="is-warning" :closable="false" has-icon>
-        <p>{{ error_message }}</p>
-      </b-message>
-      <p v-else>Searching ..</p>
-    </section>
     <div v-else>
       <div v-if="error_message !== null">
         <section class="section container">
@@ -548,22 +291,13 @@ import RunMetadataTable from '@/components/RunMetadataTable.vue'
 import { LMap, LTileLayer, LMarker } from '@vue-leaflet/vue-leaflet'
 
 import { api_url, fetchRunMetadata, fetchRunCondensed } from '@/api'
-import { fetchAmpliconRun, fetchAmpliconCondensed, ampliconCondensedCsvUrl } from '@/api/amplicon'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 import rnaIcon from '@/assets/RNA-white.png'
 
-// Amplicon runs: Wagtail version and reference database per marker, as reported by Rizky.
-const PROFILING_METHODS = {
-  '16S': { wagtail: '1.0.0', database: 'Microflora Danica v1.0.0' },
-  '18S': { wagtail: '1.2.0', database: 'PR2 5.1.0' },
-  ITS: { wagtail: '1.2.0', database: 'UNITE ver10_99_19.02.2025' }
-}
-
 export default {
   name: 'Run',
   title () {
-    if (this.dataset === 'amplicon') return `Amplicon run ${this.accession} - Sandpiper`
     return `Run ${this.accession} - Sandpiper`
   },
   data: function () {
@@ -584,16 +318,10 @@ export default {
       unique_only: false,
       unique_tip_open: false,
       unique_tip_x: 0,
-      unique_tip_y: 0,
-      // Amplicon runs only
-      condensed: null,
-      help_open: { profile: false, derived: false, qc: false, sample: false },
-      tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; <a target="_blank" href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+      unique_tip_y: 0
     }
   },
-  // dataset: 'amplicon' (from the /amplicon/run route) shows an amplicon run.
-  props: ['accession', 'dataset'],
+  props: ['accession'],
   components: {
     Sunburst3,
     RunMetadata,
@@ -603,20 +331,6 @@ export default {
     LMarker
   },
   computed: {
-    is_amplicon () {
-      return this.dataset === 'amplicon'
-    },
-    // --- Amplicon runs ---
-    parsed () {
-      return this.metadata.metadata_parsed
-    },
-    // Sample information rows tagged with where they came from: the run's
-    // archive (from its accession prefix) or Metalog. Same as the metagenome page.
-    sample_rows () {
-      const archive = { SRR: 'ncbi', ERR: 'ena', DRR: 'ddbj' }[(this.accession || '').slice(0, 3).toUpperCase()]
-      const own = (this.metadata.metadata.sample_info_metadata || []).map(r => ({ ...r, source: archive }))
-      return own.concat((this.metadata.metadata.metalog_metadata || []).map(r => ({ ...r, source: 'metalog' })))
-    },
     // Counts for the "unique fields" badge from the API's bioproject_similarity
     // (null for a BioProject with one run, which hides the badge).
     uniqueness () {
@@ -630,49 +344,6 @@ export default {
         percent: (unique / similarity.n_fields) * 100
       }
     },
-    amplicon_sequencing_summary () {
-      const parts = [this.parsed.amplicon_marker + ' amplicon']
-      if (this.parsed.mbases !== null) parts.push(this.parsed.mbases + ' Mbp')
-      return parts.join(' · ')
-    },
-    latLon () {
-      const { latitude, longitude } = this.parsed
-      return latitude === null || longitude === null ? null : [latitude, longitude]
-    },
-    profiling_method () {
-      return PROFILING_METHODS[this.parsed.amplicon_marker] || null
-    },
-    csvUrl () {
-      return ampliconCondensedCsvUrl(this.accession)
-    },
-    // Amplicon is a fact about the run, not a pass/fail verdict, so it uses
-    // the categorical styling; the QC checks use red/green and the same
-    // names as metagenome runs. Flags whose column isn't in the loaded data
-    // come back as null and are hidden rather than shown as a passing check.
-    amplicon_qc_flags () {
-      const p = this.parsed
-      const amplicon = `This run is amplicon sequencing data: one marker gene (${p.amplicon_marker}) was amplified and sequenced.`
-      return [
-        { key: 'amplicon', active: true, activeLabel: 'Amplicon', activeIcon: 'source-branch', activeClass: 'run-qc-flag-amplicon',
-          activeHint: amplicon, clearHint: amplicon, search: `marker:${p.amplicon_marker}` },
-        { key: 'low_complexity', active: p.low_complexity, activeLabel: 'Low complexity', clearLabel: 'Complex', activeIcon: 'flag-variant', activeClass: 'run-qc-flag-active',
-          activeHint: 'More than 95% of this sample’s reads are assigned to a single order, so it is flagged as low complexity.',
-          clearHint: 'No single order holds more than 95% of this sample’s reads.',
-          search: 'low_complexity:yes / low_complexity:no' },
-        { key: 'low_richness', active: p.low_richness, activeLabel: 'Low richness', clearLabel: 'High richness', activeIcon: 'flag-variant', activeClass: 'run-qc-flag-active',
-          activeHint: 'Order count: low. Fewer than 20 orders were detected in this sample.',
-          clearHint: 'Order count: high. 20 or more orders were detected in this sample.',
-          search: 'low_richness:yes / low_richness:no' },
-        { key: 'low_effective_diversity', active: p.low_effective_diversity, activeLabel: 'Low effective diversity', clearLabel: 'High effective diversity', activeIcon: 'flag-variant', activeClass: 'run-qc-flag-active',
-          activeHint: 'This sample’s inverse Simpson diversity, calculated at order level, is low: a few orders hold most of the reads.',
-          clearHint: 'This sample’s inverse Simpson diversity, calculated at order level, is not low.',
-          search: 'low_effective_diversity:yes / low_effective_diversity:no' }
-      ].filter(flag => flag.active != null)
-    },
-    amplicon_qc_tooltip_flag () {
-      return this.qc_tooltip_key ? this.amplicon_qc_flags.find(f => f.key === this.qc_tooltip_key) || null : null
-    },
-    // --- end amplicon runs ---
     bioproject_url: function () {
       return 'https://www.ncbi.nlm.nih.gov/bioproject/' + this.metadata.metadata_parsed.bioproject
     },
@@ -913,11 +584,7 @@ export default {
     },
     fetchData () {
       this.unique_only = false
-      if (this.is_amplicon) return this.fetchAmpliconData()
       const accession = this.accession
-      // Coming straight from an amplicon run (same page instance): don't let
-      // the metagenome layout render the amplicon run's metadata meanwhile.
-      if (this.metadata?.metadata_parsed?.amplicon) this.metadata = null
 
       this.condensed_cache = {}
       this.condensed_tree = null
@@ -941,33 +608,6 @@ export default {
         // The template gates on metadata/error_message, so the page is
         // genuinely blank until this settles either way.
         .finally(() => stopPageLoading(loadingToken))
-    },
-    has_derived (label) {
-      return this.metadata.metadata.amplicon_derived_metadata.some(row => row.k === label)
-    },
-    async fetchAmpliconData () {
-      this.metadata = null
-      this.condensed = null
-      this.error_message = null
-      // Clear App.vue's loading backdrop once the gating metadata fetch
-      // settles, success or failure.
-      const loadingToken = currentLoadingToken()
-      try {
-        const res = await fetchAmpliconRun(this.accession)
-        this.metadata = res.data
-      } catch (err) {
-        this.error_message = err.response?.data?.error || `Could not load amplicon run ${this.accession}.`
-        return
-      } finally {
-        stopPageLoading(loadingToken)
-      }
-      try {
-        const res = await fetchAmpliconCondensed(this.accession)
-        this.condensed = res.data
-      } catch (err) {
-        this.condensed = { no_data: true }
-        console.error('Amplicon profile request failed', err)
-      }
     },
     publicationHref (link) {
       const db = link['database'].toLowerCase()
@@ -1474,166 +1114,5 @@ export default {
     width: 100%;
     border-radius: 4px !important;
   }
-}
-
-/* Amplicon runs: the amplicon run page's own styles, scoped to its block. */
-.run-page .amplicon-run,
-.run-page .amplicon-run a,
-.amplicon-run .run-study-title {
-  overflow-wrap: anywhere;
-}
-.amplicon-run .amplicon-eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: hsl(205, 60%, 38%);
-  margin-bottom: 0.35rem;
-}
-.amplicon-run .run-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8) 2.2rem;
-  margin: 0 0 1.65rem;
-  padding-bottom: 1.65rem;
-  border-bottom: 1px solid hsl(0, 0%, 90%);
-}
-.amplicon-run .run-fact {
-  min-width: 0;
-}
-.amplicon-run .run-fact dt {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
-  margin-bottom: 0.2rem;
-}
-.amplicon-run .run-fact dd {
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-.amplicon-run .run-qc-flags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) 0.9rem;
-  margin-bottom: var(--space-6);
-}
-.amplicon-run .run-qc-flag {
-  appearance: none;
-  border: 0;
-  font-family: inherit;
-  cursor: help;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-.amplicon-run .run-qc-flag-clear {
-  background: hsl(141, 60%, 34%);
-  color: hsl(0, 0%, 100%);
-}
-.amplicon-run .run-qc-flag-active {
-  background: hsl(348, 75%, 42%);
-  color: hsl(0, 0%, 100%);
-}
-.amplicon-run .run-qc-flag-amplicon {
-  background: hsl(185, 55%, 32%);
-  color: hsl(0, 0%, 100%);
-}
-.amplicon-run .run-link-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.amplicon-run .run-link-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid hsl(0, 0%, 87%);
-  border-radius: 6px;
-  color: hsl(0, 0%, 25%);
-  font-size: 0.85rem;
-  text-decoration: none;
-  transition: border-color 0.15s, background-color 0.15s;
-}
-.amplicon-run .run-link-pill:hover,
-.amplicon-run .run-link-pill:focus-visible {
-  border-color: hsl(271, 55%, 55%);
-  background: hsl(271, 45%, 97%);
-}
-.amplicon-run .run-qc-tooltip {
-  position: fixed;
-  z-index: var(--z-tooltip);
-  background: rgba(25, 25, 35, 0.97);
-  color: #fff;
-  border-radius: 8px;
-  padding: 0.6rem 0.8rem;
-  max-width: 260px;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
-  font-size: 0.78rem;
-  line-height: 1.5;
-  pointer-events: auto;
-}
-.amplicon-run .run-qc-tooltip-search {
-  display: block;
-  margin-top: 0.4rem;
-  font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.6);
-}
-.amplicon-run .section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-}
-.amplicon-run .section-info {
-  appearance: none;
-  border: 0;
-  padding: 0.15rem;
-  background: transparent;
-  cursor: pointer;
-  vertical-align: middle;
-  color: #7a7a7a;
-}
-.amplicon-run .section-info:hover {
-  color: #363636;
-}
-.amplicon-run .section-info:focus-visible,
-.amplicon-run .run-qc-flag:focus-visible {
-  outline: 2px solid #3273dc;
-  outline-offset: 2px;
-}
-.amplicon-run .section-note {
-  margin: 0.15rem 0 0.75rem;
-  font-size: 0.85rem;
-  color: hsl(0, 0%, 40%);
-}
-.amplicon-run .section-help {
-  margin-bottom: 1rem;
-  overflow-wrap: anywhere;
-}
-.amplicon-run .amplicon-map {
-  margin-bottom: 1rem;
-}
-
-@media (max-width: 768px) {
-  .run-page .amplicon-run :deep(.section) {
-      padding: 1.5rem 1rem;
-    }
-  .amplicon-run .run-study-title {
-      font-size: 1.5rem;
-      line-height: 1.25;
-    }
-  .amplicon-run .run-facts {
-      flex-direction: column;
-      gap: var(--space-4);
-    }
 }
 </style>

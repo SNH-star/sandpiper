@@ -7,14 +7,13 @@
 
             <b-navbar-item tag="router-link" :to="{ path: '/Run/SRR9841429' }">Example 1</b-navbar-item>
             <b-navbar-item tag="router-link" :to="{ path: '/Run/ERR1914274' }">Example 2</b-navbar-item>
-            <b-navbar-item tag="router-link" :to="{ path: '/amplicon/run/SRR3741935' }">Amplicon example</b-navbar-item>
 
             <b-navbar-item tag="router-link" :to="{ path: '/About' }">About</b-navbar-item>
         </template>
     </b-navbar>
 
     <template v-if="is_run_page">
-      <!-- Pull tab — always visible on Run pages (metagenome and amplicon) -->
+      <!-- Pull tab — always visible on Run pages -->
       <button type="button" class="sticky-pull-tab" :class="{ 'is-drawer-open': sticky_visible }" :aria-expanded="sticky_visible" aria-controls="run-search-panel" aria-label="Continue searching runs" @click="sticky_visible = !sticky_visible">
         <span class="sticky-pull-label">Continue searching</span>
       </button>
@@ -27,7 +26,7 @@
             <div class="sticky-input-col">
               <b-field class="sticky-field-grow">
                 <div class="search-autocomplete-wrap">
-                  <b-input id="sticky-run-search" name="sticky-run-search" v-model="sticky_input" aria-label="Filter runs" :placeholder="is_amplicon_run ? 'e.g. marker: ITS' : 'e.g. country: Australia'" icon="magnify" expanded
+                  <b-input id="sticky-run-search" name="sticky-run-search" v-model="sticky_input" aria-label="Filter runs" placeholder="e.g. country: Australia" icon="magnify" expanded
                     @input="on_sticky_input" @keydown="on_sticky_keydown"></b-input>
                   <div v-if="sticky_ghost_suffix" ref="stickyGhost" class="search-ghost-overlay" aria-hidden="true">
                     <span class="search-ghost-typed">{{ sticky_input }}</span><span class="search-ghost-suffix">{{ sticky_ghost_suffix }}</span>
@@ -67,29 +66,6 @@
           </div>
           <div id="run-search-keys" class="sticky-keys-panel" :class="{ 'is-open': sticky_keys_open }">
             <div class="sticky-keys-box">
-              <template v-if="is_amplicon_run">
-              <div class="sticky-keys-grid">
-                <div v-for="group in amplicon_groups" :key="group" class="keys-group">
-                  <p class="keys-group-title">{{ group }}</p>
-                  <div v-for="f in amplicon_fields_in(group)" :key="f.key" class="keys-item"><code>{{ f.key }}</code><span class="keys-example">e.g. {{ f.example }}</span></div>
-                </div>
-              </div>
-              <div class="sticky-syntax-row">
-                <span class="sticky-syntax-title">Query Syntax</span>
-                <div class="sticky-syntax-items">
-                  <span class="sticky-syntax-item"><code>ITS</code> exact value</span>
-                  <span class="sticky-syntax-item"><code>2010-2015</code> year range</span>
-                  <span class="sticky-syntax-item"><code>yes</code> / <code>no</code> QC flags</span>
-                  <span class="sticky-syntax-item"><code>"Oahu, Kaneohe Bay"</code> quotes keep a comma inside one value</span>
-                </div>
-              </div>
-              <div class="sticky-example-row">
-                <span class="sticky-example-label">Example:</span>
-                <code class="sticky-example-query">{{ amplicon_example }}</code>
-                <b-button size="is-small" type="is-primary" @click="try_sticky_example">Try it</b-button>
-              </div>
-              </template>
-              <template v-else>
               <div class="sticky-keys-grid">
                 <div class="keys-group">
                   <p class="keys-group-title">Keywords</p>
@@ -194,7 +170,6 @@
                 <code class="sticky-example-query">year: 2015-2020, metadata: sex=male</code>
                 <b-button size="is-small" type="is-primary" @click="try_sticky_example">Try it</b-button>
               </div>
-              </template>
             </div>
           </div>
         </div>
@@ -354,11 +329,7 @@
 
 <script>
 import { fetchUniversalSearch, fetchTaxonomySearchHints, fetchSearchFieldValues } from '@/api'
-import { fetchAmpliconUniversalSearch } from '@/api/amplicon'
-import { AMPLICON_GROUPS, AMPLICON_EXAMPLE, parseAmpliconQuery } from '@/constants/ampliconFields'
-import { ampliconAutocompleteFields, fetchAmpliconLiveValues, loadAmpliconFacets, availableAmpliconFields, unavailableAmpliconKeys } from '@/composables/ampliconAutocomplete'
 import { SEARCH_FIELDS } from '@/constants/searchFields'
-import { useRoute } from 'vue-router'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import { pageLoadingState, startPageLoading } from '@/store/pageLoading'
@@ -379,19 +350,14 @@ export default {
     // Same engine as Search.vue's universal bar, wired to sticky_input
     // instead -- see useSearchAutocomplete for the shared ranking/Tab-cycle
     // logic (docs/superpowers/specs/2026-09-14-search-bar-autocomplete-design.md).
-    // On an amplicon run page the bar searches amplicon runs: same
-    // dropdown, amplicon keys and values.
-    const route = useRoute()
-    const isAmplicon = () => route.name === 'AmpliconRun'
     const autocomplete = useSearchAutocomplete(async (field, q, signal) => {
-      if (isAmplicon()) return fetchAmpliconLiveValues(field, q)
       if (field === 'taxonomy') {
         const { data } = await fetchTaxonomySearchHints(q, undefined, signal)
         return (data.taxonomies || []).map(name => ({ value: name, count: null }))
       }
       const { data } = await fetchSearchFieldValues(field, q, signal)
       return data.values
-    }, () => (isAmplicon() ? ampliconAutocompleteFields() : SEARCH_FIELDS))
+    }, () => SEARCH_FIELDS)
     return {
       ac_suggestions: autocomplete.suggestions,
       ac_active_index: autocomplete.activeIndex,
@@ -419,8 +385,6 @@ export default {
       sticky_tooltip_y: 0,
       sticky_tooltip_timer: null,
       scroll_up_accum: 0,
-      amplicon_groups: AMPLICON_GROUPS,
-      amplicon_example: AMPLICON_EXAMPLE,
       pageLoadingState,
     }
   },
@@ -432,11 +396,8 @@ export default {
   },
 
   computed: {
-    is_amplicon_run () {
-      return this.$route.name === 'AmpliconRun'
-    },
     is_run_page () {
-      return this.$route.name === 'Run' || this.is_amplicon_run
+      return this.$route.name === 'Run'
     },
     // See Search.vue's identical ghost_suffix for the reasoning -- only a
     // literal prefix match gets grey inline completion, even though the
@@ -476,11 +437,8 @@ export default {
       const routeKeyChanged = (to.name + (to.params.accession || '')) !== (from.name + (from.params.accession || ''))
       if (routeKeyChanged) startPageLoading()
 
-      if ((from.name === 'Run' || from.name === 'AmpliconRun') && from.params.accession && from.params.accession !== to.params.accession) {
+      if (from.name === 'Run' && from.params.accession && from.params.accession !== to.params.accession) {
         this.run_history.push({ name: from.name, accession: from.params.accession, q: queryParamToString(from.query.q) })
-      }
-      if (to.name === 'AmpliconRun') {
-        loadAmpliconFacets().catch(err => console.error('Amplicon facets request failed', err))
       }
       this.sticky_count_request_id += 1
       this.sticky_abort?.abort()
@@ -640,7 +598,6 @@ export default {
       const raw = this.sticky_input.trim()
       if (!raw) { this.sticky_count = null; return }
       try {
-        if (this.amplicon_unknown_keys(raw).length > 0) { this.sticky_count = null; return }
         this.sticky_abort?.abort()
         this.sticky_abort = new AbortController()
         const { data } = await this.fetch_matches(raw, undefined, this.sticky_abort.signal)
@@ -652,36 +609,17 @@ export default {
       }
     },
 
-    amplicon_fields_in (group) {
-      return availableAmpliconFields(group)
-    },
-
-    // Typos and keys the loaded amplicon data has no column for.
-    amplicon_unknown_keys (query) {
-      return this.is_amplicon_run ? [...parseAmpliconQuery(query).unknown, ...unavailableAmpliconKeys(query)] : []
-    },
-
     fetch_matches (query, exclude, signal) {
-      return this.is_amplicon_run ? fetchAmpliconUniversalSearch(query, exclude, signal) : fetchUniversalSearch(query, exclude, signal)
+      return fetchUniversalSearch(query, exclude, signal)
     },
 
     run_route (accession, query) {
-      return { name: this.is_amplicon_run ? 'AmpliconRun' : 'Run', params: { accession }, query: query ? { q: query } : undefined }
+      return { name: 'Run', params: { accession }, query: query ? { q: query } : undefined }
     },
 
     // An empty search bar means "no filter", which is a legitimate request:
     // give the user another random run rather than silently doing nothing.
     async next_random_run () {
-      if (this.is_amplicon_run) {
-        try {
-          const { data } = await fetchAmpliconUniversalSearch('', this.$route.params.accession)
-          if (data.random_acc) this.$router.push(this.run_route(data.random_acc))
-          else this.$buefy.toast.open({ message: 'No other amplicon runs', type: 'is-warning' })
-        } catch (e) {
-          this.$buefy.toast.open({ message: 'Search failed, please try again', type: 'is-danger' })
-        }
-        return
-      }
       const q = this.$route.query
       this.$router.push({ name: 'RunRandom', query: {
         host: q.host ?? RANDOM_DEFAULTS.host,
@@ -695,11 +633,6 @@ export default {
     async next_from_sticky () {
       const query = this.sticky_input.trim()
       if (!query) { this.next_random_run(); return }
-      const unknown = this.amplicon_unknown_keys(query)
-      if (unknown.length > 0) {
-        this.$buefy.toast.open({ message: `Unknown amplicon key(s): ${unknown.join(', ')}`, type: 'is-warning' })
-        return
-      }
       const requestId = ++this.sticky_count_request_id
       this.debounced_fetch_count.cancel()
       this.sticky_loading = true
@@ -737,7 +670,7 @@ export default {
     },
 
     try_sticky_example () {
-      this.sticky_input = this.is_amplicon_run ? AMPLICON_EXAMPLE : 'year: 2015-2020, metadata: sex=male'
+      this.sticky_input = 'year: 2015-2020, metadata: sex=male'
       this.on_sticky_input()
     },
 

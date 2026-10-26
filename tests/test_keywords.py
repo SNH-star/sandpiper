@@ -1,16 +1,9 @@
 import os
 import sys
 
-import pytest
-from flask import Flask
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
-from api.amplicon import amplicon  # noqa: E402
-from api.amplicon_data import AmpliconFilters, AmpliconStore  # noqa: E402
 from api.keywords import MAX_KEYWORD_TERMS, like_pattern, parse_keyword_terms  # noqa: E402
-
-FIXTURES = os.path.join(os.path.dirname(__file__), 'amplicon_fixtures')
 
 
 def test_terms_split_on_commas_and_keep_phrases():
@@ -35,53 +28,6 @@ def test_like_pattern_escapes_wildcards():
     assert like_pattern('50%_x!') == '%50!%!_x!!%'
 
 
-@pytest.fixture(scope='module')
-def store():
-    return AmpliconStore(os.path.join(FIXTURES, 'community.tsv'), os.path.join(FIXTURES, 'metadata.tsv'))
-
-
-def _accs(store, *terms):
-    return [r['acc'] for r in store.search(AmpliconFilters(keywords=terms), 1, 50).runs]
-
-
-def test_amplicon_phrase_matches_exactly(store):
-    assert _accs(store, 'baltic sea') == ['SRR0000001']
-    assert _accs(store, 'sea baltic') == []
-
-
-def test_amplicon_terms_are_anded_across_fields(store):
-    # 'prjna1' hits bioproject, 'okhotsk' hits ecoregion: only run 2 has both.
-    assert _accs(store, 'prjna1', 'okhotsk') == ['SRR0000002']
-
-
-def test_amplicon_same_term_in_several_fields_counts_once(store):
-    # 'marine' is in organism, environment (domain) of every run, and a
-    # sample must not be duplicated.
-    accs = _accs(store, 'marine')
-    assert len(accs) == len(set(accs)) == 3
-
-
-@pytest.fixture(scope='module')
-def client():
-    app = Flask('keywords_test')
-    app.config['AMPLICON_COMMUNITY_TSV'] = os.path.join(FIXTURES, 'community.tsv')
-    app.config['AMPLICON_METADATA_TSV'] = os.path.join(FIXTURES, 'metadata.tsv')
-    app.register_blueprint(amplicon, url_prefix='/api/amplicon')
-    return app.test_client()
-
-
-def test_amplicon_universal_search_keywords_key(client):
-    body = client.get('/api/amplicon/universal_search',
-                      query_string={'q': 'keywords: "baltic sea, prjna1"'}).get_json()
-    assert body['count'] == 1
-    assert body['random_acc'] == 'SRR0000001'
-    assert 'baltic sea' in body['match_description']
-
-
-def test_amplicon_universal_search_empty_keywords_matches_all(client):
-    body = client.get('/api/amplicon/universal_search', query_string={'q': 'keywords:'}).get_json()
-    assert body['count'] == 3
-
 
 def test_metagenome_condition_is_one_or_per_term_anded():
     from api.api import _parse_search_condition
@@ -98,11 +44,6 @@ def test_metagenome_condition_is_one_or_per_term_anded():
 def test_metagenome_empty_keywords_is_not_a_condition():
     from api.api import _parse_search_condition
     assert _parse_search_condition('keywords', ' , ')[0] is None
-
-
-def test_amplicon_wildcards_in_a_term_are_literal(store):
-    assert _accs(store, '%') == []
-    assert _accs(store, 'marine_metagenome') == []
 
 
 def test_metagenome_condition_runs_on_duckdb():

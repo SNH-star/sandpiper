@@ -9,7 +9,7 @@
             v-model="search_query"
             type="search"
             icon="magnify"
-            :placeholder="search_placeholder" />
+            placeholder="Highlight taxa e.g. Bacteroidota or p__Bacillota" />
         </b-field>
         <p class="help">{{ search_help }}</p>
       </div>
@@ -50,7 +50,7 @@
       </div>
 
       <div class="sunburst-side">
-        <div v-if="show_known_fraction" class="sunburst-known-fraction">
+        <div class="sunburst-known-fraction">
           <p class="sunburst-known-fraction-label">Known species fraction</p>
           <svg id="known_fraction_area" class="sunburst-donut" viewBox="0 0 220 220" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
@@ -61,16 +61,14 @@
             <ol v-if="selected.taxonomy.length" class="sunburst-detail-taxonomy">
               <li v-for="crumb in selected.taxonomy" :key="crumb.rank">
                 <span class="sunburst-detail-rank">{{ crumb.rank }}</span>
-                <router-link v-if="link_taxa" :to="crumb.link">{{ crumb.name }}</router-link>
-                <span v-else>{{ crumb.name }}</span>
+                <router-link :to="crumb.link">{{ crumb.name }}</router-link>
               </li>
             </ol>
             <dl class="sunburst-detail-stats">
               <div>
                 <dt>
-                  {{ coverage_label }}
+                  Genome coverage
                   <InfoTooltipButton
-                    v-if="show_coverage_help"
                     label="What is genome coverage?"
                     controls="coverage-help"
                     :expanded="coverage_help_open"
@@ -85,13 +83,13 @@
                 <dd>{{ selected.relative_abundance }}%</dd>
               </div>
             </dl>
-            <div v-if="show_coverage_help && coverage_help_open" id="coverage-help" class="sunburst-coverage-help" role="dialog" aria-label="What is genome coverage?">
+            <div v-if="coverage_help_open" id="coverage-help" class="sunburst-coverage-help" role="dialog" aria-label="What is genome coverage?">
               <p><strong>Genome coverage</strong> is the estimated average number of reads covering each position of a genome from this lineage, inferred from single-copy marker genes. It rises with sequencing depth and falls with genome size, so it is not a cell count.</p>
               <p>For a genus or any group above species, the figure is the sum over every species beneath it, including reads that match no named species. Relative abundance divides it by the total across all bacteria and archaea in the run.</p>
               <p>How much of the sample is bacterial or archaeal at all is shown separately as the prokaryotic fraction.</p>
             </div>
           </template>
-          <p v-else class="sunburst-detail-empty">Tap or click a wedge to see its taxonomy, {{ coverage_label.toLowerCase() }}, and relative abundance here.</p>
+          <p v-else class="sunburst-detail-empty">Tap or click a wedge to see its taxonomy, genome coverage, and relative abundance here.</p>
         </div>
       </div>
     </div>
@@ -137,21 +135,9 @@ export default {
   props: {
     json_tree: { required: true },
     known_species_fraction: { default: null },
-    // Opt-in switches for amplicon runs, which have no known-species
-    // estimate, no taxonomy pages and read counts instead of coverage.
-    // Defaults keep the metagenome run page unchanged.
-    show_known_fraction: { type: Boolean, default: true },
-    link_taxa: { type: Boolean, default: true },
-    // Taxonomy page the taxon links open, e.g. '/amplicon/taxonomy/' on amplicon runs.
-    taxa_link_base: { type: String, default: '/taxonomy/' },
-    coverage_label: { type: String, default: 'Genome coverage' },
-    // Name of the root of the tree. Metagenome profiles only contain bacteria
-    // and archaea; amplicon profiles can hold other lineages, so the default
-    // stays generic.
+    // Name of the root of the tree.
     root_label: { type: String, default: 'All taxa' },
-    scope_note: { type: String, default: '' },
-    show_coverage_help: { type: Boolean, default: true },
-    search_placeholder: { type: String, default: 'Highlight taxa e.g. Bacteroidota or p__Bacillota' }
+    scope_note: { type: String, default: '' }
   },
   data () {
     return {
@@ -379,7 +365,7 @@ export default {
       const taxonomy = ancestors.map((node, i) => ({
         rank: RANK_LABELS[i] || `Level ${i + 1}`,
         name: node.data.name,
-        link: this.taxa_link_base + (RANK_PREFIXES[i] || '') + node.data.name
+        link: '/taxonomy/' + (RANK_PREFIXES[i] || '') + node.data.name
       }))
 
       const total_coverage = p.sum(d => d.size).value
@@ -590,7 +576,6 @@ export default {
     },
 
     draw_known_fraction (known_species_fraction) {
-      if (!this.show_known_fraction) return
       const width = 220
       const outer_radius = 95
       const inner_radius = 55

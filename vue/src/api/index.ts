@@ -71,17 +71,11 @@ export interface NicheOptions {
   piper_community_options: string[]
 }
 
-// Amplicon taxonomy pages use the same endpoints under /api/amplicon, with
-// the same response shapes -- 'amplicon' is just a third taxonomy type here.
-export function taxonomyApiUrl (taxonomyType: string) {
-  return taxonomyType === 'amplicon' ? `${API_URL}/amplicon` : API_URL
-}
-
 export function fetchTaxonomyNicheOptions (taxonomy: string, taxonomyType: string, niche?: NicheFilters) {
   // Bucketed values actually present for this taxon, each computed against
   // whatever is currently selected on the *other* two axes -- backs the
   // cascading Niche Mapping sliders.
-  return axios.get<NicheOptions>(`${taxonomyApiUrl(taxonomyType)}/taxonomy_niche_options/${taxonomy}`,
+  return axios.get<NicheOptions>(`${API_URL}/taxonomy_niche_options/${taxonomy}`,
     { params: { taxonomy_type: taxonomyType, ...nicheFilterParams(niche) } })
 }
 
@@ -98,7 +92,7 @@ export function fetchRunsByTaxonomy (
   cluster: { lat: number, lon: number, precision: number } | null = null,
   niche?: NicheFilters
 ) {
-  let url = `${taxonomyApiUrl(taxonomyType)}/taxonomy_search_run_data/${taxonomy}?taxonomy_type=${taxonomyType}&sort_field=${sortField}&sort_direction=${sortDirection}&page=${page}&page_size=${pageSize}&exclude_low_complexity=${excludeLowComplexity}`
+  let url = `${API_URL}/taxonomy_search_run_data/${taxonomy}?taxonomy_type=${taxonomyType}&sort_field=${sortField}&sort_direction=${sortDirection}&page=${page}&page_size=${pageSize}&exclude_low_complexity=${excludeLowComplexity}`
   if (cluster) {
     url += `&cluster_lat=${cluster.lat}&cluster_lon=${cluster.lon}&cluster_precision=${cluster.precision}`
   }
@@ -121,7 +115,7 @@ export function fetchGlobalDataByTaxonomy (
     params.cluster_lon = cluster.lon
     params.cluster_precision = cluster.precision
   }
-  return axios.get(`${taxonomyApiUrl(taxonomyType)}/taxonomy_search_global_data/${taxonomy}`, { params })
+  return axios.get(`${API_URL}/taxonomy_search_global_data/${taxonomy}`, { params })
 }
 
 export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precision = 1, niche?: NicheFilters) {
@@ -129,7 +123,7 @@ export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precis
   // category. Unlike the marker map this is not capped, because the database
   // returns cells rather than runs. Deliberately excludes per-cell study
   // titles -- see fetchTaxonomyMapCellStudies below.
-  return axios.get(`${taxonomyApiUrl(taxonomyType)}/taxonomy_map/${taxonomy}`,
+  return axios.get(`${API_URL}/taxonomy_map/${taxonomy}`,
     { params: { taxonomy_type: taxonomyType, precision, ...nicheFilterParams(niche) } })
 }
 
@@ -139,7 +133,7 @@ export function fetchTaxonomyMapCellStudies (
   // Study titles are tooltip-only content, and bundling them into every cell
   // of fetchTaxonomyMap roughly doubled that response's size for a
   // mid-sized taxon -- fetched per cell instead, on hover.
-  return axios.get(`${taxonomyApiUrl(taxonomyType)}/taxonomy_map_cell_studies/${taxonomy}`,
+  return axios.get(`${API_URL}/taxonomy_map_cell_studies/${taxonomy}`,
     { params: { taxonomy_type: taxonomyType, lat, lon, precision, ...nicheFilterParams(niche) } })
 }
 
@@ -174,8 +168,7 @@ export function fetchUniversalSearch (q: string, exclude?: string, signal?: Abor
 }
 
 // "Explore tabled results" page: the taxonomy-page view of every run matching
-// a search-box query. 'amplicon' uses the same endpoints under /api/amplicon.
-export type QueryDataset = 'metagenome' | 'amplicon'
+// a search-box query.
 
 export interface MapCluster {
   lat: number
@@ -183,27 +176,22 @@ export interface MapCluster {
   precision: number
 }
 
-function queryApiUrl (dataset: QueryDataset) {
-  return dataset === 'amplicon' ? `${API_URL}/amplicon` : API_URL
-}
-
 function clusterParams (cluster: MapCluster | null): Record<string, number> {
   return cluster ? { cluster_lat: cluster.lat, cluster_lon: cluster.lon, cluster_precision: cluster.precision } : {}
 }
 
 // `niche` is the Niche Mapping selection (per-sample metadata), as on the taxonomy page.
-export function fetchQueryGlobalData (q: string, dataset: QueryDataset, cluster: MapCluster | null = null, niche?: NicheFilters) {
-  return axios.get(`${queryApiUrl(dataset)}/query_search_global_data`,
+export function fetchQueryGlobalData (q: string, cluster: MapCluster | null = null, niche?: NicheFilters) {
+  return axios.get(`${API_URL}/query_search_global_data`,
     { params: { q, ...clusterParams(cluster), ...nicheFilterParams(niche) } })
 }
 
-export function fetchQueryNicheOptions (q: string, dataset: QueryDataset, niche?: NicheFilters) {
-  return axios.get<NicheOptions>(`${queryApiUrl(dataset)}/query_niche_options`, { params: { q, ...nicheFilterParams(niche) } })
+export function fetchQueryNicheOptions (q: string, niche?: NicheFilters) {
+  return axios.get<NicheOptions>(`${API_URL}/query_niche_options`, { params: { q, ...nicheFilterParams(niche) } })
 }
 
 export function fetchQueryRunData (
   q: string,
-  dataset: QueryDataset,
   page: number,
   sortField: string,
   sortDirection: string,
@@ -214,7 +202,7 @@ export function fetchQueryRunData (
   // 'gtdb' | 'globdb': which database's abundance to show when the search names a taxon.
   taxonomyType = 'gtdb'
 ) {
-  return axios.get(`${queryApiUrl(dataset)}/query_search_run_data`, {
+  return axios.get(`${API_URL}/query_search_run_data`, {
     params: {
       q,
       page,
@@ -229,25 +217,25 @@ export function fetchQueryRunData (
   })
 }
 
-export function fetchQueryMap (q: string, dataset: QueryDataset, precision = 1, niche?: NicheFilters) {
-  return axios.get(`${queryApiUrl(dataset)}/query_map`, { params: { q, precision, ...nicheFilterParams(niche) } })
+export function fetchQueryMap (q: string, precision = 1, niche?: NicheFilters) {
+  return axios.get(`${API_URL}/query_map`, { params: { q, precision, ...nicheFilterParams(niche) } })
 }
 
 export function fetchQueryMapCellStudies (
-  q: string, dataset: QueryDataset, lat: number, lon: number, precision = 1, niche?: NicheFilters
+  q: string, lat: number, lon: number, precision = 1, niche?: NicheFilters
 ) {
-  return axios.get(`${queryApiUrl(dataset)}/query_map_cell_studies`,
+  return axios.get(`${API_URL}/query_map_cell_studies`,
     { params: { q, lat, lon, precision, ...nicheFilterParams(niche) } })
 }
 
 // Same filters as the runs table, so the CSV holds exactly the table's runs.
 export function queryCsvUrl (
-  q: string, dataset: QueryDataset, excludeLowComplexity: boolean, cluster: MapCluster | null = null, niche?: NicheFilters,
+  q: string, excludeLowComplexity: boolean, cluster: MapCluster | null = null, niche?: NicheFilters,
   taxonomyType = 'gtdb'
 ) {
   const params = new URLSearchParams({ q, exclude_low_complexity: String(excludeLowComplexity), taxonomy_type: taxonomyType })
   for (const [key, value] of Object.entries({ ...clusterParams(cluster), ...nicheFilterParams(niche) })) {
     params.set(key, String(value))
   }
-  return `${queryApiUrl(dataset)}/query_search_csv?${params}`
+  return `${API_URL}/query_search_csv?${params}`
 }
