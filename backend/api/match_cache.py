@@ -3,9 +3,9 @@ match_cache.py
 - Shares the run ids matching a search query between the endpoints that
   filter on it.
 
-A results page asks for the summary, the runs table, the map and the Niche
-Mapping options of one query. Each used to search the text columns again
-(about a second apiece on the full database). The first request now keeps the
+A results page asks for the summary, the runs table and the map of one
+query. Each used to search the text columns again (about a second apiece on
+the full database). The first request now keeps the
 matching ids as a small array in this process; every later request registers
 that array on its own DuckDB connection and filters on it, which costs
 milliseconds.

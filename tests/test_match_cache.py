@@ -14,8 +14,7 @@ from api.application import create_app  # noqa: E402
 from api.match_cache import MatchCache  # noqa: E402
 from api.models import NcbiMetadata, db  # noqa: E402
 
-# The small test database predates the pH/temperature columns, so the Niche
-# options and map endpoints cannot run on it; the full-database benchmark covers them.
+# Only the summary and table endpoints are exercised here.
 ENDPOINTS = {
     'query_search_global_data': {},
     'query_search_run_data': {'sort_field': 'release_year', 'sort_direction': 'desc', 'page': 1, 'page_size': 50},

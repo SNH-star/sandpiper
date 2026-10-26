@@ -37,48 +37,6 @@ export function fetchProjectMetadata (model_bioproject: string) {
   return axios.get(`${API_URL}/project?model_bioproject=${model_bioproject}`)
 }
 
-// Niche Mapping filter values (pH, temperature, host association), applied
-// server-side to the maps and table alike -- see NicheFilters usage below.
-// pH/temperature are each an inclusive [min, max] bucket range (either bound
-// may be omitted for an open-ended range); host association/Piper community
-// stay single selected values. The sliders only ever offer bounds known to
-// exist, from fetchTaxonomyNicheOptions below.
-export interface NicheFilters {
-  phMin?: number
-  phMax?: number
-  temperatureMin?: number
-  temperatureMax?: number
-  hostAssociation?: string
-  piperCommunity?: string
-}
-
-function nicheFilterParams (niche?: NicheFilters): Record<string, string | number> {
-  if (!niche) return {}
-  const params: Record<string, string | number> = {}
-  if (niche.phMin !== undefined) params.ph_min = niche.phMin
-  if (niche.phMax !== undefined) params.ph_max = niche.phMax
-  if (niche.temperatureMin !== undefined) params.temperature_min = niche.temperatureMin
-  if (niche.temperatureMax !== undefined) params.temperature_max = niche.temperatureMax
-  if (niche.hostAssociation) params.host_association = niche.hostAssociation
-  if (niche.piperCommunity) params.piper_community = niche.piperCommunity
-  return params
-}
-
-export interface NicheOptions {
-  ph_options: number[]
-  temperature_options: number[]
-  host_association_options: string[]
-  piper_community_options: string[]
-}
-
-export function fetchTaxonomyNicheOptions (taxonomy: string, taxonomyType: string, niche?: NicheFilters) {
-  // Bucketed values actually present for this taxon, each computed against
-  // whatever is currently selected on the *other* two axes -- backs the
-  // cascading Niche Mapping sliders.
-  return axios.get<NicheOptions>(`${API_URL}/taxonomy_niche_options/${taxonomy}`,
-    { params: { taxonomy_type: taxonomyType, ...nicheFilterParams(niche) } })
-}
-
 export function fetchRunsByTaxonomy (
   taxonomy: string,
   taxonomyType: string,
@@ -89,27 +47,25 @@ export function fetchRunsByTaxonomy (
   excludeLowComplexity: boolean = true,
   // Map cluster to restrict to, as {lat, lon, precision}. Filtered server-side
   // because this table is paginated server-side.
-  cluster: { lat: number, lon: number, precision: number } | null = null,
-  niche?: NicheFilters
+  cluster: { lat: number, lon: number, precision: number } | null = null
 ) {
   let url = `${API_URL}/taxonomy_search_run_data/${taxonomy}?taxonomy_type=${taxonomyType}&sort_field=${sortField}&sort_direction=${sortDirection}&page=${page}&page_size=${pageSize}&exclude_low_complexity=${excludeLowComplexity}`
   if (cluster) {
     url += `&cluster_lat=${cluster.lat}&cluster_lon=${cluster.lon}&cluster_precision=${cluster.precision}`
   }
-  return axios.get(url, { params: nicheFilterParams(niche) })
+  return axios.get(url)
 }
 
 export function fetchGlobalDataByTaxonomy (
   taxonomy: string,
   taxonomyType: string,
-  niche?: NicheFilters,
   // Same cluster shape as fetchRunsByTaxonomy above -- so the Individual
   // Runs map (and its caption, both driven by this endpoint's response)
   // actually reflect a clicked map cluster instead of only panning/zooming
   // to it while still describing the taxon's full unfiltered set.
   cluster: { lat: number, lon: number, precision: number } | null = null
 ) {
-  const params: Record<string, string | number> = { taxonomy_type: taxonomyType, ...nicheFilterParams(niche) }
+  const params: Record<string, string | number> = { taxonomy_type: taxonomyType }
   if (cluster) {
     params.cluster_lat = cluster.lat
     params.cluster_lon = cluster.lon
@@ -118,23 +74,23 @@ export function fetchGlobalDataByTaxonomy (
   return axios.get(`${API_URL}/taxonomy_search_global_data/${taxonomy}`, { params })
 }
 
-export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precision = 1, niche?: NicheFilters) {
+export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precision = 1) {
   // Server-side aggregated sample counts per map cell, split by environment
   // category. Unlike the marker map this is not capped, because the database
   // returns cells rather than runs. Deliberately excludes per-cell study
   // titles -- see fetchTaxonomyMapCellStudies below.
   return axios.get(`${API_URL}/taxonomy_map/${taxonomy}`,
-    { params: { taxonomy_type: taxonomyType, precision, ...nicheFilterParams(niche) } })
+    { params: { taxonomy_type: taxonomyType, precision } })
 }
 
 export function fetchTaxonomyMapCellStudies (
-  taxonomy: string, taxonomyType: string, lat: number, lon: number, precision = 1, niche?: NicheFilters
+  taxonomy: string, taxonomyType: string, lat: number, lon: number, precision = 1
 ) {
   // Study titles are tooltip-only content, and bundling them into every cell
   // of fetchTaxonomyMap roughly doubled that response's size for a
   // mid-sized taxon -- fetched per cell instead, on hover.
   return axios.get(`${API_URL}/taxonomy_map_cell_studies/${taxonomy}`,
-    { params: { taxonomy_type: taxonomyType, lat, lon, precision, ...nicheFilterParams(niche) } })
+    { params: { taxonomy_type: taxonomyType, lat, lon, precision } })
 }
 
 export function fetchTaxonomySearchHints (taxonomy: string, taxonomyType?: string, signal?: AbortSignal) {
@@ -180,14 +136,9 @@ function clusterParams (cluster: MapCluster | null): Record<string, number> {
   return cluster ? { cluster_lat: cluster.lat, cluster_lon: cluster.lon, cluster_precision: cluster.precision } : {}
 }
 
-// `niche` is the Niche Mapping selection (per-sample metadata), as on the taxonomy page.
-export function fetchQueryGlobalData (q: string, cluster: MapCluster | null = null, niche?: NicheFilters) {
+export function fetchQueryGlobalData (q: string, cluster: MapCluster | null = null) {
   return axios.get(`${API_URL}/query_search_global_data`,
-    { params: { q, ...clusterParams(cluster), ...nicheFilterParams(niche) } })
-}
-
-export function fetchQueryNicheOptions (q: string, niche?: NicheFilters) {
-  return axios.get<NicheOptions>(`${API_URL}/query_niche_options`, { params: { q, ...nicheFilterParams(niche) } })
+    { params: { q, ...clusterParams(cluster) } })
 }
 
 export function fetchQueryRunData (
@@ -198,7 +149,6 @@ export function fetchQueryRunData (
   pageSize: number,
   excludeLowComplexity: boolean,
   cluster: MapCluster | null = null,
-  niche?: NicheFilters,
   // 'gtdb' | 'globdb': which database's abundance to show when the search names a taxon.
   taxonomyType = 'gtdb'
 ) {
@@ -211,30 +161,29 @@ export function fetchQueryRunData (
       sort_direction: sortDirection,
       exclude_low_complexity: excludeLowComplexity,
       taxonomy_type: taxonomyType,
-      ...clusterParams(cluster),
-      ...nicheFilterParams(niche)
+      ...clusterParams(cluster)
     }
   })
 }
 
-export function fetchQueryMap (q: string, precision = 1, niche?: NicheFilters) {
-  return axios.get(`${API_URL}/query_map`, { params: { q, precision, ...nicheFilterParams(niche) } })
+export function fetchQueryMap (q: string, precision = 1) {
+  return axios.get(`${API_URL}/query_map`, { params: { q, precision } })
 }
 
 export function fetchQueryMapCellStudies (
-  q: string, lat: number, lon: number, precision = 1, niche?: NicheFilters
+  q: string, lat: number, lon: number, precision = 1
 ) {
   return axios.get(`${API_URL}/query_map_cell_studies`,
-    { params: { q, lat, lon, precision, ...nicheFilterParams(niche) } })
+    { params: { q, lat, lon, precision } })
 }
 
 // Same filters as the runs table, so the CSV holds exactly the table's runs.
 export function queryCsvUrl (
-  q: string, excludeLowComplexity: boolean, cluster: MapCluster | null = null, niche?: NicheFilters,
+  q: string, excludeLowComplexity: boolean, cluster: MapCluster | null = null,
   taxonomyType = 'gtdb'
 ) {
   const params = new URLSearchParams({ q, exclude_low_complexity: String(excludeLowComplexity), taxonomy_type: taxonomyType })
-  for (const [key, value] of Object.entries({ ...clusterParams(cluster), ...nicheFilterParams(niche) })) {
+  for (const [key, value] of Object.entries(clusterParams(cluster))) {
     params.set(key, String(value))
   }
   return `${API_URL}/query_search_csv?${params}`

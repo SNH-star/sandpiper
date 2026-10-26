@@ -13,7 +13,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, make_response, current_app, Response, stream_with_context
 
-from sqlalchemy import select, distinct, or_, and_, case, cast, Float, literal
+from sqlalchemy import select, distinct, or_, and_, case, literal
 from sqlalchemy.sql import func, text
 from sqlalchemy.orm import joinedload, lazyload, aliased
 
@@ -796,8 +796,6 @@ def taxonomy_search_global_data(taxon):
     # lat_lons are commented out for now because it is too slow to query and
     # render. SQL needs better querying i.e. in batch, and multiple
     # annotations at a single location need to be collapsed.
-    niche_filters = build_niche_filters(request.args)
-
     # Optional map-cluster filter -- same construction as
     # taxonomy_search_core's cluster_filters, so a click on the summary map's
     # cluster actually restricts the Individual Runs map (and its caption
@@ -818,20 +816,19 @@ def taxonomy_search_global_data(taxon):
             cluster_filters = []
 
     lat_lons, lat_lons_count, min_lat_lon_relabund = get_lat_lons(
-        taxonomy.id, 1000, niche_filters + cluster_filters)
+        taxonomy.id, 1000, cluster_filters)
 
     # total_num_results feeds the "Matching Samples" summary count and the "N
     # other runs are not shown" caption -- both need to reflect the active
-    # Niche Mapping and cluster filters, not the taxon's full unfiltered
-    # count, otherwise those numbers contradict what the filtered map/table
-    # actually show.
-    if niche_filters or cluster_filters:
+    # cluster filter, not the taxon's full unfiltered count, otherwise those
+    # numbers contradict what the filtered map/table actually show.
+    if cluster_filters:
         count_query = select(func.count()).select_from(
             CondensedProfileCtas1
         ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
         ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id
         ).where(CondensedProfileCtas1.taxonomy_id == taxonomy.id)
-        for condition in niche_filters + cluster_filters:
+        for condition in cluster_filters:
             count_query = count_query.where(condition)
         total_num_results = db.session.execute(count_query).scalar()
     else:
@@ -1133,19 +1130,12 @@ def taxonomy_search_core(
         for condition in cluster_filters:
             hits_query = hits_query.where(condition)
 
-        # Niche Mapping filters (pH, temperature, host association). Applied
-        # here for the same reason as cluster_filters above: this query is
-        # paginated server-side, so a single page can't be filtered client-side.
-        niche_filters = build_niche_filters(args)
-        for condition in niche_filters:
-            hits_query = hits_query.where(condition)
-
         if exclude_low_complexity:
             hits_query = hits_query.where(ParsedSampleAttribute.low_complexity != 'yes')
 
         # Pagination needs a total that reflects every active filter, otherwise
         # the pager offers pages that are empty.
-        if exclude_low_complexity or cluster_filters or niche_filters:
+        if exclude_low_complexity or cluster_filters:
             count_query = select(func.count()).select_from(
                 CondensedProfileCtas1
             ).join(NcbiMetadata, CondensedProfileCtas1.run_id == NcbiMetadata.id
@@ -1154,8 +1144,6 @@ def taxonomy_search_core(
             if exclude_low_complexity:
                 count_query = count_query.where(ParsedSampleAttribute.low_complexity != 'yes')
             for condition in cluster_filters:
-                count_query = count_query.where(condition)
-            for condition in niche_filters:
                 count_query = count_query.where(condition)
             filtered_total = db.session.execute(count_query).scalar()
         else:
@@ -1250,199 +1238,6 @@ def search_field_values(field, query):
     )
     rows = db.session.execute(text(sql), {'search': search})
     return jsonify({'values': [{'value': r[0], 'count': r[1]} for r in rows if r[0]]})
-
-_PH_NUMBER_PATTERN = r'^\s*[0-9]+(\.[0-9]+)?\s*$'
-_PH_RANGE_PATTERN = r'^\s*([0-9]+(?:\.[0-9]+)?)\s*-\s*([0-9]+(?:\.[0-9]+)?)\s*$'
-
-
-def ph_value_expr():
-    """SQL expression giving a numeric pH per row, or NULL when unparseable.
-
-    meta_ph and meta_ph_range are free-text columns straight from the
-    heterogeneous metalog import (values like "6.5", "6.5-7.5", "unknown"),
-    so there is no clean numeric pH column to filter on directly. Prefers an
-    exact meta_ph reading; falls back to the midpoint of meta_ph_range.
-    """
-    # This runs against DuckDB, not Postgres -- there is no regexp_match()
-    # returning an array here. DuckDB's equivalent is regexp_extract(string,
-    # pattern, group_index), called once per capture group.
-    range_low = func.regexp_extract(ParsedSampleAttribute.meta_ph_range, _PH_RANGE_PATTERN, 1)
-    range_high = func.regexp_extract(ParsedSampleAttribute.meta_ph_range, _PH_RANGE_PATTERN, 2)
-    return case(
-        (ParsedSampleAttribute.meta_ph.op('~')(_PH_NUMBER_PATTERN),
-         cast(ParsedSampleAttribute.meta_ph, Float)),
-        (ParsedSampleAttribute.meta_ph_range.op('~')(_PH_RANGE_PATTERN),
-         (cast(range_low, Float) + cast(range_high, Float)) / 2.0),
-        else_=None,
-    )
-
-
-def ph_bucket_expr():
-    """pH rounded to the nearest 0.5, so the slider only offers stops that
-    actually collapse multiple raw readings together rather than one stop per
-    float."""
-    return func.round(ph_value_expr() * 2) / 2.0
-
-
-def temperature_bucket_expr():
-    """Temperature rounded to the nearest 1 degree C, matching the column's
-    typical recorded precision.
-
-    Cast explicitly to Float: DuckDB's single-argument round() returns a
-    Decimal, which Flask's jsonify() can't serialize on its own.
-    """
-    return cast(func.round(ParsedSampleAttribute.temperature), Float)
-
-
-def _parse_float_arg(args, key):
-    value = args.get(key)
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _range_condition(bucket_expr, args, min_key, max_key, legacy_key):
-    """0-2-element list: >=min / <=max bucket conditions for a range filter.
-
-    `legacy_key` (e.g. 'ph') is read as an exact-value fallback when neither
-    range param is present, for links saved before range filtering existed.
-    """
-    min_value = _parse_float_arg(args, min_key)
-    max_value = _parse_float_arg(args, max_key)
-    if min_value is None and max_value is None:
-        legacy_value = _parse_float_arg(args, legacy_key)
-        if legacy_value is not None:
-            return [bucket_expr == legacy_value]
-        return []
-    conditions = []
-    if min_value is not None:
-        conditions.append(bucket_expr >= min_value)
-    if max_value is not None:
-        conditions.append(bucket_expr <= max_value)
-    return conditions
-
-
-def ph_condition(args):
-    """0-2-element list: bucket range condition(s) for the selected pH, if any."""
-    return _range_condition(ph_bucket_expr(), args, 'ph_min', 'ph_max', 'ph')
-
-
-def temperature_condition(args):
-    """0-2-element list: bucket range condition(s) for the selected temperature, if any."""
-    return _range_condition(temperature_bucket_expr(), args, 'temperature_min', 'temperature_max', 'temperature')
-
-
-def host_condition(args):
-    """0-or-1-element list: equality condition for the selected host association, if any."""
-    host_association = args.get('host_association')
-    if host_association in ('host', 'ecological'):
-        return [ParsedSampleAttribute.host_or_not_mature == host_association]
-    return []
-
-
-def piper_community_condition(args):
-    """0-or-1-element list: condition matching runs with a nonzero IndicPiper
-    indicator score for the selected habitat/community (see
-    IndicatorHabitatScore in models.py). Exact match against the habitat
-    name, mirroring host_condition -- the frontend only ever offers habitats
-    known to exist via /taxonomy_niche_options."""
-    piper_community = args.get('piper_community')
-    if not piper_community:
-        return []
-    subq = select(IndicatorHabitatScore.run_id).where(
-        IndicatorHabitatScore.habitat == piper_community
-    )
-    return [NcbiMetadata.id.in_(subq)]
-
-
-def build_niche_filters(args):
-    """SQLAlchemy conditions for the Niche Mapping filters (pH, temperature,
-    host association, Piper community), read from request.args-like `args`.
-    pH/temperature are each an inclusive [min, max] bucket range (either
-    bound may be absent for an open-ended range); host association and Piper
-    community stay single selected values -- the frontend only ever offers
-    values known to exist via /taxonomy_niche_options."""
-    return (
-        ph_condition(args) + temperature_condition(args) + host_condition(args)
-        + piper_community_condition(args)
-    )
-
-
-def _niche_distinct(taxonomy_id, value_expr, other_filters, extra_join=None):
-    """Distinct bucketed values of `value_expr` available for this taxon,
-    restricted by `other_filters` (the *other* axes' current selections, not
-    this axis' own) -- this is what makes the sliders cascade: picking pH
-    narrows the temperature options, and vice versa. `extra_join` is an
-    optional (target, onclause) pair for axes whose value isn't already
-    reachable from the base join (e.g. Piper community's habitat, which
-    lives on IndicatorHabitatScore). taxonomy_id=None: no taxon -- the runs
-    are chosen by other_filters alone (search results page)."""
-    stmt = select(distinct(value_expr)).select_from(NcbiMetadata
-    ).join(ParsedSampleAttribute, ParsedSampleAttribute.run_id == NcbiMetadata.id)
-    if taxonomy_id is not None:
-        stmt = stmt.join(CondensedProfileCtas1, CondensedProfileCtas1.run_id == NcbiMetadata.id
-        ).where(CondensedProfileCtas1.taxonomy_id == taxonomy_id)
-    if extra_join is not None:
-        stmt = stmt.join(*extra_join)
-    stmt = stmt.where(value_expr.is_not(None))
-    for condition in other_filters:
-        stmt = stmt.where(condition)
-    values = db.session.execute(stmt).scalars().all()
-    return sorted(v for v in values if v is not None)
-
-
-@api.route('/taxonomy_niche_options/<string:taxon>', methods=('GET',))
-def taxonomy_niche_options(taxon):
-    """Bucketed pH/temperature/host-association/Piper-community values
-    actually available for this taxon, each computed against whatever is
-    currently selected on the *other* three axes -- backs the cascading
-    Niche Mapping sliders."""
-    taxon = canonical_taxon_name(taxon)
-    taxonomy_type = request.args.get('taxonomy_type', 'gtdb')
-    taxonomy = Taxonomy.query.filter_by(name=taxon, taxonomy_type=taxonomy_type).first()
-    if taxonomy is None:
-        return jsonify({
-            'ph_options': [], 'temperature_options': [], 'host_association_options': [],
-            'piper_community_options': [],
-        })
-
-    return jsonify(niche_options(taxonomy.id, request.args))
-
-
-def niche_options(taxonomy_id, args, run_filter=()):
-    """Niche Mapping slider values for a taxon (taxonomy_id) or, with
-    taxonomy_id=None, for the runs in run_filter (search results page)."""
-    base = list(run_filter)
-    ph_filter = ph_condition(args)
-    temperature_filter = temperature_condition(args)
-    host_filter = host_condition(args)
-    piper_community_filter = piper_community_condition(args)
-
-    ph_options = _niche_distinct(
-        taxonomy_id, ph_bucket_expr(), base + temperature_filter + host_filter + piper_community_filter
-    )
-    temperature_options = _niche_distinct(
-        taxonomy_id, temperature_bucket_expr(), base + ph_filter + host_filter + piper_community_filter
-    )
-    host_association_options = _niche_distinct(
-        taxonomy_id, ParsedSampleAttribute.host_or_not_mature,
-        base + ph_filter + temperature_filter + piper_community_filter
-    )
-    host_association_options = [v for v in host_association_options if v in ('host', 'ecological')]
-    piper_community_options = _niche_distinct(
-        taxonomy_id, IndicatorHabitatScore.habitat, base + ph_filter + temperature_filter + host_filter,
-        extra_join=(IndicatorHabitatScore, IndicatorHabitatScore.run_id == NcbiMetadata.id)
-    )
-    return {
-        'ph_options': ph_options,
-        'temperature_options': temperature_options,
-        'host_association_options': host_association_options,
-        'piper_community_options': piper_community_options,
-    }
-
 
 def get_lat_lons(taxonomy_id, max_to_show, extra_filters=None):
     """Up to max_to_show runs with coordinates, grouped into map markers.
@@ -1632,8 +1427,7 @@ def taxonomy_map(taxon):
     if taxonomy is None:
         return jsonify({'taxon': taxon, 'cells': [], 'total': 0})
 
-    niche_filters = build_niche_filters(request.args)
-    cells = get_lat_lon_clusters(taxonomy.id, precision, niche_filters)
+    cells = get_lat_lon_clusters(taxonomy.id, precision)
     return jsonify({
         'taxon': taxon,
         'precision': precision,
@@ -1661,8 +1455,7 @@ def taxonomy_map_cell_studies(taxon):
     if taxonomy is None:
         return jsonify({'studies': []})
 
-    niche_filters = build_niche_filters(request.args)
-    studies = get_cell_study_titles(taxonomy.id, lat, lon, precision, niche_filters)
+    studies = get_cell_study_titles(taxonomy.id, lat, lon, precision)
     return jsonify({'studies': studies})
 
 
@@ -1704,10 +1497,8 @@ def _release_match_cache(_exc):
     MATCH_CACHE.release()
 
 
-def _query_run_filter(include_niche=True):
-    """[run filter] for ?q= plus any Niche Mapping selection (pH, temperature,
-    host association, IndicPiper community -- all per-sample metadata), or
-    None if the query matches nothing."""
+def _query_run_filter():
+    """[run filter] for ?q=, or None if the query matches nothing."""
     q = request.args.get('q', '').strip()
     if not q:
         raise BadQuery('No query provided')
@@ -1719,11 +1510,11 @@ def _query_run_filter(include_niche=True):
     def find_matches():
         # Only the taxonomy join can repeat a run, and a repeated id would bloat the stored set.
         return parsed.select(NcbiMetadata.id, distinct=parsed.needs_condensed)
-    # The same ?q= is filtered on by the summary, table, map and Niche options
-    # requests of one results page; the text search is done once for all of them.
+    # The same ?q= is filtered on by the summary, table and map requests of
+    # one results page; the text search is done once for all of them.
     matching = MATCH_CACHE.ids_select(q, find_matches, db.session)
     run_filter = [NcbiMetadata.id.in_(matching if matching is not None else find_matches())]
-    return run_filter + build_niche_filters(request.args) if include_niche else run_filter
+    return run_filter
 
 
 def _query_runs(run_filter, *columns, taxon_id=None):
@@ -1812,17 +1603,6 @@ def _query_precision():
 
 def _count(stmt):
     return db.session.execute(select(func.count()).select_from(stmt.subquery())).scalar()
-
-
-@api.route('/query_niche_options', methods=('GET',))
-def query_niche_options():
-    """Niche Mapping slider values for the runs matching ?q= (each axis
-    narrowed by the other axes' selections, as on the taxonomy page)."""
-    run_filter = _query_run_filter(include_niche=False)
-    if run_filter is None:
-        return jsonify({'ph_options': [], 'temperature_options': [],
-                        'host_association_options': [], 'piper_community_options': []})
-    return jsonify(niche_options(None, request.args, run_filter))
 
 
 @api.route('/query_search_global_data', methods=('GET',))

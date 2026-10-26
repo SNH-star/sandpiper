@@ -137,7 +137,6 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
               <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>
               <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
               <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (Caution message present if environment signatures != documented environment). Searchable via the new habitat key in Advanced Search.</li>
-              <li>Include Niche Mapping within the Taxonomy page, allows users ability to filter by pH, Temperature, IndicPiper community and Host assocaition levels to adjust the adapative maps updating the Matching samples table below. </li>
               <li>Addition to the Sunburst model. User able to search for specific taxa where they will be highlighted. In a breadcrumb fashion user can collapse the Suburst graph with a reset view and 'go back a step' in the center.</li>
             </ul>
           </div>

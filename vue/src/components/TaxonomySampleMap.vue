@@ -111,7 +111,7 @@ const DOT_SCALE = 14
 export default {
   name: 'TaxonomySampleMap',
   // Either a taxon, or a search-box query (the "Explore tabled results" page).
-  props: ['taxon', 'taxonomyType', 'nicheFilters', 'query'],
+  props: ['taxon', 'taxonomyType', 'query'],
   data () {
     return {
       cells: [],
@@ -120,9 +120,9 @@ export default {
       tip: { visible: false, x: 0, y: 0, lat: 0, lon: 0, total: 0, categories: [], studies: [], studiesLoading: false },
       // Study titles are fetched per cell on hover rather than bundled into
       // the main /taxonomy_map response (see fetchTaxonomyMapCellStudies) --
-      // cached per (lat,lon) for this taxon/filter combo so re-hovering the
-      // same cell doesn't refetch. Cleared whenever load() runs since the
-      // taxon or niche filters may have changed underneath it.
+      // cached per (lat,lon) for this taxon so re-hovering the same cell
+      // doesn't refetch. Cleared whenever load() runs since the taxon may
+      // have changed underneath it.
       studyCache: new Map(),
       tipRequestToken: 0,
       loading: true,
@@ -173,7 +173,6 @@ export default {
     taxonomyType: 'load',
     // deep + a fresh object each time the caller rebuilds it from route
     // query params, so identity alone can't be relied on to detect changes.
-    nicheFilters: { handler: 'load', deep: true },
     // Safety net for the draw timing: the <svg> elements only exist once the
     // v-else branch has rendered, so redraw whenever the data lands.
     cells () {
@@ -205,8 +204,8 @@ export default {
         // matching runs that's the difference between ~17,000 and ~5,500
         // SVG circles to draw, which was the actual bulk of the load time.
         const { data } = this.query
-          ? await fetchQueryMap(this.query, 0, this.nicheFilters)
-          : await fetchTaxonomyMap(this.taxon, this.taxonomyType, 0, this.nicheFilters)
+          ? await fetchQueryMap(this.query, 0)
+          : await fetchTaxonomyMap(this.taxon, this.taxonomyType, 0)
         this.cells = data.cells || []
         this.total = data.total || 0
         this.precision = data.precision ?? 0
@@ -425,9 +424,9 @@ export default {
       const requestToken = ++this.tipRequestToken
       try {
         const { data } = this.query
-          ? await fetchQueryMapCellStudies(this.query, cell.lat, cell.lon, this.precision, this.nicheFilters)
+          ? await fetchQueryMapCellStudies(this.query, cell.lat, cell.lon, this.precision)
           : await fetchTaxonomyMapCellStudies(
-            this.taxon, this.taxonomyType, cell.lat, cell.lon, this.precision, this.nicheFilters
+            this.taxon, this.taxonomyType, cell.lat, cell.lon, this.precision
           )
         const studies = data.studies || []
         this.studyCache.set(cacheKey, studies)

@@ -125,89 +125,11 @@
             <span class="bd-anchor-name">Geographic distribution</span>
           </h2>
 
-          <div class="has-text-centered mapping-mode-switcher">
-            <b-field grouped position="is-centered">
-              <b-radio-button v-model="mode" native-value="geographic" :type="mode === 'geographic' ? 'is-primary' : ''"
-                @input="onModeChange('geographic')">
-                Geographical Mapping
-              </b-radio-button>
-              <b-radio-button v-model="mode" native-value="niche" :type="mode === 'niche' ? 'is-primary' : ''"
-                @input="onModeChange('niche')">
-                Niche Mapping
-              </b-radio-button>
-            </b-field>
-          </div>
-
-          <div v-if="mode === 'niche'" class="niche-mapping-panel">
-            <div class="niche-mapping-panel-header">
-              <p class="niche-mapping-eyebrow">Filter by niche</p>
-              <b-button v-if="activeNicheFilters" type="is-text" size="is-small" icon-left="close"
-                @click="resetNicheFilters">
-                Reset filters
-              </b-button>
-            </div>
-            <p class="help niche-mapping-help">
-              Filter the maps and matching samples below by pH, temperature,
-              host association, and IndicPiper community. Sliders only stop on
-              values actually present {{ is_query ? 'in these results' : 'for this taxon' }}, and narrow each other
-              as you pick.
-            </p>
-
-            <div class="niche-field-grid">
-              <b-field label="pH" class="niche-field">
-                <div v-if="phOptions.length" class="niche-slider-row">
-                  <input type="number" class="niche-range-input" :step="0.5" :value="phMinDisplay"
-                    aria-label="Minimum pH" @change="onPhMinInput($event.target.value)" />
-                  <b-slider :model-value="[phMinIndex, phMaxIndex]" type="is-primary" :min="0"
-                    :max="phOptions.length - 1" :step="1" ticks
-                    :custom-formatter="formatPhIndex" @change="onPhRangeChange" />
-                  <input type="number" class="niche-range-input" :step="0.5" :value="phMaxDisplay"
-                    aria-label="Maximum pH" @change="onPhMaxInput($event.target.value)" />
-                </div>
-                <p v-else class="help">No pH data available for the current filters.</p>
-              </b-field>
-
-              <b-field label="Temperature (°C)" class="niche-field">
-                <div v-if="temperatureOptions.length" class="niche-slider-row">
-                  <input type="number" class="niche-range-input" :step="1" :value="temperatureMinDisplay"
-                    aria-label="Minimum temperature" @change="onTemperatureMinInput($event.target.value)" />
-                  <b-slider :model-value="[temperatureMinIndex, temperatureMaxIndex]" type="is-primary" :min="0"
-                    :max="temperatureOptions.length - 1" :step="1" ticks
-                    :custom-formatter="formatTemperatureIndex" @change="onTemperatureRangeChange" />
-                  <input type="number" class="niche-range-input" :step="1" :value="temperatureMaxDisplay"
-                    aria-label="Maximum temperature" @change="onTemperatureMaxInput($event.target.value)" />
-                </div>
-                <p v-else class="help">No temperature data available for the current filters.</p>
-              </b-field>
-
-              <b-field label="Host association" class="niche-field">
-                <b-select v-model="hostAssociation" expanded @update:model-value="onHostAssociationChange">
-                  <option value="">Any</option>
-                  <option v-for="opt in hostAssociationOptions" :key="opt" :value="opt">
-                    {{ opt === 'host' ? 'Host-associated' : 'Ecological' }}
-                  </option>
-                </b-select>
-              </b-field>
-
-              <b-field label="IndicPiper community" class="niche-field">
-                <div v-if="piperCommunityOptions.length">
-                  <b-select v-model="piperCommunity" expanded @update:model-value="onPiperCommunityChange">
-                    <option value="">Any</option>
-                    <option v-for="opt in piperCommunityOptions" :key="opt" :value="opt">
-                      {{ opt }}
-                    </option>
-                  </b-select>
-                </div>
-                <p v-else class="help">No IndicPiper community data available for the current filters.</p>
-              </b-field>
-            </div>
-          </div>
-
           <h3 class="subtitle is-4">Sample distribution</h3>
           <p class="help section-hint">
             This map is interactive &mdash; click a cluster to zoom in and filter the samples table and the Individual runs map below.
           </p>
-          <TaxonomySampleMap :taxon="taxonomy" :query="query" :taxonomy-type="taxonomy_type" :niche-filters="activeNicheFilters"
+          <TaxonomySampleMap :taxon="taxonomy" :query="query" :taxonomy-type="taxonomy_type"
             @cluster-selected="onClusterSelected" />
 
           <h3 class="subtitle is-4 section-heading-spaced">Individual runs</h3>
@@ -354,8 +276,8 @@
 
 <script>
 import {
-  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, fetchTaxonomyNicheOptions, api_url,
-  fetchQueryGlobalData, fetchQueryRunData, fetchQueryNicheOptions, queryCsvUrl
+  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, api_url,
+  fetchQueryGlobalData, fetchQueryRunData, queryCsvUrl
 } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { splitQueryParts, unquoteQueryValue } from '@/composables/useSearchAutocomplete'
@@ -423,29 +345,6 @@ export default {
       other_taxonomy_type: 'globdb',
       other_taxon_available: null,
 
-      mode: 'geographic',
-      // Range sliders express "Any" as spanning the full options list (index
-      // 0 to length-1) rather than a sentinel value -- since every available
-      // bucket already falls inside that span, it's equivalent to no filter
-      // and activeNicheFilters skips sending one. route*Min/Max hold the
-      // bound read from the URL (possibly a bucket value not yet resolvable
-      // to an index, if phOptions hasn't loaded); syncSliderIndices()
-      // resolves them into concrete indices once options arrive.
-      routePhMin: null,
-      routePhMax: null,
-      routeTemperatureMin: null,
-      routeTemperatureMax: null,
-      phMinIndex: 0,
-      phMaxIndex: 0,
-      temperatureMinIndex: 0,
-      temperatureMaxIndex: 0,
-      phOptions: [],
-      temperatureOptions: [],
-      hostAssociation: '',
-      hostAssociationOptions: [],
-      piperCommunity: '',
-      piperCommunityOptions: [],
-
       lat_lons: null,
       lat_lons_min_relabund: null,
       num_lat_lon_runs: null,
@@ -507,8 +406,7 @@ export default {
       return `${shown} run${this.num_lat_lon_runs === 1 ? '' : 's'} with latitude/longitude${this.cluster ? ' in your selected map cluster' : ''}.`
     },
     query_csv_link () {
-      return queryCsvUrl(this.query, this.exclude_low_complexity, this.cluster,
-        this.activeNicheFilters, this.taxonomy_type)
+      return queryCsvUrl(this.query, this.exclude_low_complexity, this.cluster, this.taxonomy_type)
     },
     disableGtdb () {
       if (this.is_query) return !(this.query_taxon && this.query_taxon.taxonomy_types.includes('gtdb'))
@@ -541,173 +439,14 @@ export default {
     display_profiles () {
       return this.shuffled_profiles ?? this.filtered_profiles
     },
-    activeNicheFilters () {
-      if (this.mode !== 'niche') return undefined
-      const niche = {}
-      if (this.phOptions.length && (this.phMinIndex > 0 || this.phMaxIndex < this.phOptions.length - 1)) {
-        niche.phMin = this.phOptions[this.phMinIndex]
-        niche.phMax = this.phOptions[this.phMaxIndex]
-      }
-      if (this.temperatureOptions.length &&
-        (this.temperatureMinIndex > 0 || this.temperatureMaxIndex < this.temperatureOptions.length - 1)) {
-        niche.temperatureMin = this.temperatureOptions[this.temperatureMinIndex]
-        niche.temperatureMax = this.temperatureOptions[this.temperatureMaxIndex]
-      }
-      if (this.hostAssociation) niche.hostAssociation = this.hostAssociation
-      if (this.piperCommunity) niche.piperCommunity = this.piperCommunity
-      return Object.keys(niche).length ? niche : undefined
-    },
-    phMinDisplay () {
-      return this.phOptions[this.phMinIndex] ?? ''
-    },
-    phMaxDisplay () {
-      return this.phOptions[this.phMaxIndex] ?? ''
-    },
-    temperatureMinDisplay () {
-      return this.temperatureOptions[this.temperatureMinIndex] ?? ''
-    },
-    temperatureMaxDisplay () {
-      return this.temperatureOptions[this.temperatureMaxIndex] ?? ''
-    }
-  },
-  created () {
-    // The template gates on search_result/total_num_results, so the page is
-    // genuinely blank until this settles either way. Token captured now,
-    // not read lazily inside .finally() -- see src/store/pageLoading.ts
-    // for why a stale token must not clear a newer navigation's state.
-    const loadingToken = currentLoadingToken()
-    this.fetchGlobalData().finally(() => stopPageLoading(loadingToken))
-  },
-  methods: {
-    reset_map: function () {
-      this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
-      this.zoom = default_zoom
-    },
-    // Local mode/filter state doesn't derive from the URL automatically like
-    // taxonomy_type does -- pull it in from the route on every navigation
-    // (toggle, back/forward, direct load of a shared link) before anything
-    // refetches.
-    syncNicheStateFromRoute () {
-      const query = this.$route.query
-      this.mode = query.mode === 'niche' ? 'niche' : 'geographic'
-      // Back-compat: a bookmarked/shared link from before range support only
-      // has the legacy single-value `ph`/`temperature` params -- treat that
-      // as a min=max=value range rather than dropping the filter.
-      this.routePhMin = query.ph_min !== undefined
-        ? Number(query.ph_min)
-        : (query.ph !== undefined ? Number(query.ph) : null)
-      this.routePhMax = query.ph_max !== undefined
-        ? Number(query.ph_max)
-        : (query.ph !== undefined ? Number(query.ph) : null)
-      this.routeTemperatureMin = query.temperature_min !== undefined
-        ? Number(query.temperature_min)
-        : (query.temperature !== undefined ? Number(query.temperature) : null)
-      this.routeTemperatureMax = query.temperature_max !== undefined
-        ? Number(query.temperature_max)
-        : (query.temperature !== undefined ? Number(query.temperature) : null)
-      this.hostAssociation = query.host_association || ''
-      this.piperCommunity = query.piper_community || ''
-    },
-    // Slider position (indices into *Options) is a pure UI concern derived
-    // from the selected bounds + the options list -- recompute it whenever
-    // either changes, rather than storing it as the source of truth. An
-    // unset bound resolves to the full extent (index 0 / last index), which
-    // is what makes an unfiltered axis render as a full-span slider.
-    syncSliderIndices () {
-      this.phMinIndex = this.routePhMin !== null ? Math.max(0, this.phOptions.indexOf(this.routePhMin)) : 0
-      this.phMaxIndex = this.routePhMax !== null
-        ? Math.max(0, this.phOptions.indexOf(this.routePhMax))
-        : Math.max(0, this.phOptions.length - 1)
-      this.temperatureMinIndex = this.routeTemperatureMin !== null
-        ? Math.max(0, this.temperatureOptions.indexOf(this.routeTemperatureMin))
-        : 0
-      this.temperatureMaxIndex = this.routeTemperatureMax !== null
-        ? Math.max(0, this.temperatureOptions.indexOf(this.routeTemperatureMax))
-        : Math.max(0, this.temperatureOptions.length - 1)
-    },
-    // Fetches the bucketed pH/temperature/host-association values available
-    // for this taxon given whatever is currently selected (each axis
-    // computed against the *other* two -- see /taxonomy_niche_options).
-    // Returns true if the current selection turned out to be invalid under
-    // the refreshed options and this method already corrected the URL via
-    // router.replace -- the caller should stop, since the resulting $route
-    // change re-invokes this same flow with the corrected filters. Clearing
-    // a filter can only ever add back options for the other axes, never
-    // remove more, so this converges within one extra round trip.
-    async syncNicheOptions () {
-      try {
-        const selection = {
-          phMin: this.routePhMin ?? undefined,
-          phMax: this.routePhMax ?? undefined,
-          temperatureMin: this.routeTemperatureMin ?? undefined,
-          temperatureMax: this.routeTemperatureMax ?? undefined,
-          hostAssociation: this.hostAssociation || undefined,
-          piperCommunity: this.piperCommunity || undefined
-        }
-        const response = this.is_query
-          ? await fetchQueryNicheOptions(this.query, selection)
-          : await fetchTaxonomyNicheOptions(this.taxonomy, this.taxonomy_type, selection)
-        this.phOptions = response.data.ph_options || []
-        this.temperatureOptions = response.data.temperature_options || []
-        this.hostAssociationOptions = response.data.host_association_options || []
-        this.piperCommunityOptions = response.data.piper_community_options || []
-      } catch (error) {
-        // Surface it: a failed options request and a taxon with no data look
-        // identical otherwise (both leave every axis at "Any" with no
-        // explanation), which is exactly how a real 500 here went unnoticed.
-        console.error('Failed to load Niche Mapping options', error)
-        this.phOptions = []
-        this.temperatureOptions = []
-        this.hostAssociationOptions = []
-        this.piperCommunityOptions = []
-        return false
-      }
-
-      const phMinInvalid = this.routePhMin !== null && !this.phOptions.includes(this.routePhMin)
-      const phMaxInvalid = this.routePhMax !== null && !this.phOptions.includes(this.routePhMax)
-      const temperatureMinInvalid = this.routeTemperatureMin !== null &&
-        !this.temperatureOptions.includes(this.routeTemperatureMin)
-      const temperatureMaxInvalid = this.routeTemperatureMax !== null &&
-        !this.temperatureOptions.includes(this.routeTemperatureMax)
-      const hostInvalid = this.hostAssociation !== '' && !this.hostAssociationOptions.includes(this.hostAssociation)
-      const piperCommunityInvalid = this.piperCommunity !== '' &&
-        !this.piperCommunityOptions.includes(this.piperCommunity)
-
-      if (phMinInvalid || phMaxInvalid || temperatureMinInvalid || temperatureMaxInvalid ||
-        hostInvalid || piperCommunityInvalid) {
-        const query = { ...this.$route.query }
-        if (phMinInvalid || phMaxInvalid) { delete query.ph; delete query.ph_min; delete query.ph_max }
-        if (temperatureMinInvalid || temperatureMaxInvalid) {
-          delete query.temperature; delete query.temperature_min; delete query.temperature_max
-        }
-        if (hostInvalid) delete query.host_association
-        if (piperCommunityInvalid) delete query.piper_community
-        this.$router.replace({ name: this.$route.name, params: { taxonomy: this.taxonomy }, query })
-        return true
-      }
-
-      this.syncSliderIndices()
-      return false
-    },
     async fetchGlobalData () {
       if (this.is_query) return this.fetchQueryPage()
       this.other_taxon_available = null
       this.error_message = null
       this.search_result = null
       this.total_num_results = null
-      this.syncNicheStateFromRoute()
 
       const requestedTaxonomyType = this.$route.query.taxonomy_type
-
-      // The niche-options lookup and the marker-map fetch below are
-      // independent queries -- start it now rather than after awaiting the
-      // marker map, so the two round trips overlap instead of stacking.
-      // Only possible once the taxonomy type is already known; the cold-load
-      // gtdb/globdb probe below resolves that first, so this stays null and
-      // syncNicheOptions runs after it instead (rare path, first load only).
-      const nicheOptionsPromise = (this.mode === 'niche' && requestedTaxonomyType)
-        ? this.syncNicheOptions()
-        : null
 
       if (requestedTaxonomyType) {
         const globalDataResult = await this.fetchGlobalDataForType(requestedTaxonomyType)
@@ -724,23 +463,13 @@ export default {
         }
       }
 
-      if (this.mode === 'niche') {
-        const redirected = await (nicheOptionsPromise ?? this.syncNicheOptions())
-        if (redirected) return
-      } else {
-        this.phOptions = []
-        this.temperatureOptions = []
-        this.hostAssociationOptions = []
-        this.piperCommunityOptions = []
-      }
-
       this.other_taxonomy_type = this.taxonomy_type === 'gtdb' ? 'globdb' : 'gtdb'
       this.fetchData()
       this.checkOtherTaxonomyAvailability()
     },
     async fetchGlobalDataForType (taxonomyType) {
       try {
-        const response = await fetchGlobalDataByTaxonomy(this.taxonomy, taxonomyType, this.activeNicheFilters)
+        const response = await fetchGlobalDataByTaxonomy(this.taxonomy, taxonomyType)
         if (typeof response.data.total_num_results === 'number' && response.data.total_num_results > 0) {
           return { success: true, data: response.data }
         }
@@ -750,7 +479,7 @@ export default {
         return { success: false, error: error.message }
       }
     },
-    // Search results: no GTDB/GlobDB probe or Niche Mapping, just the query's runs.
+    // Search results: no GTDB/GlobDB probe, just the query's runs.
     async fetchQueryPage () {
       this.error_message = null
       this.search_result = null
@@ -759,21 +488,9 @@ export default {
       this.page = 1
       this.sortDirection = 'desc'
       this.taxonomy_type = this.$route.query.taxonomy_type === 'globdb' ? 'globdb' : 'gtdb'
-      this.syncNicheStateFromRoute()
       if (!this.query.trim()) {
         this.error_message = 'No search query given.'
         return
-      }
-      // Niche Mapping works here as on the taxonomy page (it filters on each
-      // sample's own metadata). Load the slider options first, so the counts
-      // below are fetched with the selection already applied.
-      if (this.mode === 'niche') {
-        if (await this.syncNicheOptions()) return
-      } else {
-        this.phOptions = []
-        this.temperatureOptions = []
-        this.hostAssociationOptions = []
-        this.piperCommunityOptions = []
       }
       // The default sort only depends on the global-data response when the query
       // names a taxon (which adds relative abundance). Otherwise the summary and
@@ -799,8 +516,8 @@ export default {
     async requestGlobalData () {
       const request = ++this.global_request
       const response = this.is_query
-        ? await fetchQueryGlobalData(this.query, this.cluster, this.activeNicheFilters)
-        : await fetchGlobalDataByTaxonomy(this.taxonomy, this.taxonomy_type, this.activeNicheFilters, this.cluster)
+        ? await fetchQueryGlobalData(this.query, this.cluster)
+        : await fetchGlobalDataByTaxonomy(this.taxonomy, this.taxonomy_type, this.cluster)
       if (request !== this.global_request) return false
       this.populateGlobalData(response.data)
       return true
@@ -811,10 +528,10 @@ export default {
       const request = ++this.runs_request
       const response = this.is_query
         ? await fetchQueryRunData(this.query, this.page, this.sortField, this.sortDirection,
-          this.pageSize, this.exclude_low_complexity, this.cluster, this.activeNicheFilters,
+          this.pageSize, this.exclude_low_complexity, this.cluster,
           this.taxonomy_type)
         : await fetchRunsByTaxonomy(this.taxonomy, this.taxonomy_type, this.page, this.sortField, this.sortDirection,
-          this.pageSize, this.exclude_low_complexity, this.cluster, this.activeNicheFilters)
+          this.pageSize, this.exclude_low_complexity, this.cluster)
       if (request !== this.runs_request) return false
       this.search_result = response.data.results
       this.filtered_total = response.data.results.filtered_total ?? null
@@ -888,123 +605,6 @@ export default {
         params: { taxonomy: this.taxonomy },
         query: { taxonomy_type: value }
       })
-    },
-    onModeChange (value) {
-      if (value === this.mode && value === (this.$route.query.mode || 'geographic')) {
-        return
-      }
-
-      const query = { ...this.$route.query }
-      if (value === 'niche') {
-        query.mode = 'niche'
-      } else {
-        delete query.mode
-      }
-      this.page = 1
-      this.$router.push({ name: this.$route.name, params: { taxonomy: this.taxonomy }, query })
-    },
-    // b-slider's built-in drag tooltip otherwise shows the raw index (its own
-    // 0..N model value), not the actual bucketed pH/temperature the index
-    // maps to -- that mismatch was the "shows 8 while dragging, jumps to 17
-    // on release" bug. These map the index through the same *Options array
-    // the change handlers below use, so the tooltip always agrees with the
-    // released value.
-    formatPhIndex (index) {
-      return this.phOptions[index] !== undefined ? String(this.phOptions[index]) : ''
-    },
-    formatTemperatureIndex (index) {
-      return this.temperatureOptions[index] !== undefined ? String(this.temperatureOptions[index]) : ''
-    },
-    // The nearest available bucket to a typed value -- editable inputs can't
-    // land on an arbitrary number, only on values the slider actually stops
-    // at (same values /taxonomy_niche_options returned).
-    nearestOptionIndex (value, options) {
-      let nearest = 0
-      let nearestDiff = Infinity
-      options.forEach((option, index) => {
-        const diff = Math.abs(option - value)
-        if (diff < nearestDiff) {
-          nearestDiff = diff
-          nearest = index
-        }
-      })
-      return nearest
-    },
-    onPhRangeChange ([minIndex, maxIndex]) {
-      this.phMinIndex = minIndex
-      this.phMaxIndex = maxIndex
-      this.pushNicheFilterQuery()
-    },
-    onTemperatureRangeChange ([minIndex, maxIndex]) {
-      this.temperatureMinIndex = minIndex
-      this.temperatureMaxIndex = maxIndex
-      this.pushNicheFilterQuery()
-    },
-    onPhMinInput (rawValue) {
-      const value = Number(rawValue)
-      if (rawValue === '' || Number.isNaN(value)) return
-      this.phMinIndex = Math.min(this.nearestOptionIndex(value, this.phOptions), this.phMaxIndex)
-      this.pushNicheFilterQuery()
-    },
-    onPhMaxInput (rawValue) {
-      const value = Number(rawValue)
-      if (rawValue === '' || Number.isNaN(value)) return
-      this.phMaxIndex = Math.max(this.nearestOptionIndex(value, this.phOptions), this.phMinIndex)
-      this.pushNicheFilterQuery()
-    },
-    onTemperatureMinInput (rawValue) {
-      const value = Number(rawValue)
-      if (rawValue === '' || Number.isNaN(value)) return
-      this.temperatureMinIndex = Math.min(
-        this.nearestOptionIndex(value, this.temperatureOptions), this.temperatureMaxIndex
-      )
-      this.pushNicheFilterQuery()
-    },
-    onTemperatureMaxInput (rawValue) {
-      const value = Number(rawValue)
-      if (rawValue === '' || Number.isNaN(value)) return
-      this.temperatureMaxIndex = Math.max(
-        this.nearestOptionIndex(value, this.temperatureOptions), this.temperatureMinIndex
-      )
-      this.pushNicheFilterQuery()
-    },
-    onHostAssociationChange (value) {
-      this.hostAssociation = value
-      this.pushNicheFilterQuery()
-    },
-    onPiperCommunityChange (value) {
-      this.piperCommunity = value
-      this.pushNicheFilterQuery()
-    },
-    resetNicheFilters () {
-      this.phMinIndex = 0
-      this.phMaxIndex = Math.max(0, this.phOptions.length - 1)
-      this.temperatureMinIndex = 0
-      this.temperatureMaxIndex = Math.max(0, this.temperatureOptions.length - 1)
-      this.hostAssociation = ''
-      this.piperCommunity = ''
-      this.pushNicheFilterQuery()
-    },
-    // Pushes the current slider/dropdown values into the URL, which the
-    // $route watcher below (fetchGlobalData) picks up to refetch the maps
-    // and table -- same round trip onModeChange/onTaxonomyTypeChange use.
-    pushNicheFilterQuery () {
-      const query = { ...this.$route.query, mode: 'niche' }
-      for (const key of ['ph', 'ph_min', 'ph_max', 'temperature', 'temperature_min', 'temperature_max',
-        'host_association', 'piper_community']) {
-        delete query[key]
-      }
-      const niche = this.activeNicheFilters
-      if (niche) {
-        if (niche.phMin !== undefined) query.ph_min = niche.phMin
-        if (niche.phMax !== undefined) query.ph_max = niche.phMax
-        if (niche.temperatureMin !== undefined) query.temperature_min = niche.temperatureMin
-        if (niche.temperatureMax !== undefined) query.temperature_max = niche.temperatureMax
-        if (niche.hostAssociation) query.host_association = niche.hostAssociation
-        if (niche.piperCommunity) query.piper_community = niche.piperCommunity
-      }
-      this.page = 1
-      this.$router.push({ name: this.$route.name, params: { taxonomy: this.taxonomy }, query })
     },
     onPageChange (page) {
       this.page = page
@@ -1103,24 +703,14 @@ export default {
       }
       this.shuffled_profiles = arr
     },
-    niche_query_suffix () {
-      const niche = this.activeNicheFilters
-      if (!niche) return ''
-      let suffix = ''
-      if (niche.ph !== undefined) suffix += '&ph=' + niche.ph
-      if (niche.temperature !== undefined) suffix += '&temperature=' + niche.temperature
-      if (niche.hostAssociation) suffix += '&host_association=' + niche.hostAssociation
-      if (niche.piperCommunity) suffix += '&piper_community=' + encodeURIComponent(niche.piperCommunity)
-      return suffix
-    },
     run_path (acc) {
       return '/run/' + acc
     },
     csv_link () {
-      return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
+      return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
     },
     minimal_csv_link () {
-      return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.niche_query_suffix()
+      return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
     },
     shuffle_runs () {
       const arr = [...this.filtered_profiles]
@@ -1227,67 +817,6 @@ export default {
 .matching-count-caption {
   text-align: center;
 }
-.niche-mapping-panel {
-  max-width: 720px;
-  margin: 0 auto 1.5rem;
-  padding: var(--space-6);
-  background: hsl(174, 25%, 98.5%);
-  border: 1px solid hsl(174, 25%, 91%);
-  border-radius: 12px;
-  text-align: left;
-}
-.niche-mapping-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-.niche-mapping-eyebrow {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: hsl(174, 62%, 24%);
-  margin: 0;
-}
-.niche-mapping-help {
-  margin-top: var(--space-1);
-  margin-bottom: var(--space-4);
-}
-.niche-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 var(--space-6);
-}
-.niche-field {
-  min-width: 0;
-}
-.niche-slider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-}
-.niche-slider-row :deep(.b-slider) {
-  flex: 1 1 auto;
-}
-.niche-range-input {
-  flex: 0 0 auto;
-  width: 3.75rem;
-  min-height: 32px;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid hsl(174, 25%, 82%);
-  border-radius: 6px;
-  background: #fff;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.85rem;
-  color: #444;
-  text-align: center;
-}
-.niche-range-input:focus-visible {
-  outline: 2px solid hsl(174, 62%, 28%);
-  outline-offset: 1px;
-}
 .individual-runs-map {
   width: 100%;
   height: 900px;
@@ -1320,9 +849,6 @@ export default {
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
-.mapping-mode-switcher {
-  margin-bottom: 1.25rem;
-}
 .low-complexity-summary {
   align-self: center;
   font-weight: bold;
@@ -1336,33 +862,6 @@ export default {
 @media (max-width: 768px) {
   .taxonomy-switcher :deep(.field-body > .field.is-grouped) {
     flex-wrap: wrap;
-  }
-  .niche-mapping-panel {
-    padding: var(--space-4);
-  }
-  .niche-field-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-  /* Buefy's default slider thumb (1rem/16px) is well under a comfortable
-     touch target -- fine for a mouse pointer, but a real problem for a
-     *range* slider on a phone where two thumbs can sit close together and
-     need to be grabbed individually with a fingertip. Enlarge the thumb,
-     track and tick marks together so the track still reads as one
-     proportioned control, not just a bigger dot on a thin line. */
-  .niche-slider-row :deep(.b-slider-thumb) {
-    height: 1.5rem;
-    width: 1.5rem;
-  }
-  .niche-slider-row :deep(.b-slider-track) {
-    height: 0.75rem;
-  }
-  .niche-slider-row :deep(.b-slider-tick) {
-    height: 0.375rem;
-  }
-  .niche-range-input {
-    min-height: 44px;
-    width: 4.5rem;
   }
   .individual-runs-map {
     height: clamp(320px, 60vh, 500px);
@@ -1394,19 +893,15 @@ export default {
 }
 
 @media (max-width: 430px) {
-  .taxonomy-switcher :deep(.field-body > .field.is-grouped),
-  .mapping-mode-switcher :deep(.field-body > .field.is-grouped) {
+  .taxonomy-switcher :deep(.field-body > .field.is-grouped) {
     align-items: stretch;
     flex-direction: column;
   }
   .taxonomy-switcher :deep(.control),
-  .taxonomy-switcher :deep(.button),
-  .mapping-mode-switcher :deep(.control),
-  .mapping-mode-switcher :deep(.button) {
+  .taxonomy-switcher :deep(.button) {
     width: 100%;
   }
-  .taxonomy-switcher :deep(.button),
-  .mapping-mode-switcher :deep(.button) {
+  .taxonomy-switcher :deep(.button) {
     justify-content: flex-start;
     min-height: 44px;
     height: auto;
