@@ -53,6 +53,8 @@ def generate_app(app_name='SURVEY_API'):
 
     from api.api import api
     app.register_blueprint(api, url_prefix="/api")
+    from api.amplicon import amplicon
+    app.register_blueprint(amplicon, url_prefix="/api/amplicon")
 
     def _send_error(sender, exception, **extra):
         _notify_admin(exception)

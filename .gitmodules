@@ -1,3 +1,6 @@
 [submodule "public_sequencing_metadata_corrections"]
 	path = public_sequencing_metadata_corrections
 	url = https://github.com/wwood/public_sequencing_metadata_corrections.git
+[submodule "indicpiper_custom/IndicPiper"]
+	path = indicpiper_custom/IndicPiper
+	url = https://github.com/cliffbueno/IndicPiper.git

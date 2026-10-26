@@ -1,0 +1,43 @@
+# metalog_custom config
+#
+# Fetches the latest Metalog (SPIRE) extended metadata and joins it onto
+# Sandpiper's raw kingfisher_metadata.tsv, producing the meta_* column slim
+# file consumed by the parsed_metadata stage. This is normally driven
+# end-to-end by the fetch_metalog / join_metalog_metadata rules in
+# ../snakemake/Snakefile (toggled by INCLUDE_METALOG in prod_config.yml),
+# which override KINGFISHER_METADATA and OUTPUT_DIR below per build -- run
+# these scripts by hand only for local inspection/debugging.
+#
+# Workflow (manual):
+#   1. pixi run -e sandpiper python scripts/fetch_metalog.py --config config.yml
+#      -> downloads the four "_latest" files into METALOG_DOWNLOAD_DIR
+#   2. pixi run -e sandpiper python scripts/join_metadata.py --config config.yml
+#      -> writes OUTPUT_FILE (full) and SLIM_OUTPUT_FILE (run + meta_ columns)
+
+# Metalog source (SPIRE). fetch_metalog.py downloads the four "_latest" wide
+# files from here; the _latest URLs redirect to the current dated release, so
+# re-running fetch always pulls fresh metadata -- no manual file copying.
+METALOG_BASE_URL:     'https://metalog.embl.de/static/download/metadata'
+METALOG_DOWNLOAD_DIR: '/home/herholdt/sandpiper-coming-soon/metalog_custom/metalog_downloads'
+
+# Extended metadata files (SPIRE metalog) -- populated by fetch_metalog.py.
+METALOG_ANIMAL:        '/home/herholdt/sandpiper-coming-soon/metalog_custom/metalog_downloads/animal_extended_wide_latest.tsv.gz'
+METALOG_ENVIRONMENTAL: '/home/herholdt/sandpiper-coming-soon/metalog_custom/metalog_downloads/environmental_extended_wide_latest.tsv.gz'
+METALOG_HUMAN:         '/home/herholdt/sandpiper-coming-soon/metalog_custom/metalog_downloads/human_extended_wide_latest.tsv.gz'
+METALOG_OCEAN:         '/home/herholdt/sandpiper-coming-soon/metalog_custom/metalog_downloads/ocean_extended_wide_latest.tsv.gz'
+
+# Sandpiper kingfisher metadata (join source). Overridden per build by the
+# Snakefile via --kingfisher-metadata (KINGFISHER_METADATA_RAW in
+# prod_config.yml) -- this default is only used for a manual/local run.
+KINGFISHER_METADATA: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/kingfisher_metadata.tsv'
+
+# Output directory. Overridden per build by the Snakefile via --output-dir
+# (a version-scoped scratch path) -- this default is only used for a
+# manual/local run.
+OUTPUT_DIR: '/home/herholdt/sandpiper-coming-soon/metalog_custom/outputs'
+
+# Output file name (full: all kingfisher columns + meta_ columns)
+OUTPUT_FILE: 'kingfisher_metadata_extended.tsv'
+
+# Slim output (run + meta_ columns, matched runs only) -- fed to the sandpiper pipeline
+SLIM_OUTPUT_FILE: 'kingfisher_metadata_meta_slim.tsv'

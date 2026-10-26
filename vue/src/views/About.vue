@@ -8,7 +8,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
     <section class="section container is-small">
     <b-image
             :src="sandpiperLogo"
-            style="height: 230px; width: 400px; margin: auto"
+            class="about-logo"
             alt="Sandpiper Logo"
             />
     </section>
@@ -26,12 +26,14 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
       <p>Ben J. Woodcroft, Samuel T. N. Aroney, Rossen Zhao, Mitchell Cunningham, Joshua A. M. Mitchell, Rizky Nurdiansyah, Linda Blackall & Gene W. Tyson. <i>Comprehensive taxonomic identification of microbial species in metagenomic data using SingleM and Sandpiper</i>. Nat Biotechnol (2025). <a>https://doi.org/10.1038/s41587-025-02738-1</a></p><br />
 
       <p>The prokaryotic fraction (SPF) mode of SingleM:</p><br />
-      <p>Eisenhofer, R., Alberdi, A., & Woodcroft, B. J. (2026). <i>Large-scale estimation of bacterial and archaeal DNA prevalence in metagenomes reveals biome-specific patterns</i>. mSystems, 11(4), e0106225. <a href="https://doi.org/10.1128/msystems.01062-25"> https://doi.org/10.1128/msystems.01062-25</a></p><br />
+      <p>Eisenhofer, R., Alberdi, A., & Woodcroft, B. J. (2026). <i>Large-scale estimation of bacterial and archaeal DNA prevalence in metagenomes reveals biome-specific patterns</i>. mSystems, 11(4), e0106225. <a href="https://doi.org/10.1128/msystems.01062-25">https://doi.org/10.1128/msystems.01062-25</a>.</p><br />
     </section>
 
-    <section class="section is-small container has-text-justified">
+    <section id="bulk-download" class="section is-small container has-text-justified">
       <h1 class="title">Bulk download</h1>
+      <p>Community profiles, IndicPiper habitat results and Metalog metadata are available for download.</p><br />
       <p>Community profiles for all runs are available for download from <a href="https://zenodo.org/doi/10.5281/zenodo.10547493">Zenodo</a>. The data behind older versions of Sandpiper can also be downloaded there as they are stored as old Zenodo versions.</p><br />
+      <p>IndicPiper habitat results and Metalog sample metadata, for every run in this database, will also be made available via Zenodo.</p><br />
       <p>Please feel free to get in touch with <a href="https://research.qut.edu.au/cmr/team/ben-woodcroft/">us</a> if you have any questions or comments, or want data of other kinds.</p>
     </section>
 
@@ -46,6 +48,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
       <p>The marker-gene profiles are then combined ("condensed") into a single taxonomic profile, representing the read coverage of each taxon in the metagenome. From this read coverage, relative abundance is found by dividing the read coverage of each taxon by the total read coverage of the metagenome. This relative abundance is then used to generate the Sandpiper visualisations.</p><br />
 
       <p>Community profiles derived from older versions are available as a bulk download (see above).</p><br />
+
 
       <h2 class="title is-5">Community profiling</h2>
       <p>For ease of interpretation and search, runs on this website are represented as a 'condensed' profile. These condensed profiles unify the profiles from each marker gene into a single profile (instead of 59 separate profiles), collapsing OTUs from each taxon into unified groups.</p><br />
@@ -73,11 +76,77 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 
       <p>We define “low complexity” samples as those where 95% or more of the community was assigned to a single order by SingleM when using the GTDB reference database.</p><br />
 
+      <h2 class="title is-5">Metalog Metadata</h2>
+      <p>
+        Additional contextual metadata was obtained from
+        <a href="https://metalog.embl.de/">Metalog</a><span v-if="metalog_retrieved_date">
+        on {{ metalog_retrieved_date }}</span>. Kuhn et al.,
+        <i>Metalog: curated and harmonised contextual data for global metagenomics samples</i>,
+        <i>Nucleic Acids Research</i> (2025),
+        <a href="https://doi.org/10.1093/nar/gkaf1118">https://doi.org/10.1093/nar/gkaf1118</a>.
+        Metalog information is obtained through 
+        Information is presented under Metalog additional information within each Run Page. Pages that do not contain any information will report back "No Metalog metadata recorded for this run". We downloaded Metalog's four "Extended wide" files (Human, animal, ocean and environment), because Metalog has no per-sample API. The extended wide allows one row per sample, allowing it to be an easy lookup and allocate.<br />
+        <br />
+        <strong><a href="https://metalog.embl.de/">Last metadata update: {{ metalog_last_update }}</a>:</strong><br />
+        Human: {{ metalog_sample_counts.human }} Samples<br />
+        Animal: {{ metalog_sample_counts.animal }} Samples<br />
+        Ocean: {{ metalog_sample_counts.ocean }} Samples<br />
+        Environmental: {{ metalog_sample_counts.environmental }} Samples<br />
+        Total = {{ metalog_sample_counts.total }} Samples<br />
+        <i>*Taken from Metalog website at the time of database generation*</i>
+      </p><br />
+
+      <h2 class="title is-5">IndicPiper habitat indicators</h2>
+      <p>
+        <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> by <i>Cliff Bueno de Mesquita</i>, identifies genera that
+        are strong, specific indicators of particular habitats, using indicator species analysis
+        (indicspecies:multipatt, IndVal) run against each genus's presence and
+        abundance across many habitat categories. Sandpiper does not run this analysis itself: it uses
+        IndicPiper's own curated, published indicator database as-is, pulled directly from the
+        <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> project rather than
+        regenerated from Sandpiper's own data.
+      </p><br />
+      <p>
+        The result is 856 genera flagged as indicators of one of 13 habitats, each with a resampling-stability
+        score from 100 runs of the analysis. For every run in this database, we then compute how
+        strongly its own genus composition matches each of those 13 habitat signatures, as the
+        summed relative abundance of that habitat's indicator genera present in the sample.
+      </p><br />
+      <p>
+        These scores are shown under "IndicPiper habitat indicators" within each Run Page, and can
+        be searched directly via the habitat key in
+        <router-link :to="{ name: 'Search' }">advanced search</router-link>. Only habitats with a
+        real, non-zero match are shown for a given run most runs match a handful of habitats.
+        Add a comparison after the habitat name (e.g. soil>=0.1) to threshold on
+        that habitat's score itself, rather than only matching runs where it's present at all. A
+        comparison with no habitat name, e.g. >0.5, matches runs whose single
+        strongest habitat match exceeds that value, whichever habitat it turns out to be.
+      </p><br />
+
     </section>
 
     <section class="section is-small container has-text-justified">
       <h1 class="title">Changelog</h1>
       <p>Note that point releases (e.g. v2.0.x, v2.1.x) may not be listed here, and are only for minor bug/deployment fixes.</p><br />
+      <h2 class="title is-5">2.1.*</h2>
+        <div class="columns has-text-left">
+          <div class="column content">
+            <ul>
+            <li>Additional information Amplicons gathered using <a href="https://github.com/R-Nurdiansyah/Wagtail">Wagtail</a>. ----------Need More Context -----------</li>
+              <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. </li>
+              <li>Addition of an Advanced Search bar option, lets user's input queries and outputs number of samples detected before jumping to random page.</li>
+              <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>
+              <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
+              <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (Caution message present if environment signatures != documented environment). Searchable via the new habitat key in Advanced Search.</li>
+              <li>Include Niche Mapping within the Taxonomy page, allows users ability to filter by pH, Temperature, IndicPiper community and Host assocaition levels to adjust the adapative maps updating the Matching samples table below. </li>
+              <li>Addition to the Sunburst model. User able to search for specific taxa where they will be highlighted. In a breadcrumb fashion user can collapse the Suburst graph with a reset view and 'go back a step' in the center.</li>
+            </ul>
+          </div>
+        </div>
+
+
+
+
 
       <h2 class="title is-5">2.1.*</h2>
         <div class="columns has-text-left">
@@ -190,8 +259,27 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
   </div>
 </template>
 
+<style scoped>
+.about-logo {
+  width: min(400px, 100%);
+  height: auto;
+  margin: auto;
+}
+.about-logo :deep(img) {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 768px) {
+  .has-text-justified {
+    text-align: left !important;
+  }
+}
+</style>
+
 <script>
 import { fetchSandpiperStats } from '@/api'
+import { stopPageLoading } from '@/store/pageLoading'
+import { METALOG_LAST_UPDATE, METALOG_SAMPLE_COUNTS, metalogCount } from '@/constants/metalog'
 
 export default {
   name: 'About',
@@ -202,12 +290,30 @@ export default {
       num_runs: null,
       num_bioprojects: null,
       version: null,
-      scrape_date: null
+      scrape_date: null,
+      metalog_retrieved_date: null,
+      // Metalog's own published release, as recorded when the data was
+      // fetched. Null until the stats call returns, and on databases built
+      // before this was captured -- the computeds below fall back then.
+      metalog_release: null
+    }
+  },
+
+  computed: {
+    metalog_last_update () {
+      return this.metalog_release?.last_metadata_update || METALOG_LAST_UPDATE
+    },
+
+    metalog_sample_counts () {
+      const counts = this.metalog_release?.sample_counts || METALOG_SAMPLE_COUNTS
+      return Object.fromEntries(
+        Object.entries(counts).map(([category, value]) => [category, metalogCount(value)])
+      )
     }
   },
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
+    // The template has no data gate -- the page renders immediately.
+    stopPageLoading()
     this.fetchData()
   },
   methods: {
@@ -221,6 +327,8 @@ export default {
           this.version = r.version
           this.scrape_date = r.scrape_date
           this.gtdb_version = r.gtdb_version
+          this.metalog_retrieved_date = r.metalog_retrieved_date
+          this.metalog_release = r.metalog_release
         })
     },
 

@@ -49,6 +49,34 @@ const routes = [
     props: true
   },
   {
+    // Same page as the metagenome taxonomy page, on amplicon data.
+    path: '/amplicon/taxonomy/:taxonomy',
+    name: 'AmpliconTaxonomy',
+    component: SearchResults,
+    props: route => ({ taxonomy: route.params.taxonomy, dataset: 'amplicon' })
+  },
+  {
+    // Same run page, on amplicon data.
+    path: '/amplicon/run/:accession',
+    name: 'AmpliconRun',
+    component: Run,
+    props: route => ({ accession: route.params.accession, dataset: 'amplicon' })
+  },
+  {
+    // "Explore tabled results": the taxonomy page, but for every run
+    // matching an advanced-search query (?q=) instead of one taxon.
+    path: '/search/results',
+    name: 'QueryResults',
+    component: SearchResults,
+    props: route => ({ query: route.query.q, dataset: 'metagenome' })
+  },
+  {
+    path: '/amplicon/search/results',
+    name: 'AmpliconQueryResults',
+    component: SearchResults,
+    props: route => ({ query: route.query.q, dataset: 'amplicon' })
+  },
+  {
     path: '/about',
     name: 'About',
     component: About
@@ -57,7 +85,8 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes
+  routes,
+  scrollBehavior: () => ({ top: 0 })
 })
 
 export default router

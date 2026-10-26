@@ -9,12 +9,14 @@
 <script>
 
 import { fetchRandomAccession } from '@/api'
+import { stopPageLoading } from '@/store/pageLoading'
 
 export default {
   name: 'Random',
   created () {
-    // fetch the data when the view is created and the data is
-    // already being observed
+    // The template has no data gate -- it always shows the "choosing..."
+    // message, so it's never actually a blank page.
+    stopPageLoading()
     this.fetchData()
   },
   computed: {
@@ -29,14 +31,26 @@ export default {
     },
     exclude_strict_low_complexity() {
       return this.$route.query.exclude_strict_low_complexity
+    },
+    non_human_host() {
+      return this.$route.query.non_human_host
     }
   },
   methods: {
     fetchData () {
-      fetchRandomAccession(this.host, this.ecological, this.two_gbp, this.exclude_strict_low_complexity)
+      fetchRandomAccession(this.host, this.ecological, this.two_gbp, this.exclude_strict_low_complexity, this.non_human_host)
         .then(response => {
           const acc = response.data.run
-          this.$router.push({ name: 'Run', params: { accession: acc } })
+          // Keep the filters in the run URL so drawing another random run from
+          // the sticky search bar reuses the same criteria.
+          this.$router.push({ name: 'Run', params: { accession: acc }, query: { ...this.$route.query } })
+        })
+        .catch(() => {
+          this.$buefy.toast.open({
+            message: 'Could not pick a random run, please try again',
+            type: 'is-danger'
+          })
+          this.$router.push({ name: 'Search' })
         })
     }
   },

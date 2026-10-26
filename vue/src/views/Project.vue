@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="project-page">
     <div v-if="metadata !== null">
       <section class="section">
         <div class="container" v-if="metadata !== null">
@@ -12,8 +12,9 @@
 
           <b-table
             :data="metadata.projects"
-            :striped="true" 
-            :sort-icon="'arrow-up'">
+            :striped="true"
+            :sort-icon="'arrow-up'"
+            mobile-cards>
 
             <b-table-column field="acc" label="Run" v-slot="props" width="300" sortable>
               <b><router-link :to="{ name: 'Run', params: { accession: props.row.acc }}">{{ props.row.acc }}</router-link></b>
@@ -67,6 +68,7 @@
 <script>
 
 import { fetchProjectMetadata } from '@/api'
+import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
 export default {
   name: 'Project',
@@ -135,6 +137,10 @@ export default {
       const model_bioproject = this.$route.query.model_bioproject
       this.model_bioproject = model_bioproject
 
+      // Captured now, not read lazily inside .finally() -- see
+      // src/store/pageLoading.ts for why a stale token must not clear a
+      // newer navigation's loading state.
+      const loadingToken = currentLoadingToken()
       fetchProjectMetadata(model_bioproject)
         .then(response => {
           if (response.data.error !== undefined) {
@@ -143,6 +149,9 @@ export default {
             this.metadata = response.data
           }
         })
+        // The template gates on metadata/error_message, so the page is
+        // genuinely blank until this settles either way.
+        .finally(() => stopPageLoading(loadingToken))
     },
     get_smf_category1: function (smf, smf_warning) {
       if (smf_warning === true) {
@@ -162,3 +171,21 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+@media (max-width: 768px) {
+  .project-page .has-text-justified {
+    text-align: left !important;
+  }
+  .project-page :deep(.table-wrapper),
+  .project-page :deep(.table),
+  .project-page :deep(td) {
+    max-width: 100%;
+  }
+  .project-page :deep(td) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+</style>

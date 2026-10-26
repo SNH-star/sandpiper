@@ -713,6 +713,20 @@ def _is_host_label_unreliable(organism):
     return any(keyword in org for keyword in HOST_LABEL_UNRELIABLE_ORGANISM_KEYWORDS)
 
 
+# Organism annotations whose recorded host/ecological label is unreliable.
+# NCBI files all viral/phage metagenomes under "organismal metagenomes", which
+# the upstream predictor equates with "host"; but a virome's host vs ecological
+# status should come from its actual microbial community, not the annotation.
+# Matched as substrings (lowercased) so new variants (e.g. "marine viral
+# metagenome") are handled automatically without maintaining an explicit list.
+HOST_LABEL_UNRELIABLE_ORGANISM_KEYWORDS = ('viral', 'phage', 'virome')
+
+
+def _is_host_label_unreliable(organism):
+    org = str(organism).lower()
+    return any(keyword in org for keyword in HOST_LABEL_UNRELIABLE_ORGANISM_KEYWORDS)
+
+
 # BioSample attribute keys that identify a genuine eukaryotic host for a sample.
 # Presence of any of these (with a real value) means a viral/phage metagenome is
 # host-associated (e.g. a sea lion or human virome) and must keep its recorded
@@ -783,7 +797,7 @@ def add_host_predictions(db, run_accession_to_id, host_predictions_tsv):
             'id': run_id,
             'host_or_not_prediction': row.prediction,
             'host_or_not_recorded': row.host_or_not,
-            'host_or_not_mature': host_or_not_mature
+            'host_or_not_mature': host_or_not_mature,
         })
 
         num_host_predicted += 1
@@ -1368,7 +1382,13 @@ def add_parsed_metadata(db, run_accession_to_id, parsed_metadata):
     # SRR3401492      35.43885        -138.26435                      2008    9
     # SRR7051324      38.7906 -75.1638                        2016    11
 
-    df = pl.read_csv(parsed_metadata, separator='\t')
+    # infer_schema_length=None scans every row rather than the first 100. The
+    # metalog meta_ columns are free text and can hold multiple values in one
+    # field (e.g. meta_pmid "27054725, 28175320"), which polars types as i64
+    # from an all-integer sample and then fails to parse further down the file.
+    # Values here are only copied into the update dicts below, never used
+    # numerically, so widening a column to String costs nothing.
+    df = pl.read_csv(parsed_metadata, separator='\t', infer_schema_length=None)
     logging.info("Adding {} parsed metadata to DB".format(df.shape[0]))
     updates = []
     cols_to_update = [col for col in df.columns if col != 'run']
@@ -1388,6 +1408,206 @@ def add_parsed_metadata(db, run_accession_to_id, parsed_metadata):
     db.session.bulk_update_mappings(ParsedSampleAttribute, updates)
     db.session.commit()
     logging.info("Added parsed metadata for {} samples to DB".format(len(updates)))
+
+
+def add_indicpiper_scores(db_path, indicpiper_csv_path):
+    '''Populate indicator_habitat_scores from IndicPiper's own shipped
+    indicator table (genus_habitat_indicators_v*.csv -- see the IndicPiper
+    submodule at indicpiper_custom/IndicPiper/, which is NOT regenerated
+    here; this stage only consumes it as-is, referenced by --indicpiper-csv).
+
+    For every (sample, habitat) pair, sums condensed_profiles.relative_abundance
+    over every genus flagged as an indicator of that habitat in the CSV, into
+    indicator_habitat_scores. The same per-(run, habitat, genus) values, before
+    that sum collapses them, are also persisted into
+    indicator_habitat_genus_scores -- one row per nonzero (run, habitat,
+    genus) triple, driving the per-run genus-breakdown chart. Only
+    nonzero-score pairs/triples get a row -- see IndicatorHabitatScore's and
+    IndicatorHabitatGenusScore's docstrings in api/models.py for why these are
+    normalized tables rather than one column per habitat (~15.6% of the dense
+    sample x habitat matrix is nonzero, verified against the live DB in
+    2026-08).
+    '''
+    logging.info("Adding IndicPiper habitat indicator scores ..")
+
+    if not os.path.exists(indicpiper_csv_path):
+        raise Exception("IndicPiper indicator CSV not found: {}".format(indicpiper_csv_path))
+
+    # Deliberately NOT db.session.connection().connection here, unlike the
+    # other add_* stage functions in this file. db.session is bound to Flask's
+    # SQLALCHEMY_DATABASE_URI (api/config.py), which is a config-level constant
+    # (backend/db/sandpiper_40.duckdb) completely independent of --o/db_path --
+    # it silently ignores whatever -o was actually given. Confirmed the hard
+    # way: backend/db/sandpiper_40.duckdb is a symlink to the real production
+    # sandpiper-advanced-search checkout, so a db.session-based connection here
+    # would open a read-write connection (generate_backend_db sets
+    # SANDPIPER_LOADING_DATA=1, which disables the read-only guard) straight to
+    # the live prod DB regardless of -o -- it only failed harmlessly that time
+    # because indicator_habitat_scores didn't exist there yet. Opening our own
+    # connection directly against db_path is the only way this stage actually
+    # respects -o.
+    conn = duckdb.connect(db_path)
+
+    # Self-sufficient regardless of whether 'start' already created this
+    # table via db.create_all() against this exact db_path (see the note
+    # above -- that path has the same -o-independence problem, and separately,
+    # a db that predates indicator_habitat_scores being added to the schema
+    # -- e.g. an existing build this stage is being applied to after the fact
+    # -- genuinely never had 'start' run against it with this table defined).
+    conn.execute("CREATE SEQUENCE IF NOT EXISTS indicator_habitat_scores_id_seq")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS indicator_habitat_scores (
+            id INTEGER PRIMARY KEY DEFAULT nextval('indicator_habitat_scores_id_seq'),
+            run_id INTEGER NOT NULL REFERENCES ncbi_metadata(id),
+            habitat VARCHAR NOT NULL,
+            score DOUBLE NOT NULL
+        )
+    """)
+    conn.execute("CREATE SEQUENCE IF NOT EXISTS indicator_habitat_genus_scores_id_seq")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS indicator_habitat_genus_scores (
+            id INTEGER PRIMARY KEY DEFAULT nextval('indicator_habitat_genus_scores_id_seq'),
+            run_id INTEGER NOT NULL REFERENCES ncbi_metadata(id),
+            habitat VARCHAR NOT NULL,
+            genus VARCHAR NOT NULL,
+            relative_abundance DOUBLE NOT NULL,
+            ind_val_mean DOUBLE NOT NULL,
+            p_val_mean DOUBLE NOT NULL
+        )
+    """)
+    # A db built before ind_val_mean/p_val_mean were added to the schema
+    # (i.e. still on the two-column IndicatorHabitatGenusScore) needs these
+    # added explicitly -- CREATE TABLE IF NOT EXISTS is a no-op against an
+    # already-existing table, same reasoning as the DROP COLUMN IF EXISTS
+    # 'genera' cleanup below.
+    # Deliberately nullable here (unlike the CREATE TABLE's NOT NULL) --
+    # DuckDB can't ADD COLUMN ... NOT NULL onto a table that may already
+    # have rows. The DELETE+INSERT below always populates both columns
+    # fully in practice, but don't rely on nullable=False in models.py as
+    # a guaranteed DB-level invariant across every DB this function has
+    # ever touched.
+    conn.execute("ALTER TABLE indicator_habitat_genus_scores ADD COLUMN IF NOT EXISTS ind_val_mean DOUBLE")
+    conn.execute("ALTER TABLE indicator_habitat_genus_scores ADD COLUMN IF NOT EXISTS p_val_mean DOUBLE")
+    # A db built before this stage split genus detail into its own table
+    # once had a `genera` VARCHAR column on indicator_habitat_scores --
+    # superseded by indicator_habitat_genus_scores, drop it if present so
+    # re-running this stage against such a db converges on the current schema.
+    conn.execute("ALTER TABLE indicator_habitat_scores DROP COLUMN IF EXISTS genera")
+
+    # Safe to re-run: clear any scores from a previous run of this stage
+    # before inserting, rather than relying on 'start' having wiped the DB.
+    conn.execute("DELETE FROM indicator_habitat_scores")
+    conn.execute("DELETE FROM indicator_habitat_genus_scores")
+
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE indicpiper_indicators AS
+        SELECT
+            "Taxonomy" AS taxonomy,
+            "Habitat" AS habitat,
+            "IndVal_mean" AS ind_val_mean,
+            "PVal_mean" AS p_val_mean
+        FROM read_csv_auto('{csv_path}')
+    """.format(csv_path=indicpiper_csv_path))
+
+    # genus_habitat_indicators_v*.csv's Taxonomy has GTDB rank prefixes
+    # stripped -- runIndicPiper() does this itself (IndicPiper.R:258's
+    # gsub("Root; |d__|p__|c__|o__|f__|g__", "", Taxonomy)) before writing the
+    # output CSV. taxonomies.full_name keeps them (e.g. "d__Archaea; p__X;
+    # ..."), so the join has to strip the same prefixes or it silently matches
+    # nothing -- verified empirically against the live DB in 2026-08, a naive
+    # exact-string join returned zero rows across all 913k samples.
+    #
+    # Sanity check before doing the expensive join against condensed_profiles:
+    # the IndicPiper submodule can be bumped to a future release built on a
+    # newer GTDB version than this Sandpiper build's own taxonomy, which would
+    # make the exact-string join silently match almost nothing instead of
+    # erroring. Fail loudly instead of loading a near-empty table.
+    n_csv_taxa = conn.execute("SELECT count(DISTINCT taxonomy) FROM indicpiper_indicators").fetchone()[0]
+    n_matched_taxa = conn.execute("""
+        SELECT count(DISTINCT i.taxonomy)
+        FROM indicpiper_indicators i
+        JOIN (
+            SELECT DISTINCT regexp_replace(t.full_name, 'd__|p__|c__|o__|f__|g__', '', 'g') AS genus
+            FROM taxonomies t
+            WHERE t.taxonomy_type = 'gtdb' AND t.taxonomy_level = 'genus'
+        ) g ON g.genus = i.taxonomy
+    """).fetchone()[0]
+    matched_fraction = (n_matched_taxa / n_csv_taxa) if n_csv_taxa else 0.0
+    if matched_fraction < 0.5:
+        conn.close()
+        raise Exception(
+            "Only {:.1%} ({}/{}) of the IndicPiper indicator CSV's taxa matched a genus in this "
+            "build's own taxonomies table (taxonomy_type='gtdb'). This looks like a GTDB version "
+            "mismatch between the IndicPiper submodule ({}) and this Sandpiper build's own "
+            "taxonomy -- refusing to load a near-empty indicator_habitat_scores table.".format(
+                matched_fraction, n_matched_taxa, n_csv_taxa, indicpiper_csv_path))
+    logging.info("  {:.1%} ({}/{}) of the IndicPiper indicator CSV's taxa matched this build's "
+                 "own taxonomy".format(matched_fraction, n_matched_taxa, n_csv_taxa))
+
+    # Both indicator_habitat_scores and indicator_habitat_genus_scores are
+    # populated from this same joined (run, habitat, genus) subquery -- one
+    # collapses it with GROUP BY, the other persists it as-is -- so the two
+    # tables are guaranteed to agree by construction (see the CTE below).
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE indicpiper_genus_matches AS
+        SELECT
+            g.run_id, i.habitat, g.genus_name, g.relative_abundance,
+            i.ind_val_mean, i.p_val_mean
+        FROM (
+            SELECT
+                run_id,
+                genus,
+                trim(regexp_extract(genus, '[^;]+$')) AS genus_name,
+                relative_abundance
+            FROM (
+                SELECT
+                    cp.run_id,
+                    regexp_replace(t.full_name, 'd__|p__|c__|o__|f__|g__', '', 'g') AS genus,
+                    cp.relative_abundance
+                FROM condensed_profiles cp
+                JOIN taxonomies t ON t.id = cp.taxonomy_id
+                WHERE cp.taxonomy_type = 'gtdb' AND t.taxonomy_level = 'genus'
+            )
+        ) g
+        JOIN indicpiper_indicators i ON i.taxonomy = g.genus
+        WHERE g.relative_abundance > 0
+    """)
+
+    conn.execute("""
+        INSERT INTO indicator_habitat_scores (id, run_id, habitat, score)
+        SELECT
+            nextval('indicator_habitat_scores_id_seq'),
+            run_id,
+            habitat,
+            sum(relative_abundance) AS score
+        FROM indicpiper_genus_matches
+        GROUP BY run_id, habitat
+        HAVING sum(relative_abundance) > 0
+    """)
+
+    conn.execute("""
+        INSERT INTO indicator_habitat_genus_scores
+            (id, run_id, habitat, genus, relative_abundance, ind_val_mean, p_val_mean)
+        SELECT
+            nextval('indicator_habitat_genus_scores_id_seq'),
+            run_id,
+            habitat,
+            genus_name,
+            relative_abundance,
+            ind_val_mean,
+            p_val_mean
+        FROM indicpiper_genus_matches
+    """)
+    conn.commit()
+
+    n_rows = conn.execute("SELECT count(*) FROM indicator_habitat_scores").fetchone()[0]
+    n_samples = conn.execute("SELECT count(DISTINCT run_id) FROM indicator_habitat_scores").fetchone()[0]
+    n_habitats = conn.execute("SELECT count(DISTINCT habitat) FROM indicator_habitat_scores").fetchone()[0]
+    n_genus_rows = conn.execute("SELECT count(*) FROM indicator_habitat_genus_scores").fetchone()[0]
+    logging.info("  {} (sample, habitat) score rows, {} samples, {} habitats, {} genus-level rows".format(
+        n_rows, n_samples, n_habitats, n_genus_rows))
+    conn.close()
+    logging.info("Added IndicPiper habitat indicator scores")
 
 
 if __name__ == '__main__':
@@ -1415,9 +1635,13 @@ if __name__ == '__main__':
     parent_parser.add_argument('--bioproject-associated-publications', help='tsv from bioprjoect_metadata.py')
     parent_parser.add_argument('--smf-file', help='SMF file to read')
     parent_parser.add_argument('--parsed-metadata-table', help='parsed metadata table to read')
+    parent_parser.add_argument('--metalog-provenance', help='derived Metalog provenance JSON')
     parent_parser.add_argument('--otu-parquet-dir', help='directory for OTU parquet chunks')
+    parent_parser.add_argument('--indicpiper-csv',
+        help='Path to a genus_habitat_indicators_v*.csv shipped by the IndicPiper submodule '
+             '(see indicpiper_custom/IndicPiper/) -- consumed as-is, not regenerated by this run')
 
-    parent_parser.add_argument('--stage', help='processing stage to run', choices=['start', 'taxonomy_upload', 'stage2', 'update_smf', 'tags', 'otus_parquet', 'otus_load', 'parsed_metadata'], required=True)
+    parent_parser.add_argument('--stage', help='processing stage to run', choices=['start', 'taxonomy_upload', 'stage2', 'update_smf', 'tags', 'otus_parquet', 'otus_load', 'parsed_metadata', 'indicpiper'], required=True)
 
     parent_parser.add_argument('--gtdb-archaea-taxonomy', help='GTDB archaea taxonomy TSV (two columns: accession, taxonomy)')
     parent_parser.add_argument('--gtdb-bacteria-taxonomy', help='GTDB bacteria taxonomy TSV (two columns: accession, taxonomy)')
@@ -1492,6 +1716,8 @@ if __name__ == '__main__':
                 'ncbi_metadata_id_seq',
                 'tags_id_seq',
                 'run_tags_id_seq',
+                'indicator_habitat_scores_id_seq',
+                'indicator_habitat_genus_scores_id_seq',
             ]
             for seq in seqs:
                 conn.execute(f"CREATE SEQUENCE {seq}")
@@ -1617,6 +1843,22 @@ if __name__ == '__main__':
 
             run_accession_to_id = read_run_accession_to_id(db)
             add_parsed_metadata(db, run_accession_to_id, args.parsed_metadata_table)
+            if args.metalog_provenance:
+                with open(args.metalog_provenance) as f:
+                    provenance = json.load(f)
+                existing = db.session.get(SandpiperCache, 'metalog_provenance')
+                if existing is None:
+                    db.session.add(SandpiperCache(
+                        key='metalog_provenance', value=json.dumps(provenance)))
+                else:
+                    existing.value = json.dumps(provenance)
+                db.session.commit()
+
+        elif args.stage == 'indicpiper':
+            if not args.indicpiper_csv:
+                raise Exception("indicpiper-csv must be specified for stage {}".format(args.stage))
+
+            add_indicpiper_scores(db_path, args.indicpiper_csv)
 
         else:
             raise Exception("Unknown stage {}".format(args.stage))

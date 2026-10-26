@@ -8,10 +8,26 @@ print("TODO: Copy input files to /scratch so it is faster?")
 
 ##### accessions in 50k chunks for kingfisher metadata scalbility #####
 import csv
+import glob
 import itertools
 import os
+import re
 
 file_list = config['ACCESSIONS_FILE']
+
+# Whether the fetch_metalog/join_metalog_metadata rules below regenerate the
+# metalog meta_ column extension from scratch each build (fresh download +
+# join against this build's raw kingfisher_metadata.tsv), or the pipeline
+# behaves exactly as it did before the metalog extension existed. Same
+# explicit-boolean shape as INCLUDE_INDICPIPER below.
+INCLUDE_METALOG = config.get('INCLUDE_METALOG', True)
+
+# Whether the add_indicpiper_scores_to_backend_db rule below runs its real
+# --stage indicpiper call, or just copies the db forward unchanged. Explicit
+# boolean (unlike METALOG_EXTENSION_METADATA's presence/absence toggle) since
+# the IndicPiper submodule is always present in the checkout even when
+# temporarily disabling this stage.
+INCLUDE_INDICPIPER = config.get('INCLUDE_INDICPIPER', True)
 
 # Process this many in the list at a time.
 chunk_size = 10000
@@ -54,6 +70,9 @@ localrules: run_kingfisher_metadata, gather_kingfisher_metadata, gather_bioproje
 rule all:
     input:
         '{test_or_prod}/{version}/backend_db/taxonomies_name_lower_idx_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        '{test_or_prod}/{version}/backend_db/export_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION']),
         '{test_or_prod}/gather_bioproject_pubs/{date}/done'.format(
@@ -174,7 +193,7 @@ rule generate_backend_db_start:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='48h'
+        runtime='17h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -202,7 +221,7 @@ rule generate_backend_db_taxonomy_upload:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='48h'
+        runtime='17h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -244,6 +263,13 @@ rule generate_backend_db_stage2:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=128000,
+        # Raised from 17h after the v40 build was KILLED at exactly 17h04m
+        # (job 24645044, 2026-08-04) with no traceback -- PBS walltime, not a
+        # code error. It had processed all 910k samples and written 277M
+        # condensed profile rows (48 min just to commit those), and had only
+        # just reached "Committing known species fractions" when time ran out.
+        # Note the parent orchestrator job still had 24h of its 48h spare --
+        # each rule is its own PBS job, so THIS value is the binding limit.
         runtime='48h'
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
@@ -351,12 +377,127 @@ rule generate_parsed_metadata_from_kingfisher:
     shell:
         'pixi run -e sandpiper ../backend/sandpiper/parse_biosample_extras.py --kingfisher-annotate-tsv-list {input.file_list} --extra-sample-keys depth temperature collection_date > {output.parsed_metadata} 2> {log}'
 
-rule add_parsed_metadata_from_kingfisher:
+# Per-version scratch dir for the regenerated metalog join -- keeps this
+# build's files out of metalog_custom/'s own fixed interactive-use paths,
+# so nothing here collides with a manual run there or a differently
+# versioned build.
+METALOG_OUTPUT_DIR = '{scratch}/metalog/{version}'.format(
+    scratch=config['SCRATCH_DIR'], version=config['SANDPIPER_VERSION'])
+METALOG_SLIM_OUTPUT = '{}/kingfisher_metadata_meta_slim.tsv'.format(METALOG_OUTPUT_DIR)
+METALOG_FULL_OUTPUT = '{}/kingfisher_metadata_extended.tsv'.format(METALOG_OUTPUT_DIR)
+
+# Resolved metalog extension path used by extend_parsed_metadata_with_metalog
+# below: the fresh join output when INCLUDE_METALOG, empty (pass-through)
+# otherwise -- same presence/absence toggle extend_parsed_metadata.py always
+# expected, just computed instead of read from a static config path.
+METALOG_EXTENSION_METADATA = METALOG_SLIM_OUTPUT if INCLUDE_METALOG else ''
+
+if INCLUDE_METALOG:
+    rule fetch_metalog:
+        # Downloads Metalog's "_latest" extended-wide files fresh every run
+        # (see metalog_custom/scripts/fetch_metalog.py) -- these are stable
+        # URLs that redirect to whatever the current dated release is, so
+        # this genuinely re-fetches from scratch each build rather than
+        # reusing a cached copy. Requires outbound internet access from
+        # wherever this rule executes (verify the aqua profile's compute
+        # nodes can reach metalog.embl.de before relying on this).
+        output:
+            touch('{test_or_prod}/{version}/backend_db/metalog_fetch_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION']))
+        log:
+            '{test_or_prod}/{version}/backend_db/metalog_fetch.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        resources:
+            mem_mb=4000,
+            runtime='30m'
+        shell:
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../metalog_custom && ' \
+            'pixi run -e sandpiper python scripts/fetch_metalog.py --config config.yml ' \
+            '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+    rule join_metalog_metadata:
+        # Joins the freshly fetched metalog files onto the pre-existing raw
+        # kingfisher_metadata.tsv from the upstream renew pipeline (not
+        # anything this Snakefile produces -- same category of static input
+        # as ACCESSIONS_FILE/OTU_TABLE, see KINGFISHER_METADATA_RAW).
+        # Writes into a version-scoped scratch dir so concurrent builds of
+        # different SANDPIPER_VERSIONs can't collide.
+        input:
+            '{test_or_prod}/{version}/backend_db/metalog_fetch_done'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        output:
+            slim=METALOG_SLIM_OUTPUT,
+            full=METALOG_FULL_OUTPUT
+        log:
+            '{test_or_prod}/{version}/backend_db/metalog_join.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        params:
+            output_dir=METALOG_OUTPUT_DIR
+        resources:
+            mem_mb=32000,
+            runtime='2h'
+        shell:
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'mkdir -p {params.output_dir} && ' \
+            'cd ../metalog_custom && ' \
+            'pixi run -e sandpiper python scripts/join_metadata.py --config config.yml ' \
+            '--kingfisher-metadata {config[KINGFISHER_METADATA_RAW]} ' \
+            '--output-dir {params.output_dir} ' \
+            '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+rule extend_parsed_metadata_with_metalog:
+    # Append metalog meta_ columns onto parsed_metadata (joined by run). If
+    # INCLUDE_METALOG is false, parsed metadata is passed through unchanged,
+    # so downstream behaviour is identical to before the metalog extension
+    # existed.
     input:
         parsed_metadata='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata.tsv'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
         done='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_done'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        metalog_slim=(METALOG_SLIM_OUTPUT if INCLUDE_METALOG else []),
+    output:
+        extended='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        provenance='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv.metalog_provenance.json'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        done=touch('{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD'])),
+    params:
+        ext_flag=('--metalog-extension ' + METALOG_EXTENSION_METADATA) if METALOG_EXTENSION_METADATA else '',
+    resources:
+        mem_mb=16000,
+        runtime='1h'
+    log:
+        '{test_or_prod}/kingfisher_metadata/{date}/logs/parsed_metadata_extended.log'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD'])
+    shell:
+        'pixi run -e sandpiper ../backend/sandpiper/extend_parsed_metadata.py '
+        '--parsed-metadata {input.parsed_metadata} {params.ext_flag} '
+        '--output {output.extended} 2> {log}'
+
+rule add_parsed_metadata_from_kingfisher:
+    input:
+        parsed_metadata='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        metalog_provenance='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended.tsv.metalog_provenance.json'.format(
+            date=config['KINGFISHER_METADATA_DATE'],
+            test_or_prod=config['TEST_OR_PROD']),
+        done='{test_or_prod}/kingfisher_metadata/{date}/parsed_metadata_extended_done'.format(
             date=config['KINGFISHER_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
         # After OTUs because then it can be changed up until the last minute
@@ -369,7 +510,7 @@ rule add_parsed_metadata_from_kingfisher:
             version=config['SANDPIPER_VERSION'])
     resources:
         mem_mb=64000,
-        runtime='24h'
+        runtime='17h'
     output:
         done=touch('{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
@@ -381,6 +522,7 @@ rule add_parsed_metadata_from_kingfisher:
     params:
         # abspath to input.parsed_metadata
         parsed_metadata=lambda wildcards, input: os.path.abspath(input.parsed_metadata),
+        metalog_provenance=lambda wildcards, input: os.path.abspath(input.metalog_provenance),
     shell:
         'export SNAKE_WORKING_DIR=`pwd` && ' \
         'export PYTHONNOUSERSITE=1 && ' \
@@ -389,12 +531,78 @@ rule add_parsed_metadata_from_kingfisher:
         'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_tags {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher && ' \
         # cp the otus because scratch will be faster than /work/microbiome (didn't end up being any faster)
         # 'cp {config[OTU_TABLE]} {config[SCRATCH_DIR]}/otus && ' \
-        'pixi run -e sandpiper ./bin/generate_backend_db --stage parsed_metadata --parsed-metadata-table {params.parsed_metadata} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher 2> $SNAKE_WORKING_DIR/{log} && ' \
+        'pixi run -e sandpiper ./bin/generate_backend_db --stage parsed_metadata --parsed-metadata-table {params.parsed_metadata} --metalog-provenance {params.metalog_provenance} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher 2> $SNAKE_WORKING_DIR/{log} && ' \
         'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher db/'
+
+def _resolve_indicpiper_csv():
+    """Highest-numbered genus_habitat_indicators_v*.csv shipped by the
+    IndicPiper submodule (indicpiper_custom/IndicPiper/, see
+    https://github.com/cliffbueno/IndicPiper). IndicPiper's own curated
+    13-habitat indicator database is used as-is -- Sandpiper no longer
+    regenerates its own indicator set from Sandpiper's own data. Picking up
+    a future submodule release (e.g. a new v3.csv) needs no Snakefile edit,
+    only `git submodule update --remote indicpiper_custom/IndicPiper` +
+    commit.
+    """
+    submodule_dir = os.path.join(workflow.basedir, '..', 'indicpiper_custom', 'IndicPiper')
+    candidates = glob.glob(os.path.join(submodule_dir, 'genus_habitat_indicators_v*.csv'))
+    if not candidates:
+        raise Exception(
+            "No genus_habitat_indicators_v*.csv found in the IndicPiper submodule "
+            "({}) -- is the submodule checked out? Run: "
+            "git submodule update --init indicpiper_custom/IndicPiper".format(submodule_dir))
+
+    def version_key(path):
+        m = re.search(r'_v(\d+)\.csv$', path)
+        return int(m.group(1)) if m else -1
+
+    return max(candidates, key=version_key)
+
+INDICPIPER_CSV = _resolve_indicpiper_csv() if INCLUDE_INDICPIPER else None
+
+rule add_indicpiper_scores_to_backend_db:
+    input:
+        parsed_metadata_done='{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+    output:
+        touch('{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']))
+    log:
+        '{test_or_prod}/{version}/backend_db/indicpiper.log'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    params:
+        indicpiper_csv=INDICPIPER_CSV
+    resources:
+        mem_mb=64000,
+        runtime='24h'
+    benchmark:
+        'backend_db/{test_or_prod}/{version}/indicpiper.txt'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    shell:
+        (
+            # INCLUDE_INDICPIPER: false -- copy the db forward unchanged, same
+            # "false reproduces today's exact DB" contract as every other
+            # optional stage in this pipeline.
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../backend && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper 2> $SNAKE_WORKING_DIR/{log}'
+            if not INCLUDE_INDICPIPER else
+            'export SNAKE_WORKING_DIR=`pwd` && ' \
+            'export PYTHONNOUSERSITE=1 && ' \
+            'cd ../backend && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
+            'pixi run -e sandpiper ./bin/generate_backend_db --stage indicpiper --indicpiper-csv {params.indicpiper_csv} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb 2> $SNAKE_WORKING_DIR/{log} && ' \
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper'
+        )
 
 rule precompute_api_cache:
     input:
-        '{test_or_prod}/{version}/backend_db/parsed_metadata_done'.format(
+        '{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION'])
     output:
@@ -417,7 +625,7 @@ rule precompute_api_cache:
         'export PYTHONNOUSERSITE=1 && ' \
         'cd ../backend && ' \
         # cp to remain idempotent, e.g. if this step fails
-        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.add_parsed_metadata_from_kingfisher {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
+        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
         'pixi run -e sandpiper ./bin/precompute_api_cache.py ' \
         '{config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb > ' \
         '$SNAKE_WORKING_DIR/{log} 2>&1 && ' \
@@ -427,9 +635,9 @@ rule precompute_api_cache:
 
 rule create_taxonomies_name_lower_index:
     input:
-        touch('{test_or_prod}/{version}/backend_db/cache_table_done'.format(
+        '{test_or_prod}/{version}/backend_db/cache_table_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
-            version=config['SANDPIPER_VERSION']))
+            version=config['SANDPIPER_VERSION'])
     output:
         touch('{test_or_prod}/{version}/backend_db/taxonomies_name_lower_idx_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
@@ -445,3 +653,48 @@ rule create_taxonomies_name_lower_index:
         'export PYTHONNOUSERSITE=1 && ' \
         'cd ../backend && ' \
         'pixi run -e sandpiper python -c "import duckdb; con = duckdb.connect(\'db/sandpiper_{config[SANDPIPER_VERSION]}.duckdb\'); con.execute(\'DROP INDEX IF EXISTS taxonomies_name_lower_idx\'); con.execute(\'CREATE INDEX taxonomies_name_lower_idx ON taxonomies (lower(name))\'); con.close()" &> $SNAKE_WORKING_DIR/{log}'
+
+# --skip-* flags for export_indicpiper_and_metalog_csv.py, one per
+# independent INCLUDE_*_CSV toggle in prod_config.yml.
+EXPORT_CSV_SKIP_FLAGS = ' '.join(filter(None, [
+    '' if config.get('INCLUDE_INDICPIPER_CSV', True) else '--skip-indicpiper',
+    '' if config.get('INCLUDE_METALOG_CSV', True) else '--skip-metalog',
+]))
+
+rule export_indicpiper_and_metalog_csv:
+    # Flat CSV exports of the finished database's IndicPiper habitat results
+    # and metalog extended metadata, for consumption outside the
+    # database/API. See backend/bin/export_indicpiper_and_metalog_csv.py.
+    input:
+        '{test_or_prod}/{version}/backend_db/taxonomies_name_lower_idx_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    output:
+        touch('{test_or_prod}/{version}/backend_db/export_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']))
+    log:
+        '{test_or_prod}/{version}/backend_db/export.log'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    params:
+        # exports/ is a sibling of backend_db/, not nested inside it -- kept
+        # out of api.dockerfile's `COPY backend /sandpiper` (which only
+        # copies backend/, not snakemake/), and clearly separated from the
+        # pipeline's own internal done-markers/logs.
+        output_dir='{test_or_prod}/{version}/exports'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        skip_flags=EXPORT_CSV_SKIP_FLAGS
+    resources:
+        mem_mb=16000,
+        runtime='2h'
+    shell:
+        'export SNAKE_WORKING_DIR=`pwd` && ' \
+        'export PYTHONNOUSERSITE=1 && ' \
+        'cd ../backend && ' \
+        'pixi run -e sandpiper ./bin/export_indicpiper_and_metalog_csv.py ' \
+        'db/sandpiper_{config[SANDPIPER_VERSION]}.duckdb ' \
+        '$SNAKE_WORKING_DIR/{params.output_dir} ' \
+        '{params.skip_flags} ' \
+        '> $SNAKE_WORKING_DIR/{log} 2>&1'
