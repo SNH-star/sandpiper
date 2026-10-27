@@ -107,6 +107,10 @@ const SPHERE_EDGE = '#8fa3ae'
 // Radius in pixels of the largest circle. One value for every panel: all three
 // render at 1 SVG unit = 1px, so this means the same physical size in each.
 const DOT_SCALE = 14
+const EQUATOR_METRES = 40075017
+// How a dot is filled and outlined; also what the results page copies.
+const DOT_FILL_OPACITY = 0.75
+const DOT_STROKE_WIDTH = 0.4
 
 export default {
   name: 'TaxonomySampleMap',
@@ -117,6 +121,7 @@ export default {
       cells: [],
       total: 0,
       precision: 1,
+      metresPerUnit: 1,
       tip: { visible: false, x: 0, y: 0, lat: 0, lon: 0, total: 0, categories: [], studies: [], studiesLoading: false },
       // Study titles are fetched per cell on hover rather than bundled into
       // the main /taxonomy_map response (see fetchTaxonomyMapCellStudies) --
@@ -250,10 +255,12 @@ export default {
 
     drawAll () {
       if (!this.cells.length) return
-      this.drawPanel('.world',
-        d3.geoNaturalEarth1().fitExtent(
-          [[8, 8], [this.W - 8, this.worldH - 8]], { type: 'Sphere' }),
-        DOT_SCALE, true)
+      const world = d3.geoNaturalEarth1().fitExtent(
+        [[8, 8], [this.W - 8, this.worldH - 8]], { type: 'Sphere' })
+      // Ground distance one drawn unit covers along the world map's equator:
+      // a dot's radius times this is the same circle in metres.
+      this.metresPerUnit = EQUATOR_METRES / (world([180, 0])[0] - world([-180, 0])[0])
+      this.drawPanel('.world', world, DOT_SCALE, true)
       this.drawPanel('.north',
         d3.geoAzimuthalEqualArea().rotate([0, -90]).clipAngle(60)
           .fitExtent([[6, 6], [this.poleSize - 6, this.poleSize - 6]],
@@ -320,15 +327,25 @@ export default {
         .attr('display', d => projection([d.lon, d.lat]) ? null : 'none')
         .attr('r', d => this.radius(d.total, dotScale))
         .attr('fill', d => COLOURS[this.dominant(d)])
-        .attr('fill-opacity', 0.75)
+        .attr('fill-opacity', DOT_FILL_OPACITY)
         .attr('stroke', d => COLOURS[this.dominant(d)])
-        .attr('stroke-width', 0.4)
+        .attr('stroke-width', DOT_STROKE_WIDTH)
         .attr('cursor', 'pointer')
 
       const chooseCell = (d) => {
         this.tip.visible = false
+        // The dot as drawn above, for the results page to repeat on the
+        // Individual runs map. `radius` is in metres on the ground (the dot's
+        // size on the world map), so that circle grows as the map is zoomed.
+        const drawnWidth = svg.node().getBoundingClientRect().width
+        const viewBoxWidth = svg.node().viewBox.baseVal.width
+        const toPixels = drawnWidth > 0 && viewBoxWidth > 0 ? drawnWidth / viewBoxWidth : 1
         this.$emit('cluster-selected', {
-          lat: d.lat, lon: d.lon, precision: this.precision, total: d.total
+          lat: d.lat, lon: d.lon, precision: this.precision, total: d.total,
+          radius: this.radius(d.total, dotScale) * this.metresPerUnit,
+          colour: COLOURS[this.dominant(d)],
+          fillOpacity: DOT_FILL_OPACITY,
+          strokeWidth: DOT_STROKE_WIDTH * toPixels
         })
       }
 

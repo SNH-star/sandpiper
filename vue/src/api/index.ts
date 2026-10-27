@@ -74,6 +74,13 @@ export function fetchGlobalDataByTaxonomy (
   return axios.get(`${API_URL}/taxonomy_search_global_data/${taxonomy}`, { params })
 }
 
+// Count-only variant of the above, for "is this taxon in that database?":
+// skips the map markers, which are the expensive part of the full response.
+export function fetchTaxonomyAvailability (taxonomy: string, taxonomyType: string) {
+  return axios.get(`${API_URL}/taxonomy_search_global_data/${taxonomy}`,
+    { params: { taxonomy_type: taxonomyType, count_only: 'true' } })
+}
+
 export function fetchTaxonomyMap (taxonomy: string, taxonomyType: string, precision = 1) {
   // Server-side aggregated sample counts per map cell, split by environment
   // category. Unlike the marker map this is not capped, because the database

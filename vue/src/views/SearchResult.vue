@@ -161,6 +161,9 @@
           <div id="individual-runs-map" class="individual-runs-map">
             <l-map ref="individualRunsMap" style="width: 100%; height: 100%;" :zoom.sync="zoom" :center.sync="center">
               <l-tile-layer :url="url" :attribution="attribution" :options="tile_layer_options" />
+              <!-- The selected cluster's dot, copied from the summary map: same colour, outline and ground size, but more opaque so it stands out over the map tiles, so it is small zoomed out and grows as you zoom in. -->
+              <l-circle v-if="cluster" :lat-lng="[cluster.lat, cluster.lon]" :radius="cluster.radius"
+                :color="cluster.colour" :weight="cluster.strokeWidth" :fill-color="cluster.colour" :fill-opacity="0.5" />
               <l-marker v-for="markerLatLng in this.lat_lons" v-bind:key="markerLatLng[0]" :lat-lng="markerLatLng['lat_lon']">
                 <l-popup :content="html_for_map_popup(markerLatLng)" :options="{ interactive: true }">
                 </l-popup>
@@ -276,7 +279,7 @@
 
 <script>
 import {
-  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, api_url,
+  fetchGlobalDataByTaxonomy, fetchRunsByTaxonomy, fetchTaxonomyAvailability, api_url,
   fetchQueryGlobalData, fetchQueryRunData, queryCsvUrl
 } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
@@ -286,7 +289,7 @@ import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 // If you need to reference 'L', such as in 'L.icon', then be sure to
 // explicitly import 'leaflet' into your component
 // import L from 'leaflet'
-import { LMap, LTileLayer, LMarker, LPopup } from '@vue-leaflet/vue-leaflet'
+import { LMap, LTileLayer, LMarker, LPopup, LCircle } from '@vue-leaflet/vue-leaflet'
 import TaxonomySampleMap from '@/components/TaxonomySampleMap.vue'
 
 import { Icon, latLng } from 'leaflet'
@@ -320,7 +323,8 @@ export default {
     LMap,
     LTileLayer,
     LMarker,
-    LPopup
+    LPopup,
+    LCircle
   },
   data: function () {
     return {
@@ -438,6 +442,20 @@ export default {
     },
     display_profiles () {
       return this.shuffled_profiles ?? this.filtered_profiles
+    }
+  },
+  created () {
+    // The template gates on search_result/total_num_results, so the page is
+    // genuinely blank until this settles either way. Token captured now,
+    // not read lazily inside .finally() -- see src/store/pageLoading.ts
+    // for why a stale token must not clear a newer navigation's state.
+    const loadingToken = currentLoadingToken()
+    this.fetchGlobalData().finally(() => stopPageLoading(loadingToken))
+  },
+  methods: {
+    reset_map: function () {
+      this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
+      this.zoom = default_zoom
     },
     async fetchGlobalData () {
       if (this.is_query) return this.fetchQueryPage()
@@ -449,23 +467,22 @@ export default {
       const requestedTaxonomyType = this.$route.query.taxonomy_type
 
       if (requestedTaxonomyType) {
+        // The runs table and the other-database check don't need the summary,
+        // so all three requests go out together.
+        this.taxonomy_type = requestedTaxonomyType
+        this.other_taxonomy_type = requestedTaxonomyType === 'gtdb' ? 'globdb' : 'gtdb'
+        this.fetchData()
+        this.checkOtherTaxonomyAvailability()
         const globalDataResult = await this.fetchGlobalDataForType(requestedTaxonomyType)
         if (!globalDataResult.success) {
           this.error_message = globalDataResult.error
           return
         }
-        this.taxonomy_type = requestedTaxonomyType
         this.populateGlobalData(globalDataResult.data)
-      } else {
-        const detected = await this.determineInitialTaxonomyType()
-        if (!detected) {
-          return
-        }
+        return
       }
 
-      this.other_taxonomy_type = this.taxonomy_type === 'gtdb' ? 'globdb' : 'gtdb'
-      this.fetchData()
-      this.checkOtherTaxonomyAvailability()
+      if (await this.determineInitialTaxonomyType()) this.fetchData()
     },
     async fetchGlobalDataForType (taxonomyType) {
       try {
@@ -550,37 +567,52 @@ export default {
       if (this.is_query) this.query_taxon = data.taxon ?? null
       this.num_host_runs = data.num_host_runs
       this.num_ecological_runs = data.num_ecological_runs
-      this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
+      // Not while a cluster is selected: this runs again when its scoped data
+      // arrives, and would pull the map back off the cluster it just zoomed to.
+      if (!this.cluster) this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
     },
+    // No taxonomy_type in the URL: GTDB's summary and a count-only check of
+    // GlobDB go out together. That one check also answers "is the taxon in the
+    // other database?", so no separate request is needed afterwards.
     async determineInitialTaxonomyType () {
-      const gtdbResult = await this.fetchGlobalDataForType('gtdb')
+      const [gtdbResult, inGlobdb] = await Promise.all([
+        this.fetchGlobalDataForType('gtdb'),
+        this.fetchTaxonomyAvailability('globdb')
+      ])
       if (gtdbResult.success) {
         this.taxonomy_type = 'gtdb'
+        this.other_taxonomy_type = 'globdb'
+        this.other_taxon_available = inGlobdb
         this.populateGlobalData(gtdbResult.data)
         return true
       }
 
-      const globdbResult = await this.fetchGlobalDataForType('globdb')
-      if (globdbResult.success) {
+      const globdbResult = inGlobdb ? await this.fetchGlobalDataForType('globdb') : null
+      if (globdbResult && globdbResult.success) {
         this.taxonomy_type = 'globdb'
+        this.other_taxonomy_type = 'gtdb'
+        this.other_taxon_available = false
         this.populateGlobalData(globdbResult.data)
         return true
       }
 
-      this.error_message = globdbResult.error || gtdbResult.error || 'No results found.'
+      this.error_message = (globdbResult && globdbResult.error) || gtdbResult.error || 'No results found.'
       return false
+    },
+    async fetchTaxonomyAvailability (taxonomyType) {
+      try {
+        const response = await fetchTaxonomyAvailability(this.taxonomy, taxonomyType)
+        return typeof response.data.total_num_results === 'number' && response.data.total_num_results > 0
+      } catch (error) {
+        return false
+      }
     },
     async checkOtherTaxonomyAvailability () {
       if (!this.other_taxonomy_type) {
         this.other_taxon_available = null
         return
       }
-      try {
-        const response = await fetchGlobalDataByTaxonomy(this.taxonomy, this.other_taxonomy_type)
-        this.other_taxon_available = typeof response.data.total_num_results === 'number' && response.data.total_num_results > 0
-      } catch (error) {
-        this.other_taxon_available = false
-      }
+      this.other_taxon_available = await this.fetchTaxonomyAvailability(this.other_taxonomy_type)
     },
     fetchData () {
       if (!this.taxonomy_type) {
@@ -660,25 +692,20 @@ export default {
       // what's actually on screen once zoomed in.
       this.requestGlobalData()
 
-      // Zoom the marker map to the cluster, then bring it into view. This is
-      // the "Individual runs" l-map (id="individual-runs-map") that actually
-      // pans/zooms to the cluster -- not #matching-samples further down,
-      // which is a different section (the results table).
+      // Jump the marker map straight to the cluster (no animation) and bring it
+      // into view. This is the "Individual runs" l-map
+      // (id="individual-runs-map"), not #matching-samples further down, which
+      // is the results table.
       //
-      // Keep these in sync for reset_map()/display purposes, but don't rely
-      // on the :zoom.sync/:center.sync props alone to move the map: Vue only
-      // pushes a prop update through when the value actually changes, so
-      // clicking a second cluster that also wants zoom 6 (identical to the
-      // previous click's target) is a silent no-op -- the map pans (center
-      // differs) but never re-zooms. Calling setView() on the underlying
-      // Leaflet instance directly applies every click regardless of whether
-      // the target zoom repeats.
-      this.center = latLng(cluster.lat, cluster.lon)
-      this.zoom = 6
+      // Done once, directly on the Leaflet instance, rather than by also
+      // setting the :zoom.sync/:center.sync props: those apply later and
+      // would fight this move. They follow the map through its own events.
       this.$nextTick(() => {
         const mapComponent = this.$refs.individualRunsMap
         if (mapComponent && mapComponent.leafletObject) {
-          mapComponent.leafletObject.setView([cluster.lat, cluster.lon], 6)
+          // Fit the circle (its radius is in metres, so ask Leaflet for its bounds).
+          const bounds = latLng(cluster.lat, cluster.lon).toBounds(cluster.radius * 2)
+          mapComponent.leafletObject.fitBounds(bounds, { padding: [30, 30], animate: false })
         }
         const target = document.getElementById('individual-runs-map')
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' })

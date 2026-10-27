@@ -791,6 +791,10 @@ def taxonomy_search_global_data(taxon):
     if total_num_hits == 0:
         # This happens when there's a taxonomy in the full table that didn't make it into any condensed table
         return taxonomy_not_found_response(taxon)
+    if request.args.get('count_only') == 'true':
+        # Availability probe (is this taxon in the other database?): skip the
+        # map markers and cluster counts below.
+        return jsonify({'total_num_results': total_num_hits})
     num_host_runs = taxonomy.host_sample_count
     num_ecological_runs = taxonomy.ecological_sample_count
     # lat_lons are commented out for now because it is too slow to query and
