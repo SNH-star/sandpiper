@@ -27,10 +27,8 @@ import re
 import urllib.error
 import urllib.request
 
-import yaml
-
-# Categories Metalog publishes; each has a matching wide file in config.
-CATEGORIES = ('animal', 'environmental', 'human', 'ocean')
+import metalog_config
+from metalog_config import CATEGORIES, WIDE_FILE_TEMPLATE
 
 DEFAULT_BASE_URL = 'https://metalog.embl.de/static/download/metadata'
 DEFAULT_SITE_URL = 'https://metalog.embl.de/'
@@ -52,11 +50,6 @@ SITE_CATEGORY_NAMES = {
 # A descriptive UA; the static endpoints serve fine to scripted clients, but a
 # real UA avoids any future user-agent filtering.
 USER_AGENT = 'sandpiper metalog-fetch (+https://metalog.embl.de)'
-
-
-def load_config(config_path):
-    with open(config_path) as f:
-        return yaml.safe_load(f)
 
 
 def download(url, dest):
@@ -143,17 +136,19 @@ def fetch_release_info(site_url):
 def main():
     parser = argparse.ArgumentParser(description="Fetch latest Metalog wide metadata files")
     parser.add_argument('--config', default='config.yml', help='Path to config.yml')
+    parser.add_argument('--download-dir', help='where to save the four wide files; overrides '
+                                               'METALOG_DOWNLOAD_DIR (the Snakefile gives each build its own)')
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = metalog_config.load_config(args.config)
     base_url = cfg.get('METALOG_BASE_URL', DEFAULT_BASE_URL).rstrip('/')
-    download_dir = cfg['METALOG_DOWNLOAD_DIR']
+    download_dir = os.path.abspath(args.download_dir) if args.download_dir else cfg['METALOG_DOWNLOAD_DIR']
     os.makedirs(download_dir, exist_ok=True)
 
     manifest = {'fetched_at': datetime.datetime.now().isoformat(timespec='seconds'),
                 'base_url': base_url, 'files': {}}
     for category in CATEGORIES:
-        name = '{}_extended_wide_latest.tsv.gz'.format(category)
+        name = WIDE_FILE_TEMPLATE.format(category)
         url = '{}/{}'.format(base_url, name)
         dest = os.path.join(download_dir, name)
         print("Fetching {} -> {}".format(category, url), flush=True)
