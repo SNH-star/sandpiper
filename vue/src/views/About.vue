@@ -138,6 +138,15 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
               <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
               <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (Caution message present if environment signatures != documented environment). Searchable via the new habitat key in Advanced Search.</li>
               <li>Addition to the Sunburst model. User able to search for specific taxa where they will be highlighted. In a breadcrumb fashion user can collapse the Suburst graph with a reset view and 'go back a step' in the center.</li>
+              <li>Addition of weebill profiles to each run. Statistics related to this change:</li>
+              <li>User interface updates, restructured pages and included new features:</li>
+                <ul>
+                  <li>Addition of new Suburst graph has breadcrumb and search capabilities. </li>
+                  <li>Filter by unique samples within Sample Information section. Unique fields are listed in a list. Fields with unique inputs are flagged using a horizontal green stripe next to clasisifier name. </li>
+                  <li></li>
+
+                  <li></li>
+                </ul>
             </ul>
           </div>
         </div>
