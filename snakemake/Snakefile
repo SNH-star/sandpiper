@@ -15,6 +15,13 @@ import re
 
 file_list = config['ACCESSIONS_FILE']
 
+# The kingfisher / bioproject pulls below query NCBI for ~1M accessions. Without
+# a real key NCBI throttles to a third of the rate. The key is never stored in
+# this repo: pass it at launch with  --config NCBI_API_KEY=$NCBI_API_KEY
+if config.get('NCBI_API_KEY', '').startswith('YOUR_NCBI_API_KEY'):
+    print("WARNING: NCBI_API_KEY is still the placeholder -- the metadata pull will be slow and may be throttled. "
+          "Launch with --config NCBI_API_KEY=<your key>")
+
 # Whether the fetch_metalog/join_metalog_metadata rules below regenerate the
 # metalog meta_ column extension from scratch each build (fresh download +
 # join against this build's raw kingfisher_metadata.tsv), or the pipeline
@@ -377,14 +384,13 @@ rule generate_parsed_metadata_from_kingfisher:
     shell:
         'pixi run -e sandpiper ../backend/sandpiper/parse_biosample_extras.py --kingfisher-annotate-tsv-list {input.file_list} --extra-sample-keys depth temperature collection_date > {output.parsed_metadata} 2> {log}'
 
-# Per-version scratch dir for the regenerated metalog join -- keeps this
-# build's files out of metalog_custom/'s own fixed interactive-use paths,
-# so nothing here collides with a manual run there or a differently
-# versioned build.
+# Per-version scratch dir for the regenerated metalog download + join -- keeps
+# this build's files out of metalog_custom/ (and out of any other checkout), so
+# nothing here collides with a manual run or a differently versioned build.
 METALOG_OUTPUT_DIR = '{scratch}/metalog/{version}'.format(
     scratch=config['SCRATCH_DIR'], version=config['SANDPIPER_VERSION'])
+METALOG_DOWNLOAD_DIR = '{}/downloads'.format(METALOG_OUTPUT_DIR)
 METALOG_SLIM_OUTPUT = '{}/kingfisher_metadata_meta_slim.tsv'.format(METALOG_OUTPUT_DIR)
-METALOG_FULL_OUTPUT = '{}/kingfisher_metadata_extended.tsv'.format(METALOG_OUTPUT_DIR)
 
 # Resolved metalog extension path used by extend_parsed_metadata_with_metalog
 # below: the fresh join output when INCLUDE_METALOG, empty (pass-through)
@@ -409,6 +415,8 @@ if INCLUDE_METALOG:
             '{test_or_prod}/{version}/backend_db/metalog_fetch.log'.format(
                 test_or_prod=config['TEST_OR_PROD'],
                 version=config['SANDPIPER_VERSION'])
+        params:
+            download_dir=METALOG_DOWNLOAD_DIR
         resources:
             mem_mb=4000,
             runtime='30m'
@@ -417,28 +425,37 @@ if INCLUDE_METALOG:
             'export PYTHONNOUSERSITE=1 && ' \
             'cd ../metalog_custom && ' \
             'pixi run -e sandpiper python scripts/fetch_metalog.py --config config.yml ' \
+            '--download-dir {params.download_dir} ' \
             '> $SNAKE_WORKING_DIR/{log} 2>&1'
 
     rule join_metalog_metadata:
-        # Joins the freshly fetched metalog files onto the pre-existing raw
-        # kingfisher_metadata.tsv from the upstream renew pipeline (not
-        # anything this Snakefile produces -- same category of static input
-        # as ACCESSIONS_FILE/OTU_TABLE, see KINGFISHER_METADATA_RAW).
+        # Joins the freshly fetched metalog files onto the kingfisher metadata
+        # this same build has just pulled (the per-chunk files listed in
+        # kingfisher_metadata_file_list), so the metalog columns always match
+        # the metadata the database is loaded with. Each chunk has its own
+        # column set, hence slim output only (run + meta_ columns).
         # Writes into a version-scoped scratch dir so concurrent builds of
         # different SANDPIPER_VERSIONs can't collide.
         input:
-            '{test_or_prod}/{version}/backend_db/metalog_fetch_done'.format(
+            fetch_done='{test_or_prod}/{version}/backend_db/metalog_fetch_done'.format(
                 test_or_prod=config['TEST_OR_PROD'],
-                version=config['SANDPIPER_VERSION'])
+                version=config['SANDPIPER_VERSION']),
+            kingfisher_file_list='{test_or_prod}/kingfisher_metadata/{date}/kingfisher_metadata_file_list'.format(
+                date=config['KINGFISHER_METADATA_DATE'],
+                test_or_prod=config['TEST_OR_PROD']),
+            kingfisher_done='{test_or_prod}/kingfisher_metadata/{date}/done'.format(
+                date=config['KINGFISHER_METADATA_DATE'],
+                test_or_prod=config['TEST_OR_PROD'])
         output:
-            slim=METALOG_SLIM_OUTPUT,
-            full=METALOG_FULL_OUTPUT
+            slim=METALOG_SLIM_OUTPUT
         log:
             '{test_or_prod}/{version}/backend_db/metalog_join.log'.format(
                 test_or_prod=config['TEST_OR_PROD'],
                 version=config['SANDPIPER_VERSION'])
         params:
-            output_dir=METALOG_OUTPUT_DIR
+            output_dir=METALOG_OUTPUT_DIR,
+            download_dir=METALOG_DOWNLOAD_DIR,
+            kingfisher_file_list=lambda wildcards, input: os.path.abspath(input.kingfisher_file_list)
         resources:
             mem_mb=32000,
             runtime='2h'
@@ -448,8 +465,10 @@ if INCLUDE_METALOG:
             'mkdir -p {params.output_dir} && ' \
             'cd ../metalog_custom && ' \
             'pixi run -e sandpiper python scripts/join_metadata.py --config config.yml ' \
-            '--kingfisher-metadata {config[KINGFISHER_METADATA_RAW]} ' \
+            '--kingfisher-metadata-list {params.kingfisher_file_list} ' \
+            '--download-dir {params.download_dir} ' \
             '--output-dir {params.output_dir} ' \
+            '--slim-only ' \
             '> $SNAKE_WORKING_DIR/{log} 2>&1'
 
 rule extend_parsed_metadata_with_metalog:

@@ -1,29 +1,33 @@
-SANDPIPER_VERSION: '40'  # Updated from 39
+SANDPIPER_VERSION: '42'  # weebill build (v41 is live)
 
-KINGFISHER_METADATA_DATE: '20260521'
+# A new date makes Snakemake pull the kingfisher metadata and bioproject
+# publications again (outputs are stored under prod/kingfisher_metadata/<date>/).
+KINGFISHER_METADATA_DATE: '20261026'
 ACCESSIONS_FILE: /scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/accessions.txt
 
 METAPACKAGE_DESCRIBE: 'metapackage_describe.csv'
 
-BIOPROJECT_METADATA_DATE: '20260625'
+BIOPROJECT_METADATA_DATE: '20261026'
 
 JSON_METADATA_FILES: '/work/microbiome/msingle/mess/225_sra_metadata_20260303/shotgun_sra_20260303/*' 
 
 # PROCESSING_DIRECTORY: '/work/microbiome/msingle/mess/174_R220_renew/processing_20240531'
-CONDENSED_OTU_TABLE: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/condensed.csv.gz'
+# GTDB profiles with weebill species added (built from the weebill condensed
+# profiles; see the weebill_condense_pipeline). Samples listed in the run
+# blacklist are skipped at load time.
+CONDENSED_OTU_TABLE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input/condensed.weebill.csv.gz'
 OTU_TABLE: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/otu_table.csv.gz'
 HOST_OR_NOT_PREDICTION: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/host_or_not_prediction/host_or_not_preds.csv'
-SMF_FILE: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/per_acc_summary.csv'
+# Recomputed from the weebill table (known species, low-complexity and
+# top-order fractions); microbial fractions and host predictions are unchanged.
+SMF_FILE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input/per_acc_summary.weebill.csv'
 GLOBDB_CONDENSED_OTU_TABLE: '/scratch/microbiome/sandpiper2-globdb-renew/final_SRA/condensed.csv.gz'
 
-# Pre-existing raw kingfisher metadata from the upstream renew pipeline (not
-# produced by this Snakefile -- same category of static input as
-# ACCESSIONS_FILE/OTU_TABLE above). This is what metalog gets joined onto.
-KINGFISHER_METADATA_RAW: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/kingfisher_metadata.tsv'
-
 # Regenerates the metalog meta_ column extension from scratch every run
-# (fetch_metalog -> join_metalog_metadata -- see metalog_custom/), then
-# merges those meta_ columns into parsed_metadata before the DB is loaded.
+# (fetch_metalog -> join_metalog_metadata -- see metalog_custom/): Metalog's
+# four bulk files are downloaded fresh, then joined onto the kingfisher
+# metadata pulled by this same build, and the meta_ columns are merged into
+# parsed_metadata before the DB is loaded.
 # Set INCLUDE_METALOG: false to skip the fetch+join and pass parsed_metadata
 # through unchanged (pipeline then behaves exactly as before the metalog
 # extension existed).
@@ -48,7 +52,9 @@ GTDB_ARCHAEA_TAXONOMY: '/home/herholdt/Globdb_taxonomy/ar53_taxonomy_r232_reps.t
 GTDB_BACTERIA_TAXONOMY: '/home/herholdt/Globdb_taxonomy/bac120_taxonomy_r232_reps.tsv'
 GLOBDB_TAXONOMY: '/home/herholdt/Globdb_taxonomy/combined_r232_taxonomy.tsv'
 
+# Placeholder on purpose: never commit a real key. Pass it at launch with
+#   --config NCBI_API_KEY=$NCBI_API_KEY
 NCBI_API_KEY: 'YOUR_NCBI_API_KEY_HERE'
 
 TEST_OR_PROD: 'prod'
-SCRATCH_DIR: '/scratch/microbiome/sandpiper2-globdb-renew/sandpiper_with_metalog'
+SCRATCH_DIR: '/scratch/microbiome/herholdt/sandpiper_weebill_build'
