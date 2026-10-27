@@ -114,30 +114,6 @@
                   SRA {{ accession }}
                 </a>
               </div>
-              <div v-if="uniqueness" class="run-bioproject-similarity">
-                <span
-                  class="unique-badge"
-                  role="button"
-                  :aria-pressed="unique_only"
-                  tabindex="0"
-                  aria-describedby="unique-tip"
-                  @pointerenter="onUniqueEnter"
-                  @pointerleave="onUniqueLeave"
-                  @focus="onUniqueFocus"
-                  @blur="hideUniqueTip"
-                  @keydown.esc="hideUniqueTip"
-                  @click="toggleUniqueOnly"
-                  @keydown.enter.prevent="toggleUniqueOnly"
-                  @keydown.space.prevent="toggleUniqueOnly">
-                  <span class="unique-bar" aria-hidden="true">
-                    <span class="unique-bar-unique" :style="{ width: uniqueness.percent + '%' }"></span>
-                    <span class="unique-bar-shared"></span>
-                  </span>
-                  {{ unique_only ? 'Showing ' : '' }}{{ uniqueness.unique }} unique {{ uniqueness.unique === 1 ? 'field' : 'fields' }}
-                  <b-icon v-if="unique_only" icon="close" size="is-small" aria-hidden="true" />
-                </span>
-                <span class="unique-badge-hint">{{ unique_only ? 'Press to show all fields' : 'Press to toggle filter to unique fields only' }}</span>
-              </div>
             </div>
 
             <div class="run-links-section">
@@ -210,7 +186,7 @@
 
       <section class="section">
         <div class="container is-large">
-          <RunMetadata :mdata="metadata.metadata" :mdata_parsed="metadata.metadata_parsed" :accession="accession" :unique_only="unique_only" />
+          <RunMetadata :mdata="metadata.metadata" :mdata_parsed="metadata.metadata_parsed" :accession="accession" />
         </div>
       </section>
 
@@ -250,35 +226,6 @@
       </div>
     </div>
 
-    <!-- Hover/tap card for the "unique fields" badge; shared by both headers.
-         Teleported to <body> so table cells and overflow:hidden can't clip it. -->
-    <teleport to="body">
-      <transition name="unique-tip">
-        <div
-          v-if="uniqueness"
-          v-show="unique_tip_open"
-          id="unique-tip"
-          role="tooltip"
-          class="unique-tip"
-          :style="{ left: unique_tip_x + 'px', top: unique_tip_y + 'px' }">
-          <p class="unique-tip-title">Metadata uniqueness</p>
-          <p class="unique-tip-text">
-            Fields recorded for this sample that no other sample in its BioProject has.
-            A higher number means this sample carries extra context.
-            {{ unique_only ? 'Click to show all fields.' : 'Click to show only these fields.' }}
-          </p>
-          <span class="unique-bar unique-bar-wide" aria-hidden="true">
-            <span class="unique-bar-unique" :style="{ width: uniqueness.percent + '%' }"></span>
-            <span class="unique-bar-shared"></span>
-          </span>
-          <dl class="unique-tip-list">
-            <div><dt><span class="unique-dot unique-dot-unique"></span>Unique to sample</dt><dd>{{ uniqueness.unique }}</dd></div>
-            <div><dt><span class="unique-dot unique-dot-shared"></span>Shared with BioProject</dt><dd>{{ uniqueness.shared }}</dd></div>
-            <div class="unique-tip-total"><dt>Total fields</dt><dd>{{ uniqueness.total }}</dd></div>
-          </dl>
-        </div>
-      </transition>
-    </teleport>
   </div>
 </template>
 
@@ -314,11 +261,7 @@ export default {
       qc_tooltip_text: '',
       qc_tooltip_x: 0,
       qc_tooltip_y: 0,
-      qc_tooltip_close_timer: null,
-      unique_only: false,
-      unique_tip_open: false,
-      unique_tip_x: 0,
-      unique_tip_y: 0
+      qc_tooltip_close_timer: null
     }
   },
   props: ['accession'],
@@ -331,19 +274,6 @@ export default {
     LMarker
   },
   computed: {
-    // Counts for the "unique fields" badge from the API's bioproject_similarity
-    // (null for a BioProject with one run, which hides the badge).
-    uniqueness () {
-      const similarity = this.metadata?.metadata_parsed?.bioproject_similarity
-      if (!similarity || !similarity.n_fields) return null
-      const unique = similarity.unique_fields.length
-      return {
-        unique,
-        shared: similarity.n_fields - unique,
-        total: similarity.n_fields,
-        percent: (unique / similarity.n_fields) * 100
-      }
-    },
     bioproject_url: function () {
       return 'https://www.ncbi.nlm.nih.gov/bioproject/' + this.metadata.metadata_parsed.bioproject
     },
@@ -479,48 +409,12 @@ export default {
       ]
     }
   },
-  beforeUnmount () {
-    this.hideUniqueTip()
-  },
   created () {
     // fetch the data when the view is created and the data is
     // already being observed
     this.fetchData()
   },
   methods: {
-    // "Unique fields" badge tooltip: below the badge, right edges aligned.
-    // Hover and keyboard focus open it; Escape, a tap elsewhere or
-    // scrolling closes it. Clicking the badge filters the tables instead.
-    showUniqueTip (badge) {
-      const rect = badge.getBoundingClientRect()
-      const tooltipW = 260
-      this.unique_tip_x = Math.max(10, Math.min(rect.right - tooltipW, window.innerWidth - tooltipW - 10))
-      this.unique_tip_y = rect.bottom + 8
-      this.unique_tip_open = true
-      document.addEventListener('pointerdown', this.onUniqueOutside)
-      window.addEventListener('scroll', this.hideUniqueTip, true)
-    },
-    hideUniqueTip () {
-      this.unique_tip_open = false
-      document.removeEventListener('pointerdown', this.onUniqueOutside)
-      window.removeEventListener('scroll', this.hideUniqueTip, true)
-    },
-    onUniqueEnter (event) {
-      if (event.pointerType !== 'touch') this.showUniqueTip(event.currentTarget)
-    },
-    onUniqueLeave (event) {
-      if (event.pointerType !== 'touch') this.hideUniqueTip()
-    },
-    // A tap or click also focuses the badge, so only keyboard focus opens it here.
-    onUniqueFocus (event) {
-      if (event.target.matches(':focus-visible')) this.showUniqueTip(event.currentTarget)
-    },
-    toggleUniqueOnly () {
-      this.unique_only = !this.unique_only
-    },
-    onUniqueOutside (event) {
-      if (!event.target.closest('.unique-badge, .unique-tip')) this.hideUniqueTip()
-    },
     // Same fixed-position, hover/focus-driven popover pattern as
     // Search.vue's advanced-search field tooltips (.info-tooltip-box /
     // showTooltip), scaled down for a single short sentence instead of a
@@ -583,7 +477,6 @@ export default {
         })
     },
     fetchData () {
-      this.unique_only = false
       const accession = this.accession
 
       this.condensed_cache = {}
@@ -651,20 +544,6 @@ export default {
   gap: var(--space-3);
   margin-bottom: var(--space-6);
 }
-/* On its own line, below the identifiers (sample id / BioProject and SRA
-   pills) rather than beside them. */
-.run-bioproject-similarity {
-  flex: 1 1 100%;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.6rem;
-}
-.unique-badge-hint {
-  color: #888;
-  font-size: 0.8rem;
-  font-style: italic;
-}
 /* Links to each database in the Sample information help: the same pastel
    colour as the rows they explain; hover and click go darker. */
 .source-link { background-color: transparent; text-decoration: none; }
@@ -681,132 +560,6 @@ export default {
 .source-link.src-metalog:link, .source-link.src-metalog:visited { color: #b89fd9; }
 .source-link.src-metalog:hover { color: #45266f; }
 .source-link.src-metalog:active { color: #2b1748; }
-/* "Unique fields" badge: the Run page chip style (solid marsh-teal fill, white
-   text, darkens on hover) and the QC flags' dark popover. The tooltip is
-   teleported to <body>, so the colours are set on both. */
-.unique-badge,
-.unique-tip {
-  --unique-fill: hsl(174, 62%, 28%);
-  --unique-fill-hover: hsl(174, 62%, 21%);
-  --unique-bar: hsl(174, 55%, 78%);
-  --unique-bar-rest: rgba(255, 255, 255, 0.3);
-}
-.unique-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background: var(--unique-fill);
-  color: hsl(0, 0%, 100%);
-  font-size: 0.8rem;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-.unique-badge:hover,
-.unique-badge[aria-pressed="true"] {
-  background: var(--unique-fill-hover);
-}
-.unique-badge[aria-pressed="true"] {
-  box-shadow: 0 0 0 2px var(--unique-bar);
-}
-.unique-badge:focus-visible {
-  outline: 2px solid #3273dc;
-  outline-offset: 2px;
-}
-/* Split bar: light mint for unique, a faint remainder, 1px apart. */
-.unique-bar {
-  display: flex;
-  gap: 1px;
-  width: 38px;
-  height: 6px;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.unique-bar-unique {
-  background: var(--unique-bar);
-}
-.unique-bar-shared {
-  flex: 1;
-  background: var(--unique-bar-rest);
-}
-.unique-bar-wide {
-  width: 100%;
-  margin: 0.6rem 0;
-}
-.unique-tip {
-  position: fixed;
-  z-index: var(--z-tooltip);
-  width: 260px;
-  padding: 0.6rem 0.8rem;
-  border-radius: 8px;
-  background: rgba(25, 25, 35, 0.97);
-  color: #fff;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-.unique-tip-title {
-  margin: 0 0 0.2rem;
-  font-weight: 700;
-}
-.unique-tip-text {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.6);
-}
-.unique-tip-list div {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.3rem;
-}
-.unique-tip-list dt {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.unique-tip-list dd {
-  margin: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.unique-tip-total {
-  padding-top: 0.35rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.6);
-}
-.unique-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-.unique-dot-unique {
-  background: var(--unique-bar);
-}
-.unique-dot-shared {
-  background: var(--unique-bar-rest);
-}
-.unique-tip-enter-active,
-.unique-tip-leave-active {
-  transition: opacity 150ms ease-out, transform 150ms ease-out;
-}
-.unique-tip-enter-from,
-.unique-tip-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .unique-badge,
-  .unique-tip-enter-active,
-  .unique-tip-leave-active {
-    transition: none;
-  }
-}
-/* Under the pills in the Identifiers block. */
-.run-links-section .run-bioproject-similarity {
-  margin-top: var(--space-3);
-}
 .run-subhead-sample {
   margin-bottom: 0 !important;
   /* Overrides app.scss's global .subtitle rule, which puts every subtitle

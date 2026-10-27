@@ -6,6 +6,7 @@
     <p v-if="sources.length" class="source-key">
       <span v-for="s in sources" :key="s.key" :class="['source-chip', 'src-' + s.key]">{{ s.label }}</span>
     </p>
+    <slot name="after-key" />
     <b-table :data="shown_rows" :striped="true" detailed :show-detail-icon="false" :mobile-cards="false" :row-class="row => row.source ? 'src-' + row.source : ''">
       <b-table-column field="is_custom" label="" align="center" v-slot="props" width="20">
         <button v-if="!props.row.is_custom" type="button" class="metadata-detail-toggle" :aria-label="`Show details for ${props.row.k}`" @click="props.toggleDetails(props.row)">
@@ -38,8 +39,8 @@
         </div>
       </b-table-column>
 
-      <template v-if="unique_only" #empty>
-        <p class="no-unique-note">No unique fields in this section.</p>
+      <template v-if="empty_text" #empty>
+        <p class="empty-note">{{ empty_text }}</p>
       </template>
 
       <template #detail="props">
@@ -57,16 +58,14 @@
 <script>
 import { verifyRecaptcha } from '@/api'
 const UNIQUE_LABEL = 'Unique to this sample compared against the BioProject'
-const SOURCE_LABELS = { ncbi: 'NCBI', ena: 'ENA', ddbj: 'DDBJ', metalog: 'Metalog' }
+const SOURCE_LABELS = { metalog: 'Metalog' }
 
 export default {
   name: 'RunMetadataTable',
-  props: ['table_data', 'unique_only'],
+  props: ['table_data', 'empty_text'],
   computed: {
-    // With the badge's filter on, only fields unique to this sample.
     shown_rows () {
-      const rows = this.table_data || []
-      return this.unique_only ? rows.filter(r => r.unique) : rows
+      return this.table_data || []
     },
     // Sources that rows in this table are tagged with (none for most tables).
     sources () {
@@ -126,20 +125,17 @@ export default {
   border-radius: 999px;
   font-size: 0.8rem;
 }
-.source-chip.src-ncbi, .run-metadata-table :deep(tr.src-ncbi > td) { background: #dbe9f6; }
-.source-chip.src-ena, .run-metadata-table :deep(tr.src-ena > td) { background: #dcefd9; }
-.source-chip.src-ddbj, .run-metadata-table :deep(tr.src-ddbj > td) { background: #fbe8cf; }
-.source-chip.src-metalog, .run-metadata-table :deep(tr.src-metalog > td) { background: #e8dff3; }
-.metadata-key-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.no-unique-note {
+.source-chip.src-metalog, .run-metadata-table :deep(tr.src-metalog > td) { background: #dbe9f6; }
+.empty-note {
   padding: 0.75rem 1rem;
   color: #888;
   font-style: italic;
   text-align: left;
+}
+.metadata-key-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 .metadata-key-cell.is-unique {
   border-left: 3px solid hsl(174, 62%, 28%);

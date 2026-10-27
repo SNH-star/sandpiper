@@ -4,7 +4,7 @@
     <div class="container">
       <section>
         <h3 class="title">Submitter information</h3>
-        <RunMetadataTable :table_data="this.mdata.contact_metadata" :unique_only="unique_only" />
+        <RunMetadataTable :table_data="this.mdata.contact_metadata" />
       </section>
     </div>
 
@@ -22,22 +22,10 @@
         <div v-if="show_sample_help" id="sample-help" class="content metalog-help">
           <p>
             Details about the sample this run was sequenced from, such as where and when it was collected, the host or
-            environment, and anything else the submitter recorded. Each row is coloured by where it came from. Links take you to each of the database's pages
-          </p>
-          <p>
-            <b><a href="https://www.ncbi.nlm.nih.gov/sra" target="_blank" rel="noopener" class="source-link src-ncbi">NCBI</a> </b>: the US National Center for Biotechnology Information, home of the Sequence Read Archive.  
-          </p>
-          <p>
-            <b><a href="https://www.ebi.ac.uk/ena/browser/home" target="_blank" rel="noopener" class="source-link src-ena">ENA</a> </b>: the European Nucleotide Archive, run by EMBL-EBI.
-          </p>
-          <p>
-            <b><a href="https://ddbj.nig.ac.jp/search" target="_blank" rel="noopener" class="source-link src-ddbj">DDBJ</a> </b>: the DNA Data Bank of Japan.
+            environment, and anything else the submitter recorded. Rows coloured blue come from Metalog.
           </p>
           <p>
             <b><a href="https://metalog.embl.de/downloads" target="_blank" rel="noopener" class="source-link src-metalog">Metalog</a></b>: curated extra details from Metalog, added only when this sample is found there.
-          </p>
-          <p>
-            The three archives share their data, so the colour shows the archive this run was submitted to, not who wrote each value.
           </p>
         </div>
         <div v-if="lat_lon() !== null">
@@ -49,7 +37,32 @@
           <button type="button" class="map-reset" @click="reset_map()"><b-icon icon="refresh" size="is-small" /> reset zoom</button>
           <br />
         </div>
-        <RunMetadataTable :table_data="sample_rows" :unique_only="unique_only" />
+        <RunMetadataTable :table_data="filtered_sample_rows" :empty_text="sample_filters_active ? 'No fields match these filters.' : null">
+          <template #after-key>
+            <div v-if="unique_sample_fields.length" class="unique-fields">
+              <p class="unique-fields-title">
+                Unique fields in this sample information
+                <button type="button" class="metalog-info" :aria-expanded="show_unique_help" aria-controls="unique-help" aria-label="About unique fields" @click="show_unique_help = !show_unique_help">
+                  <b-icon icon="information-outline" size="is-small" />
+                </button>
+              </p>
+              <p v-if="show_unique_help" id="unique-help" class="unique-fields-help">
+                Fields recorded for this sample that no other sample in its BioProject has. A longer list means this sample carries extra context beyond what its neighbours report. These rows are also marked with a teal edge in the table below.
+              </p>
+              <ul>
+                <li v-for="k in unique_sample_fields" :key="k">{{ k }}</li>
+              </ul>
+            </div>
+            <fieldset class="sample-filters">
+              <legend class="sample-filters-title">Filter fields</legend>
+              <label v-for="f in SAMPLE_FILTERS" :key="f.key" class="sample-filter">
+                <input type="checkbox" v-model="sample_filters" :value="f.key" />
+                <span>{{ f.label }}</span>
+              </label>
+              <button v-if="sample_filters_active" type="button" class="sample-filters-clear" @click="sample_filters = []">Clear filters</button>
+            </fieldset>
+          </template>
+        </RunMetadataTable>
         <div v-if="metalog_metadata().length > 0" class="section-note">
           Metalog rows
           <button type="button" class="metalog-info" :aria-expanded="show_metalog_help" aria-controls="metalog-help-merged" aria-label="About Metalog metadata" @click="show_metalog_help = !show_metalog_help">
@@ -78,7 +91,7 @@
     <div class="container">
       <section>
         <h3 class="title">Sequencing information</h3>
-        <RunMetadataTable :table_data="this.mdata.sequencing_metadata" :unique_only="unique_only" />
+        <RunMetadataTable :table_data="this.mdata.sequencing_metadata" />
       </section>
     </div>
 
@@ -86,7 +99,7 @@
     <div class="container">
       <section>
         <h3 class="title">Derived information</h3>
-        <RunMetadataTable :table_data="classification_metadata()" :unique_only="unique_only" />
+        <RunMetadataTable :table_data="classification_metadata()" />
       </section>
     </div>
 
@@ -94,7 +107,7 @@
     <div class="container">
       <section>
         <h3 class="title">Other identifiers</h3>
-        <RunMetadataTable :table_data="this.mdata.identity_metadata" :unique_only="unique_only" />
+        <RunMetadataTable :table_data="this.mdata.identity_metadata" />
       </section>
     </div>
 
@@ -238,9 +251,20 @@ Icon.Default.mergeOptions({
 
 const default_zoom = 0.5
 
+// Tick boxes above the Sample information table. The origin boxes are
+// alternatives (a row is shown when it matches any ticked one); 'unique'
+// narrows whatever they show. Metalog rows carry no is_custom/unique flags,
+// so the NCBI-defined test excludes them explicitly.
+const SAMPLE_FILTERS = [
+  { key: 'metalog', label: 'Metalog', test: r => r.source === 'metalog' },
+  { key: 'defined', label: 'NCBI-defined attributes', test: r => r.source !== 'metalog' && !r.is_custom },
+  { key: 'custom', label: 'Custom attributes', test: r => !!r.is_custom },
+  { key: 'unique', label: 'Unique to this sample', test: r => !!r.unique, narrows: true }
+]
+
 export default {
   name: 'RunMetadata',
-  props: ['mdata','mdata_parsed','accession','unique_only'],
+  props: ['mdata','mdata_parsed','accession'],
   components: {
     LMap,
     LTileLayer,
@@ -269,6 +293,9 @@ export default {
       bounds: null,
       show_sample_help: false,
       show_metalog_help: false,
+      show_unique_help: false,
+      SAMPLE_FILTERS,
+      sample_filters: [],
       show_indicpiper_help: false
     }
   },
@@ -276,12 +303,25 @@ export default {
     this.center = this.get_default_map_center()
   },
   computed: {
-    // Sample information rows tagged with where they came from: the run's
-    // archive (from its accession prefix) or Metalog.
+    // Sample information rows; only Metalog rows are tagged (and coloured).
     sample_rows () {
-      const archive = { SRR: 'ncbi', ERR: 'ena', DRR: 'ddbj' }[(this.accession || '').slice(0, 3).toUpperCase()]
-      const own = (this.mdata.sample_info_metadata || []).map(r => ({ ...r, source: archive }))
+      const own = this.mdata.sample_info_metadata || []
       return own.concat(this.metalog_metadata().map(r => ({ ...r, source: 'metalog' })))
+    },
+    sample_filters_active () {
+      return this.sample_filters.length > 0
+    },
+    filtered_sample_rows () {
+      if (!this.sample_filters_active) return this.sample_rows
+      const ticked = SAMPLE_FILTERS.filter(f => this.sample_filters.includes(f.key))
+      const origins = ticked.filter(f => !f.narrows)
+      const narrows = ticked.filter(f => f.narrows)
+      return this.sample_rows.filter(r =>
+        (origins.length === 0 || origins.some(f => f.test(r))) && narrows.every(f => f.test(r)))
+    },
+    // Sample information fields no other sample in the BioProject has.
+    unique_sample_fields () {
+      return this.sample_rows.filter(r => r.unique).map(r => r.k)
     },
     indicpiper_mismatch() {
       return indicpiperMismatch(this.mdata_parsed?.organism, this.indicpiper_scores())
@@ -461,22 +501,90 @@ export default {
    go darker. */
 .source-link { background-color: transparent; text-decoration: none; }
 .source-link:hover, .source-link:active { text-decoration: underline; }
-.source-link.src-ncbi:link { color: #8fb8de; }
-.source-link.src-ncbi:visited { color: #8fb8de; }
-.source-link.src-ncbi:hover { color: #0f3f73; }
-.source-link.src-ncbi:active { color: #0a2a4d; }
-.source-link.src-ena:link { color: #92c98a; }
-.source-link.src-ena:visited { color: #92c98a; }
-.source-link.src-ena:hover { color: #1b5218; }
-.source-link.src-ena:active { color: #113410; }
-.source-link.src-ddbj:link { color: #f0b86e; }
-.source-link.src-ddbj:visited { color: #f0b86e; }
-.source-link.src-ddbj:hover { color: #7a4800; }
-.source-link.src-ddbj:active { color: #4d2e00; }
-.source-link.src-metalog:link { color: #b89fd9; }
-.source-link.src-metalog:visited { color: #b89fd9; }
-.source-link.src-metalog:hover { color: #45266f; }
-.source-link.src-metalog:active { color: #2b1748; }
+.source-link.src-metalog:link { color: #8fb8de; }
+.source-link.src-metalog:visited { color: #8fb8de; }
+.source-link.src-metalog:hover { color: #0f3f73; }
+.source-link.src-metalog:active { color: #0a2a4d; }
+
+/* Same vocabulary as the Run page's Identifiers block: small uppercase label,
+   quiet outlined 6px chips, teal as the only accent. */
+.unique-fields {
+  margin-bottom: var(--space-3);
+}
+.unique-fields-title {
+  margin-bottom: var(--space-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(0, 0%, 50%);
+}
+.unique-fields-help {
+  margin-bottom: var(--space-2);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: hsl(0, 0%, 35%);
+}
+.unique-fields ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.unique-fields li {
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  border: 3px solid hsl(174, 55%, 30%);
+  border-radius: 6px;
+  color: hsl(0, 0%, 25%);
+  font-size: 0.85rem;
+}
+
+.sample-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid hsl(0, 0%, 87%);
+  border-radius: 6px;
+}
+.sample-filters-title {
+  float: left;
+  width: auto;
+  padding: 0;
+  margin-right: var(--space-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(0, 0%, 50%);
+}
+.sample-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: hsl(0, 0%, 25%);
+  cursor: pointer;
+}
+.sample-filter input {
+  accent-color: hsl(174, 55%, 30%);
+}
+.sample-filters-clear {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  color: hsl(174, 55%, 30%);
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 .metalog-info {
   appearance: none;
