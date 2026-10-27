@@ -1,12 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
-import Search from '../views/Search.vue'
-import Run from '../views/Run.vue'
-import SearchResults from '../views/SearchResult.vue'
-import About from '../views/About.vue'
-import RunRandom from '../views/RunRandom.vue'
-import Project from '../views/Project.vue'
-import Accession from '../views/Accession.vue'
+
+// Every view except the landing page loads on first visit to its route, so the
+// first page does not download the code (maps, charts) of pages not yet opened.
 
 const routes = [
   {
@@ -17,35 +13,35 @@ const routes = [
   {
     path: '/search',
     name: 'Search',
-    component: Search
+    component: () => import('../views/Search.vue')
   },
   {
     path: '/taxonomy/:taxonomy',
     name: 'SearchResults',
-    component: SearchResults,
+    component: () => import('../views/SearchResult.vue'),
     props: true
   },
   {
     path: '/run/:accession',
     name: 'Run',
-    component: Run,
+    component: () => import('../views/Run.vue'),
     props: true
   },
   {
     path: '/project',
     name: 'Project',
-    component: Project,
+    component: () => import('../views/Project.vue'),
     props: true
   },
   {
     path: '/random_run',
     name: 'RunRandom',
-    component: RunRandom
+    component: () => import('../views/RunRandom.vue')
   },
   {
     path: '/accession/:accession',
     name: 'Accession',
-    component: Accession,
+    component: () => import('../views/Accession.vue'),
     props: true
   },
   {
@@ -53,13 +49,13 @@ const routes = [
     // matching an advanced-search query (?q=) instead of one taxon.
     path: '/search/results',
     name: 'QueryResults',
-    component: SearchResults,
+    component: () => import('../views/SearchResult.vue'),
     props: route => ({ query: route.query.q })
   },
   {
     path: '/about',
     name: 'About',
-    component: About
+    component: () => import('../views/About.vue')
   }
 ]
 

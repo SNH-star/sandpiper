@@ -2,12 +2,32 @@ server {
     listen       3000;
     server_name  localhost;
 
+    # Shrink text responses before sending (JS, CSS, HTML, JSON, SVG, fonts
+    # that are not already compressed).
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/javascript application/javascript
+               application/json image/svg+xml font/ttf application/vnd.ms-fontobject;
+
     # Do not put chunked_transfer_encoding inside an `if`: nginx does not allow
     # that directive in an `if` context. If the old ALB/304 issue recurs, test
     # `chunked_transfer_encoding off;` here at server scope (it affects all responses).
     location / {
         root   /usr/share/nginx/html;
         try_files $uri $uri/ /index.html;
+        # index.html names the current hashed bundles, so it must be
+        # revalidated on every visit or a new release would not be picked up.
+        add_header Cache-Control "no-cache";
+    }
+
+    # Vite puts a content hash in every file name under /assets/, so a file
+    # never changes once published: browsers may keep it for a year.
+    location /assets/ {
+        root   /usr/share/nginx/html;
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     error_page   500 502 503 504  /50x.html;
