@@ -53,6 +53,11 @@ const routes = [
     props: route => ({ query: route.query.q })
   },
   {
+    path: '/statistics',
+    name: 'Statistics',
+    component: () => import('../views/Statistics.vue')
+  },
+  {
     path: '/about',
     name: 'About',
     component: () => import('../views/About.vue')
