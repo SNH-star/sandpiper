@@ -78,19 +78,11 @@ import { fetchTaxonomyMap, fetchTaxonomyMapCellStudies, fetchQueryMap, fetchQuer
 
 // Ordered so the legend never reshuffles between taxa.
 const COLOURS = {
-  human: '#f2a03d',
-  animal: '#ef6c2a',
-  ocean: '#5b8fd4',
-  other: '#e0417c',
   host_associated: '#9a6fb5',
   ecological: '#84a86f',
   unclassified: '#b0b0b0'
 }
 const LABELS = {
-  human: 'Human samples',
-  animal: 'Animal samples',
-  ocean: 'Ocean water samples',
-  other: 'Other environmental samples',
   host_associated: 'Host-associated samples',
   ecological: 'Ecological samples',
   unclassified: 'Unclassified'

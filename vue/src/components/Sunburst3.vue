@@ -84,8 +84,8 @@
               </div>
             </dl>
             <div v-if="coverage_help_open" id="coverage-help" class="sunburst-coverage-help" role="dialog" aria-label="What is genome coverage?">
-              <p><strong>Genome coverage</strong> is the estimated average number of reads covering each position of a genome from this lineage, inferred from single-copy marker genes. It rises with sequencing depth and falls with genome size, so it is not a cell count.</p>
-              <p>For a genus or any group above species, the figure is the sum over every species beneath it, including reads that match no named species. Relative abundance divides it by the total across all bacteria and archaea in the run.</p>
+              <p><strong>Genome coverage</strong> is the average number of reads that cover each position in a genome of this lineage. It is estimated from single-copy marker genes. It goes up with sequencing depth and down with genome size, so it is not a count of cells.</p>
+              <p>For a genus or any higher group, the value is the sum of the coverage of every species within it, including reads that match no named species. Relative abundance is this value divided by the total coverage of all prokaryotes in the run.</p>
               <p>How much of the sample is bacterial or archaeal at all is shown separately as the prokaryotic fraction.</p>
             </div>
           </template>
