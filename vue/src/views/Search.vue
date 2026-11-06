@@ -25,10 +25,18 @@
       <br /><b-button type="is-primary" @click="search_by_taxonomy">Search</b-button>
     </section>
 
+    <section class="section">
+      <p class="title is-4">Search for run/sample/project accession</p>
+      <b-field>
+        <b-input id="accession-search-input" name="accession-search" :compat-fallthrough="false" v-model="accession" @keyup.enter="search_by_accession"></b-input>
+      </b-field>
+      <br /><b-button type="is-primary" @click="search_by_accession">Search</b-button>
+    </section>
+
     <section class="section advanced-search-section">
       <div class="advanced-search-header">
         <p class="title is-4">Advanced search</p>
-        <b-button type="is-light" size="is-small" icon-left="shuffle-variant" class="random-search-button" @click="search_by_random">Random Search</b-button>
+        <b-button type="is-text" size="is-small" icon-left="shuffle-variant" class="random-search-button" @click="search_by_random">Random Search</b-button>
       </div>
       <b-field label="Search query" label-for="advanced-search-query">
         <div class="search-bar-row">
@@ -74,6 +82,7 @@
               <div class="keys-item"><code>location</code><span class="keys-example">e.g. Pacific Ocean</span></div>
               <div class="keys-item"><code>latitude</code><span class="keys-example">e.g. -33.8 or -40-30</span></div>
               <div class="keys-item"><code>longitude</code><span class="keys-example">e.g. 151.2 or 140-160</span></div>
+              <div class="keys-item"><code>grid</code><span class="keys-example">e.g. 10/-60;15/-60</span></div>
             </div>
 
             <div class="keys-group">
@@ -202,7 +211,7 @@
                 <p class="adv-group-note">{{ KEYWORDS_NOTE }}</p>
                 <b-field grouped group-multiline class="adv-group-row">
                   <b-field class="adv-field adv-field-keywords" label="Keywords" label-for="adv-keywords">
-                    <b-input id="adv-keywords" v-model="adv.keywords" placeholder="e.g. sponge reef, coral" icon="magnify" expanded />
+                    <b-input id="adv-keywords" name="adv-keywords" :compat-fallthrough="false" v-model="adv.keywords" placeholder="e.g. sponge reef, coral" icon="magnify" expanded />
                   </b-field>
                 </b-field>
               </div>
@@ -211,7 +220,7 @@
 
           <section class="adv-group" :class="{ 'is-open': adv_groups.location }">
             <button type="button" class="adv-group-toggle" :aria-expanded="adv_groups.location" aria-controls="adv-group-location" @click="toggle_adv_group('location')">
-              <span class="adv-group-title">Location</span>
+              <span class="adv-group-title">Location<span class="adv-group-subtitle">Search by map included</span></span>
               <span class="adv-group-chevron" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
               <span class="adv-group-hint">{{ adv_group_hint('location') }}</span>
             </button>
@@ -224,6 +233,11 @@
                   <PresenceField class="adv-field" label="Location" v-model="adv.location" v-model:present="adv_present.location" placeholder="e.g. Pacific Ocean" search-field="location" />
                   <PresenceField class="adv-field" label="Latitude" v-model="adv.latitude" v-model:present="adv_present.latitude" placeholder="e.g. -33.8 or -40-30" :error-message="adv_errors.latitude" @input="on_adv_field_input('latitude')" />
                   <PresenceField class="adv-field" label="Longitude" v-model="adv.longitude" v-model:present="adv_present.longitude" placeholder="e.g. 151.2 or 140-160" :error-message="adv_errors.longitude" @input="on_adv_field_input('longitude')" />
+                  <SearchGridField :model-value="adv.grid" @change="on_grid_change">
+                    <template #label-suffix>
+                      <InfoTooltipButton controls="advanced-search-popover" label="Show graph search help" :expanded="active_tooltip === 'grid_info'" @open="showTooltip('grid_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" />
+                    </template>
+                  </SearchGridField>
                 </b-field>
               </div>
             </div>
@@ -477,6 +491,22 @@
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('hydrothermal vent')">hydrothermal vent</button>
                 </div>
               </template>
+              <template v-if="active_tooltip === 'grid_info'">
+                <p class="info-tooltip-title">Graph — pick places on a map</p>
+                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                  An interactive world map of the runs that have coordinates, grouped into 5° squares. Each circle is one square and its
+                  area shows how many runs it holds. Hover a circle to see its counts.
+                </p>
+                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                  The switch above the map chooses which runs are drawn: <strong style="color: var(--color-sample-host);">host-associated</strong> (purple, e.g. gut or skin samples)
+                  or <strong style="color: var(--color-sample-ecological);">ecological</strong> (green, e.g. soil or ocean). Both types share one circle scale, so the two views can be compared.
+                </p>
+                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                  Click a circle to pick its square under the sample type shown; you can pick as many as you like, mixing host-associated and
+                  ecological squares, and click again to drop one. The search uses only the picked squares and leaves Latitude and
+                  Longitude alone. Clear all drops every square.
+                </p>
+              </template>
               <template v-if="active_tooltip === 'age_info'">
                 <p class="info-tooltip-title">Age</p>
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
@@ -531,12 +561,12 @@
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
                   Searches all free-form BioSample attributes submitted to NCBI — any extra metadata not covered by the structured fields above.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('metadata: Sus scrofa')">metadata: Sus scrofa — matches any attribute containing this value</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('metadata: host=Sus scrofa')">metadata: host=Sus scrofa — matches only the "host" attribute</button>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Example attributes</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Example attributes</p>
                 <div class="info-tooltip-grid">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('host')">host</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('tissue')">tissue</button>
@@ -561,12 +591,12 @@
                   every run has a Metalog match; only a handful of these fields are populated for
                   any given sample.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>metalog: diabetes — matches any field containing this value</span>
                   <span>metalog: host=Sus scrofa — matches only the "host" field</span>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">All fields (200)</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">All fields (200)</p>
                 <div class="info-tooltip-grid metalog-fields-scroll">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('acetate_um')">acetate_um</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('added_matter')">added_matter</button>
@@ -814,12 +844,12 @@
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
                   Searches all free-form BioSample attributes submitted to NCBI — any extra metadata not covered by the structured fields above.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>metadata: Sus scrofa — matches any attribute containing this value</span>
                   <span>metadata: host=Sus scrofa — matches only the "host" attribute</span>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Example attributes</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Example attributes</p>
                 <div class="info-tooltip-grid">
                   <span>host</span><span>tissue</span><span>disease</span><span>treatment</span>
                   <span>isolation_source</span><span>env_biome</span><span>body_site</span><span>age</span>
@@ -998,20 +1028,6 @@
             </div>
           </section>
 
-          <div class="keys-syntax-row" style="margin-top: 1rem;">
-            <span class="keys-syntax-title">Query Syntax</span>
-            <div class="keys-syntax-items">
-              <span class="keys-syntax-item"><code>2-10</code> range</span>
-              <span class="keys-syntax-item"><code>&gt;10</code> greater than</span>
-              <span class="keys-syntax-item"><code>&gt;=10</code> at least</span>
-              <span class="keys-syntax-item"><code>&lt;10</code> less than</span>
-              <span class="keys-syntax-item"><code>&lt;=10</code> at most</span>
-              <span class="keys-syntax-item"><code>10</code> exact / approx</span>
-              <span class="keys-syntax-item"><code>(empty)</code> present, any value e.g. "age:"</span>
-              <span class="keys-syntax-item"><code>"Oahu, Kaneohe Bay"</code> quotes keep a comma inside one value</span>
-            </div>
-          </div>
-
         </div>
         </div>
       </div>
@@ -1024,7 +1040,7 @@
           <strong>{{ universal_result.count.toLocaleString() }}</strong> samples match {{ universal_result.match_description }}.
           <br />
           <div class="buttons mt-2">
-            <b-button ref="exploreRandomButton" type="is-primary is-small" @click="explore_random_universal">Explore a random filtered run</b-button>
+            <b-button ref="exploreRandomButton" type="is-primary is-small" @click="explore_random_universal">{{ universal_result.count === 1 ? 'Explore the run' : 'Explore a random filtered run' }}</b-button>
             <b-button type="is-primary is-small" outlined @click="explore_tabled_universal">Explore tabled results</b-button>
           </div>
         </b-message>
@@ -1032,23 +1048,14 @@
     </section>
 
     <section class="section">
-      <p class="title is-4">Search for run/sample/project accession</p>
-      <b-field>
-        <b-input id="accession-search-input" name="accession-search" :compat-fallthrough="false" v-model="accession" @keyup.enter="search_by_accession"></b-input>
-      </b-field>
-      <br /><b-button type="is-primary" @click="search_by_accession">Search</b-button>
-    </section>
-
-
-    <section class="section">
       <p class="title is-4">Find a random run</p>
       <div class="random-run-box">
         <div class="random-run-grid">
-          <div class="random-run-option"><b-switch v-model="random_choice_host">Eukaryote host-associated</b-switch></div>
-          <div class="random-run-option"><b-switch v-model="random_choice_ecological">Ecological</b-switch></div>
-          <div class="random-run-option"><b-switch v-model="random_choice_two_gbp">2+ Gbp</b-switch></div>
-          <div class="random-run-option"><b-switch v-model="random_choice_non_human_host">Non-human host only</b-switch></div>
-          <div class="random-run-option"><b-switch v-model="random_exclude_strict_low_complexity">Exclude low complexity (≥95% one order)</b-switch></div>
+          <div class="random-run-option"><b-switch v-model="random_choice_host" name="random-choice-host">Eukaryote host-associated</b-switch></div>
+          <div class="random-run-option"><b-switch v-model="random_choice_ecological" name="random-choice-ecological">Ecological</b-switch></div>
+          <div class="random-run-option"><b-switch v-model="random_choice_two_gbp" name="random-choice-two-gbp">2+ Gbp</b-switch></div>
+          <div class="random-run-option"><b-switch v-model="random_choice_non_human_host" name="random-choice-non-human-host">Non-human host only</b-switch></div>
+          <div class="random-run-option"><b-switch v-model="random_exclude_strict_low_complexity" name="random-exclude-strict-low-complexity">Exclude low complexity (≥95% one order)</b-switch></div>
         </div>
       </div>
       <br /><b-button type="is-primary" @click="search_by_random">Search</b-button>
@@ -1067,6 +1074,7 @@ import { stopPageLoading } from '@/store/pageLoading'
 import debounce from 'lodash/debounce'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import PresenceField from '@/components/PresenceField.vue'
+import SearchGridField from '@/components/SearchGridField.vue'
 
 // Blurbs for the Keywords group. Plain prose: the search syntax itself lives in the List of keys.
 const KEYWORDS_NOTE = 'Search a study\'s title, abstract, location, organism and accessions at once. Separate terms with commas: each term is matched as an exact phrase and every term must be found. A sample that matches in several places still counts once.'
@@ -1083,7 +1091,7 @@ function queryParamToString (value) {
 export default {
   name: 'Search',
   title: 'Search - Sandpiper',
-  components: { InfoTooltipButton, PresenceField },
+  components: { InfoTooltipButton, PresenceField, SearchGridField },
   setup () {
     const autocomplete = useSearchAutocomplete(async (field, q, signal) => {
       if (field === 'taxonomy') {
@@ -1151,7 +1159,7 @@ export default {
         // Keywords
         keywords: '',
         // Location
-        country: '', continent: '', location: '', latitude: '', longitude: '',
+        country: '', continent: '', location: '', latitude: '', longitude: '', grid: '',
         // Sample
         year: '', release_year: '', temperature: '', depth: '', environment: '', low_complexity: '',
         synthetic: '', non_metagenome_organism: '', rna_or_non_dna: '',
@@ -1427,6 +1435,7 @@ export default {
         taxonomy_info: 220,
         metadata: 360,
         age_info: 180,
+        grid_info: 260,
         low_complexity_info: 150,
         synthetic_info: 150,
         non_metagenome_organism_info: 150,
@@ -1551,6 +1560,7 @@ export default {
         ['keywords', this.adv.keywords],
         ['country', this.adv.country], ['continent', this.adv.continent],
         ['location', this.adv.location], ['latitude', this.adv.latitude], ['longitude', this.adv.longitude],
+        ['grid', this.adv.grid],
         ['year', this.adv.year], ['release_year', this.adv.release_year],
         ['temperature', this.adv.temperature], ['depth', this.adv.depth],
         ['spf', this.adv.spf], ['ksf', this.adv.ksf],
@@ -1845,6 +1855,18 @@ export default {
       this.universal_result = null
       this.parse_query_to_advanced()
       this.search_universal()
+    },
+
+    // Squares picked on the map set only the grid key: each square carries its
+    // own sample type and bounds, so Latitude, Longitude are left alone. A
+    // single Environment choice would be ANDed with every square (wrongly
+    // excluding the other type), so picking squares clears it.
+    on_grid_change ({ grid }) {
+      this.adv.grid = grid
+      if (grid) {
+        this.adv.environment = ''
+        this.adv_present.environment = false
+      }
     },
 
     toggle_env (val) {
@@ -2232,20 +2254,17 @@ export default {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0 var(--space-1);
-  border-top: 1px solid hsl(174, 25%, 89%);
+  border-top: 1px solid var(--color-accent-rule);
   margin-top: var(--space-3);
 }
 .keys-box .keys-syntax-row {
   padding: var(--space-2) var(--space-4);
   margin-top: var(--space-1);
-  background: hsl(174, 30%, 95%);
 }
 .keys-syntax-title {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: hsl(174, 40%, 38%);
+  color: var(--color-accent);
   white-space: nowrap;
 }
 .keys-syntax-items {
@@ -2259,7 +2278,7 @@ export default {
   white-space: nowrap;
 }
 .keys-syntax-item code {
-  color: hsl(174, 55%, 30%);
+  color: var(--color-accent);
   font-weight: 600;
   margin-right: 0.2rem;
 }
@@ -2270,8 +2289,7 @@ export default {
   padding: var(--space-2) 0 0;
 }
 .keys-box .keys-example-row {
-  padding: var(--space-1) var(--space-4) var(--space-3);
-  background: hsl(174, 30%, 95%);
+  padding: var(--space-1) 0 var(--space-3);
 }
 .keys-example-label {
   font-size: 0.75rem;
@@ -2296,7 +2314,7 @@ export default {
   background: transparent;
   padding: 0;
   margin-left: 0.3rem;
-  color: hsl(174, 62%, 28%);
+  color: var(--color-accent);
   font: inherit;
   font-weight: 600;
   font-size: 0.85rem;
@@ -2308,7 +2326,7 @@ export default {
   border-bottom-color: currentColor;
 }
 .inline-toggle:focus-visible {
-  outline: 2px solid hsl(174, 62%, 28%);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -2339,7 +2357,7 @@ export default {
   border: 0;
   border-bottom: 1px solid transparent;
   background: transparent;
-  color: hsl(174, 62%, 26%);
+  color: var(--color-accent-strong);
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -2352,7 +2370,7 @@ export default {
   border-bottom-color: currentColor;
 }
 .disclosure-toggle:focus-visible {
-  outline: 2px solid hsl(174, 62%, 28%);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -2384,10 +2402,7 @@ export default {
   overflow: hidden;
 }
 .adv-box {
-  background: hsl(174, 25%, 98.5%);
-  border: 1px solid hsl(174, 25%, 91%);
-  border-radius: 12px;
-  padding: var(--space-4);
+  padding: var(--space-2) 0 0;
   margin-top: var(--space-2);
 }
 /* Each group inside the advanced panel is its own disclosure: the whole
@@ -2408,7 +2423,7 @@ export default {
   width: 100%;
   background: transparent;
   border: 0;
-  border-bottom: 2px solid hsl(174, 45%, 85%);
+  border-bottom: 1px solid var(--color-accent-rule);
   padding: var(--space-1) 0;
   margin-bottom: 0;
   text-align: left;
@@ -2416,19 +2431,17 @@ export default {
   transition: border-color 220ms var(--ease-spring);
 }
 .adv-group-toggle:hover {
-  border-bottom-color: hsl(174, 45%, 70%);
+  border-bottom-color: var(--color-accent);
 }
 .adv-group-toggle:focus-visible {
-  outline: 2px solid hsl(174, 62%, 28%);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
 .adv-group-title {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: hsl(174, 62%, 24%);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
+  color: var(--color-accent-strong);
 }
 /* Search box row. */
 .search-bar-row {
@@ -2445,7 +2458,7 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: hsl(174, 62%, 30%);
+  color: var(--color-accent);
   transition: transform 300ms var(--ease-spring);
 }
 .adv-group.is-open .adv-group-toggle {
@@ -2458,7 +2471,7 @@ export default {
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: hsl(174, 8%, 52%);
+  color: var(--color-ink-muted);
 }
 /* Grid-row collapse for the *animation* only. A grid row's own auto/fr
    sizing measures the body's intrinsic (max-content) height, which is the
@@ -2494,7 +2507,7 @@ export default {
   max-width: 62ch;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: hsl(174, 8%, 40%);
+  color: var(--color-ink-muted);
 }
 .adv-group-row {
   /* Headroom for the `on-border` floating labels, which straddle each input's
@@ -2515,15 +2528,11 @@ export default {
 .info-tooltip-title {
   font-weight: 700;
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 0.5rem;
 }
 .tooltip-hint {
-  text-transform: none;
   font-weight: 400;
-  letter-spacing: normal;
   color: rgba(255, 255, 255, 0.35);
 }
 .info-tooltip-grid {
@@ -2564,9 +2573,6 @@ export default {
   overflow: hidden;
 }
 .keys-box {
-  background: hsl(174, 25%, 98.5%);
-  border: 1px solid hsl(174, 25%, 91%);
-  border-radius: 12px;
   margin-top: var(--space-2);
   overflow: hidden;
 }
@@ -2574,19 +2580,17 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4) var(--space-6);
-  padding: var(--space-4) var(--space-4) var(--space-2);
+  padding: var(--space-3) 0 var(--space-2);
 }
 .keys-group {
   min-width: 150px;
   flex: 1;
 }
 .keys-group-title {
-  font-size: 0.66rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: hsl(174, 62%, 24%);
-  border-bottom: 2px solid hsl(174, 45%, 85%);
+  color: var(--color-accent-strong);
+  border-bottom: 1px solid var(--color-accent-rule);
   padding-bottom: var(--space-1);
   margin-bottom: var(--space-2);
 }
@@ -2775,4 +2779,14 @@ export default {
     transition: none;
   }
 }
+
+.adv-group-subtitle {
+  margin-left: 0.5rem;
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.5;          /* the slight see-through look */
+  text-transform: none;  /* only needed if .adv-group-title is uppercase */
+  letter-spacing: normal;
+}
+
 </style>
