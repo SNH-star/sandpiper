@@ -1,4 +1,4 @@
-SANDPIPER_VERSION: '42'  # weebill build (v41 is live)
+SANDPIPER_VERSION: '43'  # weebill build, _1-suffix fix (v41 is live)
 
 # A new date makes Snakemake pull the kingfisher metadata and bioproject
 # publications again (outputs are stored under prod/kingfisher_metadata/<date>/).
@@ -15,12 +15,12 @@ JSON_METADATA_FILES: '/work/microbiome/msingle/mess/225_sra_metadata_20260303/sh
 # GTDB profiles with weebill species added (built from the weebill condensed
 # profiles; see the weebill_condense_pipeline). Samples listed in the run
 # blacklist are skipped at load time.
-CONDENSED_OTU_TABLE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input/condensed.weebill.csv.gz'
+CONDENSED_OTU_TABLE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input_v2/condensed.weebill_v3.csv.gz'
 OTU_TABLE: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/otu_table.csv.gz'
 HOST_OR_NOT_PREDICTION: '/scratch/microbiome/sandpiper2-gtdb-renew/final_SRA_v2/host_or_not_prediction/host_or_not_preds.csv'
 # Recomputed from the weebill table (known species, low-complexity and
 # top-order fractions); microbial fractions and host predictions are unchanged.
-SMF_FILE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input/per_acc_summary.weebill.csv'
+SMF_FILE: '/scratch/microbiome/herholdt/weebill_condense_pipeline/sandpiper_input_v2/per_acc_summary.weebill_v3.csv'
 GLOBDB_CONDENSED_OTU_TABLE: '/scratch/microbiome/sandpiper2-globdb-renew/final_SRA/condensed.csv.gz'
 
 # Regenerates the metalog meta_ column extension from scratch every run
@@ -57,4 +57,27 @@ GLOBDB_TAXONOMY: '/home/herholdt/Globdb_taxonomy/combined_r232_taxonomy.tsv'
 NCBI_API_KEY: 'YOUR_NCBI_API_KEY_HERE'
 
 TEST_OR_PROD: 'prod'
-SCRATCH_DIR: '/scratch/microbiome/herholdt/sandpiper_weebill_build'
+SCRATCH_DIR: '/scratch/microbiome/herholdt/sandpiper_weebill_build_v43'
+
+# Statistics page figures (rules summarise_group_figures and
+# summarise_version_figures in the Snakefile). They read the build's inputs,
+# not the database, so they can also be run alone -- see the Snakefile.
+# GTDB release the condensed table was profiled against: its genome metadata
+# dates each species' first genome (used for the yearly trend).
+GTDB_GENOME_METADATA:
+  - '../data/gtdb_r232/bac120_metadata_r232.tsv.gz'
+  - '../data/gtdb_r232/ar53_metadata_r232.tsv.gz'
+# How this build is labelled in the version comparison, and the release it uses.
+STATISTICS_VERSION_LABEL: '2.2.0'
+STATISTICS_GTDB_RELEASE: 'R232'
+# Earlier versions already in vue/src/constants/versionSummaries.json are copied
+# across instead of being read again from the Zenodo files; only this build is
+# computed. They are recomputed anyway if the run blacklist changed since that
+# file was made. Set to false to recompute every version.
+STATISTICS_REUSE_PREVIOUS: true
+# Earlier versions to compare against, newest first, as LABEL:GTDB:SUMMARY:METADATA
+# (from the Zenodo records). Edit when a release is added.
+STATISTICS_PREVIOUS_VERSIONS:
+  - '2.0.0 to 2.1.x:R232:../data/zenodo/2.0.0/sandpiper2.0.0.per_acc_summary.csv.gz:../data/zenodo/2.0.0_metadata/sandpiper2.0.0.parsed_metadata.tsv.gz'
+  - '1.1.10:R226:../data/zenodo/1.1.10/sandpiper1.1.10.per_acc_summary.csv.gz:../data/zenodo/1.1.10_metadata/sandpiper1.1.0.parsed_metadata.tsv.gz'
+  - '1.1.9:R226:../data/zenodo/1.1.9/sandpiper1.1.0.per_acc_summary.csv.gz:../data/zenodo/1.1.9_metadata/sandpiper1.1.0.parsed_metadata.tsv.gz'
