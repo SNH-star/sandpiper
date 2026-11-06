@@ -71,6 +71,15 @@ if not os.path.exists('data/chunk_definitions.done'):
 else:
     print("Chunk definition files already exist, reusing them")
 
+STATISTICS_DIR = '{test_or_prod}/{version}/statistics'.format(
+    test_or_prod=config['TEST_OR_PROD'], version=config['SANDPIPER_VERSION'])
+KINGFISHER_DIR = '{test_or_prod}/kingfisher_metadata/{date}'.format(
+    test_or_prod=config['TEST_OR_PROD'], date=config['KINGFISHER_METADATA_DATE'])
+# Where the Statistics page imports its figures from.
+STATISTICS_FRONTEND_DIR = os.path.join(workflow.basedir, '..', 'vue', 'src', 'constants')
+BACKEND_BIN = os.path.join(workflow.basedir, '..', 'backend', 'bin')
+RUN_BLACKLIST = os.path.join(workflow.basedir, '..', 'backend', 'db', 'metagenome_assembly_acc_list.csv')
+
 localrules: run_kingfisher_metadata, gather_kingfisher_metadata, gather_bioproject_pubs
 
 
@@ -82,6 +91,8 @@ rule all:
         '{test_or_prod}/{version}/backend_db/export_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION']),
+        STATISTICS_DIR + '/groupSummaries.json',
+        STATISTICS_DIR + '/versionSummaries.json',
         '{test_or_prod}/gather_bioproject_pubs/{date}/done'.format(
             date=config['BIOPROJECT_METADATA_DATE'],
             test_or_prod=config['TEST_OR_PROD']),
@@ -717,3 +728,80 @@ rule export_indicpiper_and_metalog_csv:
         '$SNAKE_WORKING_DIR/{params.output_dir} ' \
         '{params.skip_flags} ' \
         '> $SNAKE_WORKING_DIR/{log} 2>&1'
+
+
+##### Statistics page figures #####
+# Two independent rules, neither needs the database, so each can be run alone at
+# any time, e.g.
+#   snakemake --cores 1 --configfile prod_config.yml statistics_groups
+#   snakemake --cores 1 --configfile prod_config.yml statistics_versions
+#   snakemake --cores 1 --configfile prod_config.yml statistics      (both)
+# (add --forcerun summarise_group_figures to rebuild after changing an input).
+# Each writes into {test_or_prod}/{version}/statistics/ and copies the file into
+# vue/src/constants/, where the page imports it; rebuild the frontend after.
+
+rule summarise_group_figures:
+    # Yearly known-species trend, phylum composition and yearly depth for the
+    # Statistics page. Streams the whole condensed table, so it is slow.
+    input:
+        summary=config['SMF_FILE'],
+        condensed=config['CONDENSED_OTU_TABLE'],
+        parsed_metadata=KINGFISHER_DIR + '/parsed_metadata.tsv',
+        gtdb_metadata=config['GTDB_GENOME_METADATA'],
+        blacklist=RUN_BLACKLIST,
+    output:
+        STATISTICS_DIR + '/groupSummaries.json'
+    params:
+        script=os.path.join(BACKEND_BIN, 'summarise_groups.py'),
+        chunk_dir=KINGFISHER_DIR + '/metadata_chunks',
+        frontend=os.path.join(STATISTICS_FRONTEND_DIR, 'groupSummaries.json'),
+    log:
+        STATISTICS_DIR + '/groupSummaries.log'
+    resources:
+        mem_mb=32000,
+        runtime='8h'
+    shell:
+        'export PYTHONNOUSERSITE=1 && '
+        'pixi run -e sandpiper python {params.script} {output} {input.blacklist} '
+        '{input.summary} {input.parsed_metadata} {params.chunk_dir} {input.condensed} '
+        '{input.gtdb_metadata} > {log} 2>&1 && '
+        'cp {output} {params.frontend}'
+
+rule summarise_version_figures:
+    # Histograms comparing this build with earlier releases (version comparison).
+    input:
+        summary=config['SMF_FILE'],
+        parsed_metadata=KINGFISHER_DIR + '/parsed_metadata.tsv',
+        previous=[spec.split(':')[2] for spec in config['STATISTICS_PREVIOUS_VERSIONS']]
+                 + [spec.split(':')[3] for spec in config['STATISTICS_PREVIOUS_VERSIONS']],
+        blacklist=RUN_BLACKLIST,
+    output:
+        STATISTICS_DIR + '/versionSummaries.json'
+    params:
+        script=os.path.join(BACKEND_BIN, 'summarise_versions.py'),
+        # Newest first: this build, then the earlier releases.
+        specs=lambda wildcards, input: [
+            '{}:{}:{}:{}'.format(config['STATISTICS_VERSION_LABEL'], config['STATISTICS_GTDB_RELEASE'],
+                                 input.summary, input.parsed_metadata)
+        ] + list(config['STATISTICS_PREVIOUS_VERSIONS']),
+        frontend=os.path.join(STATISTICS_FRONTEND_DIR, 'versionSummaries.json'),
+    log:
+        STATISTICS_DIR + '/versionSummaries.log'
+    resources:
+        mem_mb=16000,
+        runtime='2h'
+    shell:
+        'export PYTHONNOUSERSITE=1 && '
+        'pixi run -e sandpiper python {params.script} {output} {input.blacklist} '
+        '{params.specs:q} > {log} 2>&1 && '
+        'cp {output} {params.frontend}'
+
+# Named targets so the figures can be built on their own (they are also in `all`).
+rule statistics_groups:
+    input: STATISTICS_DIR + '/groupSummaries.json'
+
+rule statistics_versions:
+    input: STATISTICS_DIR + '/versionSummaries.json'
+
+rule statistics:
+    input: rules.statistics_groups.input, rules.statistics_versions.input
