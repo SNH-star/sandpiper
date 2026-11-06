@@ -20,7 +20,7 @@
           <dl class="run-facts">
             <div class="run-fact">
               <dt>Organism</dt>
-              <dd>{{ metadata.metadata_parsed.organism }} &middot; {{ metadata.metadata_parsed.host_or_not_mature }}</dd>
+              <dd>{{ metadata.metadata_parsed.organism }}, {{ metadata.metadata_parsed.host_or_not_mature }}</dd>
             </div>
             <div class="run-fact">
               <dt>Sequencing</dt>
@@ -150,26 +150,39 @@
         </div>
       </section>
 
-      <section class="section">
+      <nav class="section run-jump-bar" aria-label="On this page">
+        <p class="run-jump-title">On this page</p>
+        <div class="container run-jump-links">
+          <a
+            v-for="item in JUMP_ITEMS"
+            :key="item.id"
+            :href="'#' + item.id"
+            :class="{ 'is-current': current_section === item.id, 'is-group-start': item.start }"
+            :aria-current="current_section === item.id ? 'location' : null"
+            @click.prevent="jumpTo(item.id)">{{ item.label }}</a>
+        </div>
+      </nav>
+
+      <section id="taxonomic-profile" class="section">
         <div class="container">
           <h3 class="title">Taxonomic profile</h3>
           <b-field class="taxonomy-selector">
-            <b-radio-button v-model="taxonomy_db" native-value="gtdb" @input="fetchCondensed" type="is-info">
+            <b-radio-button name="taxonomy-db" v-model="taxonomy_db" native-value="gtdb" @input="fetchCondensed" type="is-info">
               GTDB ({{ GTDB_VERSION }})
             </b-radio-button>
-            <b-radio-button v-model="taxonomy_db" native-value="globdb" @input="fetchCondensed" type="is-warning" :disabled="db_availability.globdb === false">
+            <b-radio-button name="taxonomy-db" v-model="taxonomy_db" native-value="globdb" @input="fetchCondensed" type="is-warning" :disabled="db_availability.globdb === false">
               GlobDB ({{ GLOBDB_VERSION }})<span v-if="db_availability.globdb === false"> - unavailable</span>
             </b-radio-button>
           </b-field>
           <div>
             <template v-if="condensed_tree != null">
-              <Sunburst3 :json_tree="sunburst_tree" :overall_coverage="10.3" :known_species_fraction="known_species_fraction" root_label="Bacteria and Archaea" scope_note="Shows bacteria and archaea only. Viruses and eukaryotes are not profiled." />
+              <Sunburst3 :json_tree="sunburst_tree" :overall_coverage="10.3" :known_species_fraction="known_species_fraction" root_label="Prokaryotes" scope_note="Shows bacteria and archaea only. Viruses and eukaryotes are not profiled." />
             </template>
           </div>
         </div>
       </section>
 
-      <section class="section">
+      <section id="prokaryotic-fraction" class="section">
         <div class="container">
           <h3 class="title">Prokaryotic fraction</h3>
           <div v-if="metadata.metadata_parsed.smf || metadata.metadata_parsed.smf==0">
@@ -190,7 +203,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section id="download" class="section">
         <div class="container is-large">
           <h3 class="title">Download</h3>
 
@@ -232,6 +245,24 @@
 <script>
 
 /* eslint-disable vue/no-unused-components */
+// The jump bar's sections, in page order; each id is on that section's element.
+// `start` opens a new group: the profile, the NCBI metadata, then data from elsewhere.
+const JUMP_ITEMS = [
+  { id: 'taxonomic-profile', label: 'Taxonomic profile' },
+  { id: 'prokaryotic-fraction', label: 'Prokaryotic fraction' },
+  { id: 'submitter-information', label: 'Submitter', start: true },
+  { id: 'sample-information', label: 'Sample information' },
+  { id: 'sequencing-information', label: 'Sequencing' },
+  { id: 'derived-information', label: 'Derived' },
+  { id: 'other-identifiers', label: 'Identifiers' },
+  { id: 'study-links', label: 'Study links' },
+  { id: 'indicpiper', label: 'IndicPiper', start: true },
+  { id: 'download', label: 'Download', start: true }
+]
+
+const JUMP_LINE_FRACTION = 0.33
+const PIN_RELEASE_EVENTS = ['wheel', 'touchmove', 'keydown']
+
 import Sunburst3 from '@/components/Sunburst3.vue'
 import RunMetadata from '@/components/RunMetadata.vue'
 import RunMetadataTable from '@/components/RunMetadataTable.vue'
@@ -249,6 +280,9 @@ export default {
   },
   data: function () {
     return {
+      JUMP_ITEMS,
+      current_section: null,
+      pinned_section: null,
       GTDB_VERSION,
       GLOBDB_VERSION,
       condensed_tree: null,
@@ -415,6 +449,48 @@ export default {
     this.fetchData()
   },
   methods: {
+    jumpTo: function (id) {
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      // A section near the page end can't scroll up to the top, so hold the click's
+      // choice as current until the reader scrolls by hand.
+      this.pinned_section = id
+      this.current_section = id
+      document.getElementById(id)?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
+    },
+    // The current section is the last one whose top has passed a line a third of
+    // the way down the window. At the very bottom of the page the last section
+    // takes over, unless a jump-bar click pinned another one.
+    updateCurrentSection: function () {
+      if (this.pinned_section) return
+      const line = window.innerHeight * JUMP_LINE_FRACTION
+      let current = null
+      JUMP_ITEMS.forEach(item => {
+        const el = document.getElementById(item.id)
+        if (el && el.getBoundingClientRect().top <= line) current = item.id
+      })
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+      if (atEnd) current = JUMP_ITEMS[JUMP_ITEMS.length - 1].id
+      if (current) this.current_section = current
+    },
+    releasePin: function () {
+      if (this.pinned_section) {
+        this.pinned_section = null
+        this.updateCurrentSection()
+      }
+    },
+    observeSections: function () {
+      this.unobserveSections()
+      window.addEventListener('scroll', this.updateCurrentSection, { passive: true })
+      window.addEventListener('resize', this.updateCurrentSection, { passive: true })
+      // Hand input (not the smooth scroll a click starts) releases the pin.
+      PIN_RELEASE_EVENTS.forEach(ev => window.addEventListener(ev, this.releasePin, { passive: true }))
+      this.updateCurrentSection()
+    },
+    unobserveSections: function () {
+      window.removeEventListener('scroll', this.updateCurrentSection)
+      window.removeEventListener('resize', this.updateCurrentSection)
+      PIN_RELEASE_EVENTS.forEach(ev => window.removeEventListener(ev, this.releasePin))
+    },
     // Same fixed-position, hover/focus-driven popover pattern as
     // Search.vue's advanced-search field tooltips (.info-tooltip-box /
     // showTooltip), scaled down for a single short sentence instead of a
@@ -518,12 +594,168 @@ export default {
   watch: {
     // call again the method if the route changes
     $route: 'fetchData',
-    taxonomy_db: 'fetchCondensed'
+    taxonomy_db: 'fetchCondensed',
+    // The sections only exist once the run's metadata has loaded.
+    metadata: function () {
+      this.$nextTick(this.observeSections)
+    }
+  },
+  beforeUnmount () {
+    this.unobserveSections()
   }
 }
 </script>
 
 <style scoped>
+/* Under the study header, "On this page" is a strip above the sections. On very
+   wide screens it moves into the empty space left of the centred content and stays
+   in view as the page scrolls, so the content itself never shifts. */
+.run-jump-bar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-rule);
+}
+.run-page .run-jump-bar.section {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.run-jump-title {
+  display: none;
+}
+.run-jump-links {
+  display: flex;
+  gap: var(--space-6);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.run-jump-links::-webkit-scrollbar {
+  display: none;
+}
+.run-jump-bar a {
+  position: relative;
+  flex: none;
+  padding: var(--space-3) 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+/* The current section is marked in the accent, drawn in from the start. */
+.run-jump-bar a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s var(--ease-spring);
+}
+/* A hairline in the gap before each new group of sections. */
+.run-jump-bar a.is-group-start::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-3));
+  top: 30%;
+  bottom: 30%;
+  width: 1px;
+  background: var(--color-rule);
+}
+.run-jump-bar a:hover,
+.run-jump-bar a.is-current {
+  color: var(--color-ink);
+}
+.run-jump-bar a.is-current::after {
+  transform: scaleX(1);
+}
+.run-jump-bar a:active {
+  color: var(--color-accent-strong);
+}
+.run-jump-bar a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (min-width: 1440px) {
+  /* Content is capped at 1152px (Bulma's widescreen width) so the list fits beside it
+     on laptop screens; wider screens just get wider gutters. */
+  .run-page :deep(.container:not(.run-jump-links)) {
+    max-width: 1152px;
+  }
+  .run-jump-bar {
+    /* Pinned to the window's left edge at a fixed width: as the window narrows, the
+       space between the list and the content shrinks, and the list never moves.
+       The 1440px breakpoint is where that space is still about 1.5rem. */
+    position: fixed;
+    top: 8rem;
+    z-index: 100;
+    left: 1rem;
+    width: 6.5rem;
+    background: none;
+    border: 0;
+  }
+  .run-page .run-jump-bar.section {
+    padding: 0;
+  }
+  .run-jump-bar .container {
+    max-width: none;
+    margin: 0;
+  }
+  .run-jump-title {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .run-jump-links {
+    flex-direction: column;
+    gap: 0;
+    overflow: visible;
+    white-space: normal;
+    border-left: 1px solid var(--color-rule);
+  }
+  .run-jump-bar a {
+    padding: var(--space-1) 0 var(--space-1) var(--space-3);
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  .run-jump-bar a.is-group-start {
+    margin-top: var(--space-3);
+  }
+  .run-jump-bar a.is-group-start::before {
+    display: none;
+  }
+  /* The accent runs down the list's own hairline, beside the current section. */
+  .run-jump-bar a::after {
+    left: -1px;
+    right: auto;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    height: auto;
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  .run-jump-bar a.is-current::after {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-jump-bar a,
+  .run-jump-bar a::after {
+    transition: none;
+  }
+}
+/* A little air above a jumped-to section. */
+.run-page .section[id],
+.run-page :deep(.metadata-section[id]) {
+  scroll-margin-top: var(--space-4);
+}
 .run-page,
 .run-page a,
 .run-study-title,
@@ -575,14 +807,14 @@ export default {
   align-items: center;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  background: hsl(271, 55%, 48%);
+  background: var(--color-accent);
   color: hsl(0, 0%, 100%);
   font-size: 0.85rem;
   white-space: nowrap;
   transition: background-color 0.15s;
 }
 .run-related-pill:hover {
-  background: hsl(271, 55%, 40%);
+  background: var(--color-accent-strong);
 }
 
 /* Specimen facts: label-over-value pairs, not run-on prose */
@@ -603,11 +835,9 @@ export default {
   min-width: 0;
 }
 .run-fact dt {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
+  color: var(--color-ink-muted);
   margin-bottom: 0.2rem;
 }
 .run-fact dd {
@@ -629,11 +859,9 @@ export default {
   gap: var(--space-2);
 }
 .run-qc-meter-label {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
+  color: var(--color-ink-muted);
   white-space: nowrap;
 }
 .run-qc-meter-track {
@@ -771,11 +999,9 @@ export default {
   border-top: 1px solid hsl(0, 0%, 90%);
 }
 .run-abstract-label {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
+  color: var(--color-ink-muted);
   margin-bottom: var(--space-2);
 }
 
