@@ -75,6 +75,8 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   { key: 'location', aliases: ['geo'], group: 'location', example: 'e.g. Pacific Ocean', liveField: 'location' },
   { key: 'latitude', aliases: ['lat'], group: 'location', example: 'e.g. -33.8 or -40-30' },
   { key: 'longitude', aliases: ['lon'], group: 'location', example: 'e.g. 151.2 or 140-160' },
+  // Squares picked on the map: semicolon-separated south-west corners, see utils/grid.ts.
+  { key: 'grid', aliases: ['graph'], group: 'location', example: 'e.g. 10/-60;15/-60' },
 
   // --- Sample ---
   { key: 'year', aliases: [], group: 'sample', example: 'e.g. 2010 or 2010-2015' },
