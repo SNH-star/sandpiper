@@ -24,3 +24,4 @@ snakemake/pixi.*
 snakemake_test/
 snakemake/db.e*
 snakemake/db.o*
+data/zenodo/

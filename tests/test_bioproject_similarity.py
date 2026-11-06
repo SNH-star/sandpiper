@@ -10,7 +10,8 @@ RUN = {'Organism': 'soil metagenome', 'Depth': 5, 'Instrument': 'NovaSeq', 'Coun
 
 def test_identical_runs_share_everything():
     result = compare_to_peers(RUN, [dict(RUN), dict(RUN)])
-    assert result == {'n_other_runs': 2, 'n_fields': 4, 'percent_shared': 100, 'unique_fields': []}
+    assert result == {'n_other_runs': 2, 'n_fields': 4, 'percent_shared': 100, 'unique_fields': [],
+                      'only_here_fields': []}
 
 
 def test_differing_field_is_unique():
@@ -47,3 +48,21 @@ def test_matches_most_common_peer_value_ignoring_case_and_type():
 
 def test_no_comparable_fields_returns_none():
     assert compare_to_peers({'Depth': None}, [{'Depth': 5}]) is None
+
+
+def test_field_no_peer_has_is_only_here():
+    result = compare_to_peers(RUN, [{'Organism': 'soil metagenome', 'Country': 'Chile'}])
+    assert result['only_here_fields'] == ['Depth', 'Instrument']
+    assert result['unique_fields'] == []
+
+
+def test_only_here_fields_are_left_out_of_the_shared_percentage():
+    result = compare_to_peers(RUN, [{'Organism': 'soil metagenome', 'Country': 'Peru'}])
+    assert result['n_fields'] == 2
+    assert result['percent_shared'] == 50
+
+
+def test_run_with_only_only_here_fields_still_reports_them():
+    result = compare_to_peers({'Depth': 5}, [{'Country': 'Peru'}])
+    assert result['only_here_fields'] == ['Depth']
+    assert result['percent_shared'] is None

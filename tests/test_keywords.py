@@ -82,3 +82,65 @@ def test_metagenome_condition_runs_on_duckdb():
         assert ids('sponge, peru') == []
         assert ids('50%') == [2] and ids('%') == [2]
         assert ids('moisture_x') == [2] and ids('moisture-x') == []
+
+
+def _sql(condition):
+    return str(condition.compile(compile_kwargs={'literal_binds': True})).lower()
+
+
+def test_full_accession_has_an_exact_and_a_prefix_condition():
+    from api.api import _accession_conditions
+    exact, prefix, desc = _accession_conditions('ERR1950668')
+    assert 'ncbi_metadata.acc = ' in _sql(exact) and "'err1950668'" in _sql(exact)
+    assert 'like' in _sql(prefix) and "'err1950668%'" in _sql(prefix)
+    assert desc == 'run accession starting ERR1950668'
+
+
+def test_partial_accession_and_bare_prefix_are_accepted():
+    from api.api import _accession_conditions
+    assert _accession_conditions('ERR12564') is not None
+    assert _accession_conditions('err') is not None
+    assert _accession_conditions(' srr123 ') is not None
+
+
+def test_run_biosample_and_bioproject_accessions_use_their_columns():
+    from api.api import _accession_conditions
+    for token, column in (('SRR1', 'acc'), ('SAMN123', 'biosample'), ('SAMEA123', 'biosample'),
+                          ('PRJNA123', 'bioproject'), ('PRJEB', 'bioproject')):
+        exact, _, _ = _accession_conditions(token)
+        assert f'ncbi_metadata.{column} =' in _sql(exact), token
+
+
+def test_experiment_sample_and_study_accessions_search_the_raw_biosample_attributes():
+    """Those NCBI columns are empty in the database; the values live in the
+    biosample attributes under these keys."""
+    from api.api import _accession_conditions
+    for token, key in (('SRX123', 'experiment_accession'), ('ERX2016395', 'experiment_accession'),
+                       ('ERS1696253', 'sample_accession'), ('DRS1', 'sample_accession'),
+                       ('SRP123', 'study_accession'), ('ERP022611', 'study_accession')):
+        exact, prefix, _ = _accession_conditions(token)
+        for condition in (exact, prefix):
+            sql = _sql(condition)
+            assert 'biosample_attributes' in sql and f"k = '{key}'" in sql, token
+
+
+def test_keyed_identifier_searches_use_the_raw_attributes_too():
+    from api.api import _parse_search_condition
+    for key, attribute in (('sample_acc', 'sample_accession'), ('experiment', 'experiment_accession'),
+                           ('sra_study', 'study_accession')):
+        sql = _sql(_parse_search_condition(key, 'xyz')[0])
+        assert f"k = '{attribute}'" in sql and 'biosample_attributes' in sql, key
+
+
+def test_ordinary_words_are_not_accessions():
+    from api.api import _accession_conditions
+    for token in ('coral', 'soil sample', 'ERR12x', 'Pacific Ocean', 'SAM', 'PRJ', 'errors'):
+        assert _accession_conditions(token) is None, token
+
+
+def test_sample_name_is_searched_by_free_text_and_keywords():
+    from api.api import parse_universal_query
+    sql = _sql(parse_universal_query('Sample3_Uganda').conditions[0])
+    assert 'sample_name' in sql
+    from api.api import _parse_search_condition
+    assert 'sample_name' in _sql(_parse_search_condition('keywords', 'uganda')[0])

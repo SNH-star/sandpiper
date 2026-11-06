@@ -3,12 +3,16 @@
 version comparison. Writes a small JSON of histograms so the page never loads
 the summaries themselves.
 
-Usage: summarise_versions.py OUTPUT.json BLACKLIST.csv LABEL:GTDB:SUMMARY:METADATA [...]
-List the newest version first. SUMMARY may be gzipped. A summary lists every run
+Usage: summarise_versions.py OUTPUT.json BLACKLIST.csv [--reuse PREVIOUS.json] LABEL:GTDB:SUMMARY:METADATA [...]
+List the newest version first. With --reuse, an earlier version already in
+PREVIOUS.json (same label and GTDB release) is copied across instead of being
+read again, provided PREVIOUS.json was made with this same blacklist; the
+newest version (the first one listed) is always recomputed. SUMMARY may be gzipped. A summary lists every run
 that was scanned, so only runs that are not on the blacklist and are in
 METADATA (a parsed_metadata.tsv[.gz] with a `run` column) are kept: the website
 database loads no others.
 """
+import hashlib
 import json
 import sys
 from typing import Optional
@@ -114,21 +118,72 @@ def summarise(frame: pd.DataFrame, summary_rows: Optional[int] = None) -> dict:
     }
 
 
+def file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, 'rb') as handle:
+        for block in iter(lambda: handle.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def reusable_versions(previous: dict, blacklist_sha: str, skip_label: str) -> dict:
+    """Earlier summaries safe to copy: {(label, gtdb): summary}. Empty unless
+    `previous` was made with the same blacklist (kept runs depend on it), and
+    never includes `skip_label`, the build being made now."""
+    if previous.get('blacklist_sha256') != blacklist_sha:
+        return {}
+    return {(version['label'], version['gtdb']): version
+            for version in previous.get('versions', []) if version['label'] != skip_label}
+
+
+def split_reuse_option(args: list) -> tuple:
+    """(path or None, remaining args) for an optional `--reuse PATH`."""
+    if '--reuse' not in args:
+        return None, args
+    at = args.index('--reuse')
+    if at + 1 >= len(args):
+        sys.exit('--reuse needs a path')
+    return args[at + 1], args[:at] + args[at + 2:]
+
+
+def load_previous(path: Optional[str]) -> dict:
+    if not path:
+        return {}
+    try:
+        with open(path) as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return {}
+
+
+def summarise_version(spec: str, blacklist: set) -> dict:
+    label, gtdb, summary_path, metadata_path = spec.split(':', 3)
+    frame = pd.read_csv(summary_path, low_memory=False)
+    metadata_runs = set(pd.read_csv(metadata_path, sep='\t', usecols=['run'], dtype=str)['run'])
+    kept = keep_website_runs(frame, blacklist, metadata_runs)
+    print(label, len(frame), '->', len(kept), 'runs', file=sys.stderr)
+    return {'label': label, 'gtdb': gtdb, **summarise(kept, len(frame))}
+
+
 def main(argv: list) -> None:
+    reuse_path, argv = split_reuse_option(list(argv))
     if len(argv) < 4:
         sys.exit(__doc__)
     with open(argv[2]) as handle:
         blacklist = {line.strip() for line in handle if line.strip()}
+    blacklist_sha = file_sha256(argv[2])
+    specs = argv[3:]
+    reused = reusable_versions(load_previous(reuse_path), blacklist_sha, skip_label=specs[0].split(':', 1)[0])
     versions = []
-    for spec in argv[3:]:
-        label, gtdb, summary_path, metadata_path = spec.split(':', 3)
-        frame = pd.read_csv(summary_path, low_memory=False)
-        metadata_runs = set(pd.read_csv(metadata_path, sep='\t', usecols=['run'], dtype=str)['run'])
-        kept = keep_website_runs(frame, blacklist, metadata_runs)
-        versions.append({'label': label, 'gtdb': gtdb, **summarise(kept, len(frame))})
-        print(label, len(frame), '->', len(kept), 'runs', file=sys.stderr)
+    for spec in specs:
+        label, gtdb = spec.split(':', 2)[:2]
+        if (label, gtdb) in reused:
+            print(label, 'reused from', reuse_path, file=sys.stderr)
+            versions.append(reused[(label, gtdb)])
+        else:
+            versions.append(summarise_version(spec, blacklist))
     with open(argv[1], 'w') as out:
-        json.dump({'versions': versions}, out, separators=(',', ':'))
+        json.dump({'blacklist_sha256': blacklist_sha, 'versions': versions}, out, separators=(',', ':'))
 
 
 if __name__ == '__main__':

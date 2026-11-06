@@ -60,3 +60,54 @@ def test_biosample_attribute_does_not_overwrite_a_column():
 def test_release_date_is_compared_like_the_page_shows_it():
     from datetime import datetime
     assert comparable_values(_meta(published=datetime(2021, 7, 1)))['releasedate'] == '1 July 2021'
+
+
+def test_metalog_fields_are_compared_under_a_prefixed_key():
+    from api.metagenome_similarity import metalog_comparable_values
+    attributes = SimpleNamespace(metalog_rows=lambda: [{'k': 'Host', 'v': 'Sus scrofa'}, {'k': 'Diet', 'v': 'milk'}])
+    assert metalog_comparable_values(attributes) == {'metalog:Host': 'Sus scrofa', 'metalog:Diet': 'milk'}
+
+
+def test_run_without_metalog_data_has_no_metalog_values():
+    from api.metagenome_similarity import metalog_comparable_values
+    assert metalog_comparable_values(None) == {}
+
+
+def test_identifiers_and_run_stamps_are_expected_to_differ():
+    from api.metagenome_similarity import is_expected_to_differ
+    for key in ('sample_name', 'biosample', 'bases', 'releasedate', 'experiment_title',
+                'sample_accession', 'external_id', 'gold_id', 'ENA-FIRST-PUBLIC', 'ENA-LAST-UPDATE', 'INSDC-FIRST-PUBLIC', 'metalog:Couple id', 'metalog:Study code'):
+        assert is_expected_to_differ(key), key
+
+
+def test_informative_fields_are_not_expected_to_differ():
+    from api.metagenome_similarity import is_expected_to_differ
+    for key in ('depth', 'host', 'platform', 'model', 'geo_loc_name', 'collection_date_parsed',
+                'metalog:Host', 'metalog:Diet', 'metalog:Age years'):
+        assert not is_expected_to_differ(key), key
+
+
+def test_attribute_identical_to_a_shown_column_row_is_already_shown():
+    from api.metagenome_similarity import is_already_shown
+    sections = [[{'raw_k': 'sample_name', 'v': 'Sample3_Uganda'}], [{'k': 'bases', 'v': 5}]]
+    assert is_already_shown(sections, 'sample name', 'Sample3_Uganda')
+    assert is_already_shown(sections, 'Sample-Name', ' Sample3_Uganda ')
+
+
+def test_same_key_with_a_different_value_is_kept():
+    from api.metagenome_similarity import is_already_shown
+    sections = [[{'raw_k': 'sample_name', 'v': 'Sample3_Uganda'}]]
+    assert not is_already_shown(sections, 'sample name', 'sample3_uganda')
+    assert not is_already_shown(sections, 'sample alias', 'Sample3_Uganda')
+
+
+def test_map_category_follows_sandpipers_host_or_ecological_call():
+    from api.api import map_category
+    assert map_category('host') == 'host_associated'
+    assert map_category('ecological') == 'ecological'
+
+
+def test_map_category_is_unclassified_without_a_sandpiper_call():
+    from api.api import map_category
+    assert map_category(None) == 'unclassified'
+    assert map_category('something else') == 'unclassified'

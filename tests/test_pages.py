@@ -188,6 +188,19 @@ def test_taxonomy_search_csv_minimal_columns():
         assert column in header
 
 
+def test_taxonomy_search_csv_minimal_excludes_low_complexity_on_request():
+    session = requests.Session()
+    taxon = "d__Bacteria"
+    base = f"{BACKEND_URL}/api/taxonomy_search_csv_minimal/{taxon}?taxonomy_type=gtdb"
+    excluded = session.get(base + "&exclude_low_complexity=true")
+    assert excluded.status_code == 200
+    lines = excluded.text.splitlines()
+    column = lines[0].split(",").index("low_complexity")
+    assert all(line.split(",")[column] != "yes" for line in lines[1:])
+    included = session.get(base)
+    assert len(included.text.splitlines()) >= len(lines)
+
+
 def test_taxonomy_search_csv_streams_download():
     session = requests.Session()
     taxon = "d__Bacteria"
