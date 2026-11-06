@@ -53,6 +53,71 @@ $colors: map-merge($colors, $addColors);
   --z-tooltip: 9999;
 
   --ease-spring: #{$easing};
+  // The body and heading faces as tokens, for text set outside a heading element.
+  --font-sans: #{$family-sans-serif};
+  --font-display: #{$family-display};
+
+  // Colour tokens for the teal brand and its neutrals.
+  --color-accent: hsl(174, 62%, 28%);
+  --color-accent-strong: hsl(174, 62%, 24%);
+  --color-accent-rule: hsl(174, 30%, 86%);
+  --color-ink: hsl(0, 0%, 22%);
+  --color-ink-muted: hsl(0, 0%, 40%);
+  --color-rule: hsl(0, 0%, 88%);
+  --color-surface: hsl(0, 0%, 100%);
+  --color-surface-tint: hsl(174, 25%, 97%);
+  --color-track: hsl(0, 0%, 93%);
+
+  // Map and Statistics colours for Sandpiper's host/ecological call.
+  --color-sample-host: #9a6fb5;
+  --color-sample-ecological: #84a86f;
+  --color-sample-unclassified: #b0b0b0;
+
+  // Statistics version comparison: one colour per version, newest first.
+  --color-version-1: hsl(174, 62%, 28%);
+  --color-version-2: hsl(28, 80%, 48%);
+  --color-version-3: hsl(215, 55%, 46%);
+  --color-version-4: hsl(340, 50%, 48%);
+
+  // Statistics group figures: pastel colours for the named groups of runs.
+  --color-pastel-green: hsl(140, 42%, 60%);
+  --color-pastel-blue: hsl(210, 65%, 68%);
+  --color-pastel-red: hsl(0, 70%, 72%);
+  --color-pastel-orange: hsl(30, 90%, 68%);
+  --color-pastel-purple: hsl(270, 50%, 74%);
+
+  // Statistics phylum composition: the phyla the figures name, then spares for the rest.
+  --color-phylum-bacteroidota: hsl(220, 55%, 40%);
+  --color-phylum-bacillota-a: hsl(120, 40%, 68%);
+  --color-phylum-bacillota: hsl(350, 70%, 80%);
+  --color-phylum-pseudomonadota: hsl(200, 75%, 72%);
+  --color-phylum-cyanobacteriota: hsl(270, 45%, 62%);
+  --color-phylum-acidobacteriota: hsl(28, 85%, 62%);
+  --color-phylum-chloroflexota: hsl(175, 45%, 42%);
+  --color-phylum-verrucomicrobiota: hsl(70, 40%, 50%);
+  --color-phylum-actinomycetota: hsl(145, 45%, 40%);
+  --color-phylum-patescibacteriota: hsl(40, 70%, 62%);
+  --color-phylum-extra-1: hsl(300, 30%, 60%);
+  --color-phylum-extra-2: hsl(190, 40%, 55%);
+  --color-phylum-extra-3: hsl(15, 50%, 55%);
+  --color-phylum-extra-4: hsl(95, 30%, 55%);
+  --color-phylum-other: hsl(0, 0%, 84%);
+
+  // Statistics map colours.
+  --color-map-host: hsl(0, 68%, 48%);
+  --color-map-ecological: hsl(215, 70%, 46%);
+  // Near-black and amber for the map's circles: the strongest pair against the pale map.
+  --color-map-bubble-host: hsl(225, 18%, 13%);
+  --color-map-bubble-ecological: hsl(44, 100%, 50%);
+  --color-map-sea: hsl(205, 40%, 93%);
+  --color-map-land: hsl(40, 25%, 88%);
+  --color-map-border: hsl(30, 12%, 52%);
+  --color-map-coast: hsl(30, 12%, 38%);
+
+  // How a Sample information field compares with the rest of its BioProject.
+  --color-diff-only-here: hsl(45, 95%, 48%);
+  --color-diff-differs: hsl(141, 55%, 38%);
+  --color-diff-expected: hsl(0, 0%, 62%);
 }
 
 // Safety net against horizontal scroll: individual pages/components manage
@@ -60,7 +125,7 @@ $colors: map-merge($colors, $addColors);
 // viewport itself, so one overlooked fixed-width element anywhere could
 // blow out the whole page horizontally on narrow screens.
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {

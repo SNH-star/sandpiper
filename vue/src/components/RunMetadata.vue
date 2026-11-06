@@ -1,15 +1,13 @@
 <template>
   <div>
-    &nbsp;
-    <div class="container">
+    <div id="submitter-information" class="container metadata-section">
       <section>
         <h3 class="title">Submitter information</h3>
         <RunMetadataTable :table_data="this.mdata.contact_metadata" />
       </section>
     </div>
 
-    &nbsp;
-    <div class="container">
+    <div id="sample-information" class="container metadata-section">
       <section>
         <h3 class="title section-heading">
           <span>
@@ -22,7 +20,7 @@
         <div v-if="show_sample_help" id="sample-help" class="content metalog-help">
           <p>
             Details about the sample this run was sequenced from, such as where and when it was collected, the host or
-            environment, and anything else the submitter recorded. Rows coloured blue come from Metalog.
+            environment, and anything else the submitter recorded. Rows coloured green come from Metalog.
           </p>
           <p>
             <b><a href="https://metalog.embl.de/downloads" target="_blank" rel="noopener" class="source-link src-metalog">Metalog</a></b>: curated extra details from Metalog, added only when this sample is found there.
@@ -39,31 +37,21 @@
         </div>
         <RunMetadataTable :table_data="filtered_sample_rows" :empty_text="sample_filters_active ? 'No fields match these filters.' : null">
           <template #after-key>
-            <div v-if="unique_sample_fields.length" class="unique-fields">
-              <p class="unique-fields-title">
-                Unique fields in this sample information
-                <button type="button" class="metalog-info" :aria-expanded="show_unique_help" aria-controls="unique-help" aria-label="About unique fields" @click="show_unique_help = !show_unique_help">
-                  <b-icon icon="information-outline" size="is-small" />
-                </button>
-              </p>
-              <p v-if="show_unique_help" id="unique-help" class="unique-fields-help">
-                Fields recorded for this sample that no other sample in its BioProject has. A longer list means this sample carries extra context beyond what its neighbours report. These rows are also marked with a teal edge in the table below.
-              </p>
-              <ul>
-                <li v-for="k in unique_sample_fields" :key="k">{{ k }}</li>
-              </ul>
-            </div>
             <fieldset class="sample-filters">
               <legend class="sample-filters-title">Filter fields</legend>
-              <label v-for="f in SAMPLE_FILTERS" :key="f.key" class="sample-filter">
-                <input type="checkbox" v-model="sample_filters" :value="f.key" />
-                <span>{{ f.label }}</span>
+              <label v-for="f in SAMPLE_FILTERS" :key="f.key" v-show="!f.difference || difference_counts[f.key] > 0" class="sample-filter">
+                <input type="checkbox" name="sample-filters" :id="'sample-filter-' + f.key" v-model="sample_filters" :value="f.key" />
+                <span v-if="f.difference" :class="['diff-swatch', 'diff-' + f.key]" aria-hidden="true"></span>
+                <span>{{ f.label }}<template v-if="f.difference"> ({{ difference_counts[f.key] }})</template></span>
               </label>
               <button v-if="sample_filters_active" type="button" class="sample-filters-clear" @click="sample_filters = []">Clear filters</button>
             </fieldset>
+            <p v-if="difference_counts.only_here > 0" class="section-note">
+              Yellow rows are fields no other sample in this BioProject has. That can reflect a data retrieval gap rather than a real difference.
+            </p>
           </template>
         </RunMetadataTable>
-        <div v-if="metalog_metadata().length > 0" class="section-note">
+        <div v-if="metalog_metadata().length > 0" id="metalog" class="section-note">
           Metalog rows
           <button type="button" class="metalog-info" :aria-expanded="show_metalog_help" aria-controls="metalog-help-merged" aria-label="About Metalog metadata" @click="show_metalog_help = !show_metalog_help">
             <b-icon icon="information-outline" size="is-small" />
@@ -87,32 +75,28 @@
       </section>
     </div>
 
-    &nbsp;
-    <div class="container">
+    <div id="sequencing-information" class="container metadata-section">
       <section>
         <h3 class="title">Sequencing information</h3>
         <RunMetadataTable :table_data="this.mdata.sequencing_metadata" />
       </section>
     </div>
 
-    &nbsp;
-    <div class="container">
+    <div id="derived-information" class="container metadata-section">
       <section>
         <h3 class="title">Derived information</h3>
         <RunMetadataTable :table_data="classification_metadata()" />
       </section>
     </div>
 
-    &nbsp;
-    <div class="container">
+    <div id="other-identifiers" class="container metadata-section">
       <section>
         <h3 class="title">Other identifiers</h3>
         <RunMetadataTable :table_data="this.mdata.identity_metadata" />
       </section>
     </div>
 
-    &nbsp;
-    <div class="container">
+    <div id="study-links" class="container metadata-section">
       <section>
         <h3 class="title">Study links</h3>
         <div v-if="Object.keys(gatherMetadata ('study_links')).length===0">
@@ -126,8 +110,7 @@
 
     <!-- Runs with Metalog data show it inside Sample information instead. -->
     <template v-if="metalog_metadata().length === 0">
-    &nbsp;
-    <div class="container">
+    <div id="metalog" class="container metadata-section">
       <section class="metadata-block">
         <h3 class="title section-heading">
           <span>
@@ -167,12 +150,12 @@
     </div>
     </template>
 
-    &nbsp;
-    <div class="container">
+    <div id="indicpiper" class="container metadata-section">
       <section class="metadata-block">
         <h3 class="title section-heading">
           <span>
             IndicPiper habitat indicators
+            <span v-if="indicpiper_version" class="indicpiper-version">(indicator database v{{ indicpiper_version }})</span>
             <button type="button" class="metalog-info" :aria-expanded="show_indicpiper_help" aria-controls="indicpiper-help" aria-label="About IndicPiper habitat indicators" @click="show_indicpiper_help = !show_indicpiper_help">
               <b-icon icon="information-outline" size="is-small" />
             </button>
@@ -194,6 +177,14 @@
           </p>
           <p>
             Values shown as <b>&lt;0.01%</b> represent nonzero abundances below the displayed precision.
+          </p>
+        </div>
+        <div v-if="indicpiper_uncovered_organism" class="notification is-warning" role="status">
+          <strong>Environment not covered by IndicPiper</strong>
+          <p>
+            This run is labelled “{{ indicpiper_uncovered_organism }}”, which was not part of the list of
+            environments used in the IndVal analysis. IndicPiper’s reference database is limited to
+            13 habitats, so the habitat percentages below should be interpreted with caution.
           </p>
         </div>
         <div v-if="indicpiper_mismatch" class="notification is-warning" role="status">
@@ -230,7 +221,7 @@ import { LMap, LTileLayer, LMarker } from '@vue-leaflet/vue-leaflet'
 import { Icon, latLng } from 'leaflet'
 import RunMetadataTable from '@/components/RunMetadataTable.vue'
 import IndicPiperHabitatChart from '@/components/IndicPiperHabitatChart.vue'
-import { indicpiperMismatch, formatIndicPiperPercent } from '@/utils/indicpiper'
+import { indicpiperMismatch, indicpiperUncoveredOrganism, formatIndicPiperPercent } from '@/utils/indicpiper'
 // Same Metalog release the About page quotes: the API value when the database
 // carries one, else the recorded fallback -- so the two pages cannot disagree.
 import { METALOG_LAST_UPDATE, metalogLongDate } from '@/constants/metalog'
@@ -252,14 +243,17 @@ Icon.Default.mergeOptions({
 const default_zoom = 0.5
 
 // Tick boxes above the Sample information table. The origin boxes are
-// alternatives (a row is shown when it matches any ticked one); 'unique'
-// narrows whatever they show. Metalog rows carry no is_custom/unique flags,
-// so the NCBI-defined test excludes them explicitly.
+// alternatives (a row is shown when it matches any ticked one), and so are the
+// difference boxes; a row must satisfy one ticked box from each group. Metalog
+// rows carry no is_custom flag, so the NCBI-defined test excludes them
+// explicitly.
 const SAMPLE_FILTERS = [
   { key: 'metalog', label: 'Metalog', test: r => r.source === 'metalog' },
   { key: 'defined', label: 'NCBI-defined attributes', test: r => r.source !== 'metalog' && !r.is_custom },
   { key: 'custom', label: 'Custom attributes', test: r => !!r.is_custom },
-  { key: 'unique', label: 'Unique to this sample', test: r => !!r.unique, narrows: true }
+  { key: 'only_here', label: 'Only in this sample (field absent from other samples)', test: r => r.difference === 'only_here', difference: true },
+  { key: 'differs', label: 'Differs from other samples', test: r => r.difference === 'differs', difference: true },
+  { key: 'expected', label: 'Differs as expected (IDs, sizes, dates)', test: r => r.difference === 'expected', difference: true }
 ]
 
 export default {
@@ -293,7 +287,6 @@ export default {
       bounds: null,
       show_sample_help: false,
       show_metalog_help: false,
-      show_unique_help: false,
       SAMPLE_FILTERS,
       sample_filters: [],
       show_indicpiper_help: false
@@ -314,14 +307,25 @@ export default {
     filtered_sample_rows () {
       if (!this.sample_filters_active) return this.sample_rows
       const ticked = SAMPLE_FILTERS.filter(f => this.sample_filters.includes(f.key))
-      const origins = ticked.filter(f => !f.narrows)
-      const narrows = ticked.filter(f => f.narrows)
+      const origins = ticked.filter(f => !f.difference)
+      const differences = ticked.filter(f => f.difference)
       return this.sample_rows.filter(r =>
-        (origins.length === 0 || origins.some(f => f.test(r))) && narrows.every(f => f.test(r)))
+        (origins.length === 0 || origins.some(f => f.test(r))) &&
+        (differences.length === 0 || differences.some(f => f.test(r))))
     },
-    // Sample information fields no other sample in the BioProject has.
-    unique_sample_fields () {
-      return this.sample_rows.filter(r => r.unique).map(r => r.k)
+    // How many Sample information rows fall in each difference group.
+    difference_counts () {
+      const counts = {}
+      SAMPLE_FILTERS.filter(f => f.difference).forEach(f => {
+        counts[f.key] = this.sample_rows.filter(f.test).length
+      })
+      return counts
+    },
+    indicpiper_uncovered_organism() {
+      return indicpiperUncoveredOrganism(this.mdata_parsed?.organism)
+    },
+    indicpiper_version() {
+      return this.mdata.indicpiper_version || null
     },
     indicpiper_mismatch() {
       return indicpiperMismatch(this.mdata_parsed?.organism, this.indicpiper_scores())
@@ -501,46 +505,21 @@ export default {
    go darker. */
 .source-link { background-color: transparent; text-decoration: none; }
 .source-link:hover, .source-link:active { text-decoration: underline; }
-.source-link.src-metalog:link { color: #8fb8de; }
-.source-link.src-metalog:visited { color: #8fb8de; }
-.source-link.src-metalog:hover { color: #0f3f73; }
-.source-link.src-metalog:active { color: #0a2a4d; }
+.source-link.src-metalog:link { color: #2e7d32; }
+.source-link.src-metalog:visited { color: #2e7d32; }
+.source-link.src-metalog:hover { color: #1b5e20; }
+.source-link.src-metalog:active { color: #124116; }
 
-/* Same vocabulary as the Run page's Identifiers block: small uppercase label,
+/* Same vocabulary as the Run page's Identifiers block: quiet label,
    quiet outlined 6px chips, teal as the only accent. */
-.unique-fields {
-  margin-bottom: var(--space-3);
+.diff-swatch {
+  display: inline-block;
+  width: 3px;
+  height: 1.1em;
 }
-.unique-fields-title {
-  margin-bottom: var(--space-2);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
-}
-.unique-fields-help {
-  margin-bottom: var(--space-2);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: hsl(0, 0%, 35%);
-}
-.unique-fields ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.unique-fields li {
-  margin: 0;
-  padding: 0.3rem 0.7rem;
-  border: 3px solid hsl(174, 55%, 30%);
-  border-radius: 6px;
-  color: hsl(0, 0%, 25%);
-  font-size: 0.85rem;
-}
+.diff-only_here { background: var(--color-diff-only-here); }
+.diff-differs { background: var(--color-diff-differs); }
+.diff-expected { background: var(--color-diff-expected); }
 
 .sample-filters {
   display: flex;
@@ -548,20 +527,17 @@ export default {
   align-items: center;
   gap: var(--space-2) var(--space-4);
   margin: 0 0 var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid hsl(0, 0%, 87%);
-  border-radius: 6px;
+  padding: 0;
+  border: 0;
 }
 .sample-filters-title {
   float: left;
   width: auto;
   padding: 0;
   margin-right: var(--space-2);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: hsl(0, 0%, 50%);
+  color: var(--color-ink-muted);
 }
 .sample-filter {
   display: inline-flex;
@@ -572,7 +548,7 @@ export default {
   cursor: pointer;
 }
 .sample-filter input {
-  accent-color: hsl(174, 55%, 30%);
+  accent-color: var(--color-accent);
 }
 .sample-filters-clear {
   appearance: none;
@@ -581,7 +557,7 @@ export default {
   background: transparent;
   font: inherit;
   font-size: 0.85rem;
-  color: hsl(174, 55%, 30%);
+  color: var(--color-accent);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -633,6 +609,10 @@ export default {
   margin: 0.15rem 0 0.75rem;
   font-size: 0.85rem;
   color: hsl(0, 0%, 40%);
+}
+/* Replaces the blank lines that used to separate the sections. */
+.metadata-section {
+  margin-top: var(--space-8);
 }
 @media (max-width: 768px) {
   /* Metalog and IndicPiper follow each other with only blank space between,

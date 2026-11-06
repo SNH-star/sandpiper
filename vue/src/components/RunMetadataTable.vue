@@ -15,7 +15,13 @@
       </b-table-column>
 
       <b-table-column field="k" label="" v-slot="props" width="300">
-        <div :class="['metadata-key-cell', { 'is-unique': props.row.unique }]" :title="props.row.unique ? UNIQUE_LABEL : null">
+        <div
+          :class="['metadata-key-cell', props.row.difference ? 'is-' + props.row.difference : '']"
+          @mouseenter="showDifferenceTip(props.row.difference, $event)"
+          @mouseleave="hideDifferenceTipDelayed"
+          @focusin="showDifferenceTip(props.row.difference, $event)"
+          @focusout="hideDifferenceTipDelayed"
+          @keydown.esc="hideDifferenceTip">
           <button type="button" class="metadata-key-toggle" @click="props.toggleDetails(props.row)">
             <b>{{ props.row.k }}</b>
           </button>
@@ -52,12 +58,37 @@
         </div>
       </template>
     </b-table>
+    <div
+      v-if="difference_tip"
+      class="difference-tooltip"
+      role="tooltip"
+      :style="{ left: difference_tip_x + 'px', top: difference_tip_y + 'px' }"
+      @mouseenter="keepDifferenceTipOpen"
+      @mouseleave="hideDifferenceTipDelayed"
+    >
+      <p class="difference-tooltip-title">{{ DIFFERENCE_TIPS[difference_tip].title }}</p>
+      {{ DIFFERENCE_TIPS[difference_tip].body }}
+    </div>
   </div>
 </template>
 
 <script>
 import { verifyRecaptcha } from '@/api'
-const UNIQUE_LABEL = 'Unique to this sample compared against the BioProject'
+const DIFFERENCE_TIPS = {
+  only_here: {
+    title: 'Only in this sample',
+    body: 'No other sample in this BioProject has this field at all, not just a different value. This can point to a data retrieval gap rather than a real difference.'
+  },
+  differs: {
+    title: 'Differs from other samples',
+    body: 'Other samples in this BioProject have this field, with a different value.'
+  },
+  expected: {
+    title: 'Different, as expected',
+    body: 'This kind of field (identifiers, sizes, bases, etc.) is expected to differ between samples. This type of value is of no value when comparing samples.'
+  }
+}
+const TOOLTIP_WIDTH = 280
 const SOURCE_LABELS = { metalog: 'Metalog' }
 
 export default {
@@ -75,13 +106,39 @@ export default {
   },
   data() {
     return {
-      UNIQUE_LABEL,
+      DIFFERENCE_TIPS,
+      difference_tip: null,
+      difference_tip_x: 0,
+      difference_tip_y: 0,
+      difference_tip_timer: null,
       recaptchaSiteKey: '6LdZXhorAAAAAMxLgnqZRC7KQrTE-l1Sa4KLunJQ', // your reCAPTCHA site key
       verifiedEmails: [],                     // tracks verified email keys
       activeRecaptcha: null,                  // tracks the currently displayed reCAPTCHA
     };
   },
   methods: {
+    // Same behaviour as the Run page's flag tooltips: opens on hover or focus
+    // under the element, stays open while the pointer is over it, closes after
+    // a short delay.
+    showDifferenceTip (difference, event) {
+      if (!difference) return
+      clearTimeout(this.difference_tip_timer)
+      const rect = event.currentTarget.getBoundingClientRect()
+      this.difference_tip_x = Math.max(10, Math.min(rect.left, window.innerWidth - TOOLTIP_WIDTH - 10))
+      this.difference_tip_y = rect.bottom + 8
+      this.difference_tip = difference
+    },
+    hideDifferenceTipDelayed () {
+      clearTimeout(this.difference_tip_timer)
+      this.difference_tip_timer = setTimeout(() => { this.difference_tip = null }, 200)
+    },
+    keepDifferenceTipOpen () {
+      clearTimeout(this.difference_tip_timer)
+    },
+    hideDifferenceTip () {
+      clearTimeout(this.difference_tip_timer)
+      this.difference_tip = null
+    },
     verifyCallback(k, token) {
       // Immediately send token to backend
       verifyRecaptcha(token)
@@ -125,7 +182,7 @@ export default {
   border-radius: 999px;
   font-size: 0.8rem;
 }
-.source-chip.src-metalog, .run-metadata-table :deep(tr.src-metalog > td) { background: #dbe9f6; }
+.source-chip.src-metalog, .run-metadata-table :deep(tr.src-metalog > td) { background: #dcefdc; }
 .empty-note {
   padding: 0.75rem 1rem;
   color: #888;
@@ -137,10 +194,15 @@ export default {
   align-items: center;
   gap: 0.25rem;
 }
-.metadata-key-cell.is-unique {
-  border-left: 3px solid hsl(174, 62%, 28%);
+.metadata-key-cell.is-only_here,
+.metadata-key-cell.is-differs,
+.metadata-key-cell.is-expected {
+  border-left: 3px solid;
   padding-left: 0.3rem;
 }
+.metadata-key-cell.is-only_here { border-left-color: var(--color-diff-only-here); }
+.metadata-key-cell.is-differs { border-left-color: var(--color-diff-differs); }
+.metadata-key-cell.is-expected { border-left-color: var(--color-diff-expected); }
 .email-hidden {
   appearance: none;
   border: 0;
@@ -220,5 +282,22 @@ export default {
   .run-metadata-table :deep(tr.detail > td) {
     width: auto;
   }
+}
+.difference-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  background: rgba(25, 25, 35, 0.97);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  width: 280px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+.difference-tooltip-title {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
 }
 </style>
