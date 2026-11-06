@@ -25,6 +25,10 @@ export function fetchSandpiperStats () {
   return axios.get(`${API_URL}/sandpiper_stats`)
 }
 
+export function fetchSandpiperStatistics () {
+  return axios.get(`${API_URL}/sandpiper_statistics`)
+}
+
 export function fetchRunMetadata (runId: string) {
   return axios.get(`${API_URL}/metadata/${runId}`)
 }
