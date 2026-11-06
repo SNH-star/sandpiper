@@ -785,6 +785,10 @@ rule summarise_version_figures:
                                  input.summary, input.parsed_metadata)
         ] + list(config['STATISTICS_PREVIOUS_VERSIONS']),
         frontend=os.path.join(STATISTICS_FRONTEND_DIR, 'versionSummaries.json'),
+        # Earlier versions already summarised in the page's current file are
+        # copied across, so only the new build is read (STATISTICS_REUSE_PREVIOUS).
+        reuse=lambda wildcards: ('--reuse ' + os.path.join(STATISTICS_FRONTEND_DIR, 'versionSummaries.json'))
+              if config.get('STATISTICS_REUSE_PREVIOUS', True) else '',
     log:
         STATISTICS_DIR + '/versionSummaries.log'
     resources:
@@ -792,7 +796,7 @@ rule summarise_version_figures:
         runtime='2h'
     shell:
         'export PYTHONNOUSERSITE=1 && '
-        'pixi run -e sandpiper python {params.script} {output} {input.blacklist} '
+        'pixi run -e sandpiper python {params.script} {output} {input.blacklist} {params.reuse} '
         '{params.specs:q} > {log} 2>&1 && '
         'cp {output} {params.frontend}'
 
