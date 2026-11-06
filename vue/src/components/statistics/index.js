@@ -1,0 +1,11 @@
+// Single entry point for every chart used by the Statistics page.
+export { default as KnownSpeciesCharts } from './KnownSpeciesCharts.vue'
+export { default as YearChart } from './YearChart.vue'
+export { default as YearDepthBoxplot } from './YearDepthBoxplot.vue'
+export { default as SampleMapChart } from './SampleMapChart.vue'
+export { default as VersionComparison } from './VersionComparison.vue'
+export { default as GroupDensityCharts } from './GroupDensityCharts.vue'
+export { default as YearTrendChart } from './YearTrendChart.vue'
+export { default as PhylumCompositionCharts } from './PhylumCompositionCharts.vue'
+export { default as DensityChart } from './DensityChart.vue'
+export { default as YearBreakdownCharts } from './YearBreakdownCharts.vue'
