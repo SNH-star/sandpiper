@@ -2,43 +2,45 @@
   <section class="section">
     <div v-if="search_result !== null && total_num_results !== null" class="container">
       <section v-if="is_query" class="section">
-        <h1 class="title search-topic-title">Search topic:</h1>
-        <ul class="query-parts" aria-label="Search topic">
-          <li v-for="(part, i) in query_parts" :key="i" class="query-part">
-            <span v-if="part.key" class="query-part-key">{{ part.key }}:</span>
-            <span class="query-part-value">{{ part.key ? (part.value || 'any value') : part.text }}</span>
-          </li>
-        </ul>
-        <div v-if="query_taxon" class="has-text-centered taxonomy-switcher">
-          <b-field grouped position="is-centered">
-            <b-radio-button
-              v-model="taxonomy_type"
-              native-value="gtdb"
-              :disabled="disableGtdb" type="is-info"
-              @input="onTaxonomyTypeChange('gtdb')">
-              GTDB ({{ GTDB_VERSION }})
-            </b-radio-button>
-            <b-radio-button
-              v-model="taxonomy_type"
-              native-value="globdb"
-              :disabled="disableGlobdb" type="is-warning"
-              @input="onTaxonomyTypeChange('globdb')">
-              GlobDB ({{ GLOBDB_VERSION }})
-            </b-radio-button>
-          </b-field>
-          <p class="help">
-            Relative abundance and coverage of {{ query_taxon.name }} from
-            {{ taxonomy_type === 'gtdb' ? `GTDB (${GTDB_VERSION})` : `GlobDB (${GLOBDB_VERSION})` }};
-            runs where it was only found in the other database show –.
+        <header class="topic-header">
+          <div class="topic-heading">
+            <h1 class="topic-title">Search topic</h1>
+            <router-link :to="back_to_search" class="topic-edit">Edit search</router-link>
+          </div>
+          <p class="topic-lede">Metagenome runs matching this search.</p>
+          <ul class="query-parts" aria-label="Search topic">
+            <li v-for="(part, i) in query_parts" :key="i" class="query-part">
+              <span v-if="part.key" class="query-part-key">{{ part.key }}</span>
+              <span class="query-part-value">{{ part.key ? (part.value || 'any value') : part.text }}</span>
+            </li>
+          </ul>
+          <div v-if="query_taxon" class="taxonomy-switcher topic-switcher">
+            <b-field grouped>
+              <b-radio-button
+                name="taxonomy-type-1" v-model="taxonomy_type"
+                native-value="gtdb"
+                :disabled="disableGtdb" type="is-info"
+                @input="onTaxonomyTypeChange('gtdb')">
+                GTDB ({{ GTDB_VERSION }})
+              </b-radio-button>
+              <b-radio-button
+                name="taxonomy-type-1" v-model="taxonomy_type"
+                native-value="globdb"
+                :disabled="disableGlobdb" type="is-warning"
+                @input="onTaxonomyTypeChange('globdb')">
+                GlobDB ({{ GLOBDB_VERSION }})
+              </b-radio-button>
+            </b-field>
+            <p class="topic-note">
+              Relative abundance and coverage of {{ query_taxon.name }} from
+              {{ taxonomy_type === 'gtdb' ? `GTDB (${GTDB_VERSION})` : `GlobDB (${GLOBDB_VERSION})` }};
+              runs where it was only found in the other database show –.
+            </p>
+          </div>
+          <p v-else-if="query_names_partial_taxon" class="topic-note">
+            Give a full taxon name (e.g. g__Prochlorococcus) to see relative abundance and coverage.
           </p>
-        </div>
-        <p v-else-if="query_names_partial_taxon" class="has-text-centered help">
-          Give a full taxon name (e.g. g__Prochlorococcus) to see relative abundance and coverage.
-        </p>
-        <p class="has-text-centered help">
-          Metagenome runs matching this search.
-          <router-link :to="back_to_search">Edit search</router-link>
-        </p>
+        </header>
         <b-message v-if="total_num_results === 0" type="is-warning" has-icon :closable="false" class="mt-4">
           No runs match this search.
         </b-message>
@@ -56,14 +58,14 @@
         <div class="has-text-centered taxonomy-switcher">
           <b-field grouped position="is-centered">
             <b-radio-button
-              v-model="taxonomy_type"
+              name="taxonomy-type-2" v-model="taxonomy_type"
               native-value="gtdb"
               :disabled="disableGtdb" type="is-info"
               @input="onTaxonomyTypeChange('gtdb')">
               GTDB ({{ GTDB_VERSION }})
             </b-radio-button>
             <b-radio-button
-              v-model="taxonomy_type"
+              name="taxonomy-type-2" v-model="taxonomy_type"
               native-value="globdb"
               :disabled="disableGlobdb" type="is-warning"
               @input="onTaxonomyTypeChange('globdb')">
@@ -202,7 +204,7 @@
             <b-button tag="a" type="is-info" :href="csv_link()">Download CSV with extra columns</b-button>
           </template>
           <b-button type="is-light" icon-left="shuffle-variant" class="mobile-shuffle-button" @click="shuffle_runs">Shuffle runs</b-button>
-          <b-switch v-model="exclude_low_complexity">Exclude low complexity</b-switch>
+          <b-switch v-model="exclude_low_complexity" name="exclude-low-complexity">Exclude low complexity</b-switch>
           <span v-if="!exclude_low_complexity" class="low-complexity-summary">{{ is_query ? num_low_complexity_runs : low_complexity_count }} / {{ total_num_results }} runs have ≥95% reads from one order (Low Complexity)</span>
         </div>
         <b-table
@@ -452,7 +454,22 @@ export default {
     const loadingToken = currentLoadingToken()
     this.fetchGlobalData().finally(() => stopPageLoading(loadingToken))
   },
+  mounted () {
+    this.nameTableSelects()
+  },
+  updated () {
+    this.nameTableSelects()
+  },
   methods: {
+    // Buefy's table renders a sort <select> for the mobile card layout with no id, name
+    // or label, which browsers flag. It lives inside the library, so name it here.
+    nameTableSelects () {
+      this.$el.querySelectorAll?.('.table-mobile-sort select:not([name])').forEach((select, i) => {
+        select.name = `matching-samples-sort-${i}`
+        select.id = `matching-samples-sort-${i}`
+        select.setAttribute('aria-label', 'Sort samples by')
+      })
+    },
     reset_map: function () {
       this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
       this.zoom = default_zoom
@@ -734,10 +751,14 @@ export default {
       return '/run/' + acc
     },
     csv_link () {
-      return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
+      return api_url() + '/taxonomy_search_csv/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.low_complexity_param()
     },
     minimal_csv_link () {
-      return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type
+      return api_url() + '/taxonomy_search_csv_minimal/' + this.taxonomy + '?taxonomy_type=' + this.taxonomy_type + this.low_complexity_param()
+    },
+    // Downloads follow the "Exclude low complexity" switch, like the table does.
+    low_complexity_param () {
+      return this.exclude_low_complexity ? '&exclude_low_complexity=true' : ''
     },
     shuffle_runs () {
       const arr = [...this.filtered_profiles]
@@ -773,38 +794,106 @@ export default {
 </script>
 
 <style scoped>
-/* Search results heading: one box per query part under the title, so several
-   parts stay easy to tell apart. Smaller than the title; within each box the
-   search term (key) stands out more than the user's value. */
-.search-topic-title {
-  text-align: center;
-  margin-bottom: 0.5rem;
+/* Search topic header, set as a page opening rather than a box: a large serif title
+   with the way back to the search on its baseline, a hairline, then the query as
+   typography. Each part is its field name, small and muted, over its value in the
+   display face; parts are divided by hairlines, and no fills or borders box
+   anything in. The taxonomy switch and its note sit quietly below. */
+.topic-header {
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-rule);
+}
+.topic-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-accent-rule);
+}
+.topic-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--color-ink);
+}
+.topic-edit {
+  font-size: 0.95rem;
+  color: var(--color-accent-strong);
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent-rule);
+  text-underline-offset: 0.3em;
+  transition: text-decoration-color 0.15s, color 0.15s;
+}
+.topic-edit:hover {
+  text-decoration-color: currentColor;
+}
+.topic-edit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.topic-lede,
+.topic-note {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+.topic-lede {
+  margin-top: var(--space-3);
+}
+.topic-note {
+  max-width: 62ch;
+  margin-top: var(--space-3);
 }
 .query-parts {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-6) 0;
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
 }
 .query-part {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  padding: 0.3rem 0.9rem;
-  border: 1px solid hsl(174, 25%, 82%);
-  border-radius: 8px;
-  background: hsl(174, 25%, 97%);
-  font-size: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-8);
+  border-left: 1px solid var(--color-rule);
   overflow-wrap: anywhere;
 }
+.query-part:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
 .query-part-key {
-  font-weight: 700;
-  color: hsl(174, 62%, 22%);
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
 }
 .query-part-value {
-  font-weight: 400;
-  color: hsl(0, 0%, 35%);
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.75rem);
+  line-height: 1.25;
+  color: var(--color-accent-strong);
+}
+.topic-switcher {
+  margin-top: var(--space-8);
+}
+.topic-switcher :deep(.field) {
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .query-parts {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .query-part,
+  .query-part:first-child {
+    padding: 0 0 0 var(--space-4);
+    border-left: 2px solid var(--color-accent-rule);
+  }
 }
 .shuffle-btn {
   background: transparent;
