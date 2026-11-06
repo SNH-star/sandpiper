@@ -7,13 +7,14 @@ import csv
 from dataclasses import dataclass
 import functools
 import io
+import logging
 import re
 import requests
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request, make_response, current_app, Response, stream_with_context
 
-from sqlalchemy import select, distinct, or_, and_, case, literal
+from sqlalchemy import Integer, select, distinct, or_, and_, case, literal
 from sqlalchemy.sql import func, text
 from sqlalchemy.orm import joinedload, lazyload, aliased
 
@@ -33,10 +34,12 @@ from .models import (
 import polars as pl
 # from api.models import #for flask shell
 from .bioproject_similarity import compare_to_peers
-from .metagenome_similarity import comparable_values
+from .metagenome_similarity import METALOG_PREFIX, comparable_values, is_already_shown, is_expected_to_differ, metalog_comparable_values
+from .grid import describe_grid, grid_condition, parse_grid_squares
 from .keywords import LIKE_ESCAPE, like_pattern, parse_keyword_terms
 from .match_cache import MatchCache
-from .version import __version__, __gtdb_version__, __scrape_date__
+from . import statistics_figures as figures
+from .version import __version__, __gtdb_version__, __indicpiper_version__, __scrape_date__
 
 import os, sys, json
 sys.path = [os.environ['HOME']+'/git/singlem-local'] + [os.environ['HOME']+'/git/singlem'] + sys.path
@@ -111,6 +114,21 @@ def metalog_retrieved_date():
     except (TypeError, ValueError):
         current_app.logger.warning('Invalid Metalog fetched_at value: %r', fetched_at)
         return None
+
+
+def database_versions(fetched_at, indicpiper_version):
+    """The Metalog collection date and IndicPiper version this database carries.
+
+    The Metalog date is when Sandpiper pulled it (the build's collection date), not
+    Metalog's own release date. Either value is None when it is not recorded.
+    """
+    collected = None
+    if fetched_at:
+        try:
+            collected = datetime.fromisoformat(fetched_at).strftime('%-d %B %Y')
+        except (TypeError, ValueError):
+            logging.getLogger(__name__).warning('Invalid Metalog fetched_at value: %r', fetched_at)
+    return {'metalog_collected_date': collected, 'indicpiper_version': indicpiper_version or None}
 
 
 def metalog_release():
@@ -292,6 +310,132 @@ def sandpiper_stats():
         'metalog_retrieved_date': metalog_retrieved_date(),
         'metalog_release': metalog_release(),
     })
+
+SAMPLE_TYPE_ORDER = (('host', 'host_associated'), ('ecological', 'ecological'), (None, 'unclassified'))
+COVERAGE_ORDER = ('coordinates', 'metalog', 'indicpiper', 'low_complexity')
+
+
+def _percent(count, total):
+    return round(100 * count / total, 1) if total else 0
+
+
+def statistics_payload(total_runs, bioprojects, terabases, host_counts, release_years, coverage_counts, top_taxa):
+    """Shape the Statistics page's figures: counts plus their share of all runs.
+
+    host_counts: Sandpiper's host/ecological call -> runs (None = no call).
+    release_years: (year string or None, runs) pairs.
+    coverage_counts: name -> runs, or None when that table is not in the database.
+    top_taxa: taxonomy type -> level -> (name, host runs, ecological runs) rows.
+    """
+    return {
+        'totals': {'runs': total_runs, 'bioprojects': bioprojects, 'terabases': round(terabases, 1)},
+        'sample_types': [
+            {'key': key, 'runs': host_counts.get(call, 0), 'percent': _percent(host_counts.get(call, 0), total_runs)}
+            for call, key in SAMPLE_TYPE_ORDER],
+        'release_years': sorted(
+            ({'year': int(year), 'runs': runs} for year, runs in release_years if year is not None),
+            key=lambda row: row['year']),
+        'coverage': [
+            {'key': key, 'runs': coverage_counts.get(key),
+             'percent': None if coverage_counts.get(key) is None else _percent(coverage_counts[key], total_runs)}
+            for key in COVERAGE_ORDER],
+        'top_taxa': {
+            taxonomy_type: {
+                level: sorted(
+                    ({'name': name, 'host': host or 0, 'ecological': ecological or 0,
+                      'runs': (host or 0) + (ecological or 0),
+                      'percent': _percent((host or 0) + (ecological or 0), total_runs)}
+                     for name, host, ecological in rows),
+                    key=lambda row: -row['runs'])
+                for level, rows in levels.items()}
+            for taxonomy_type, levels in top_taxa.items()},
+    }
+
+
+KNOWN_SPECIES_BINS = 20
+SAMPLE_CALL_KEYS = (('host', 'host_associated'), ('ecological', 'ecological'))
+
+
+def known_species_payload(histogram_rows, bins=KNOWN_SPECIES_BINS):
+    """How known species fraction is spread across the runs, for the Statistics page.
+
+    histogram_rows: (band number, host/ecological call, runs), where the 0 to 1
+    fraction is cut into `bins` bands. Each group's figures are its share of its
+    own runs per band, so groups of different size can be compared.
+    """
+    width = 100 // bins
+    distribution = {'bin_width': width}
+    for call, key in SAMPLE_CALL_KEYS:
+        counts = [0] * bins
+        for band, row_call, runs in histogram_rows:
+            if row_call == call:
+                counts[band] += runs
+        total = sum(counts)
+        distribution[key] = [
+            {'start': band * width, 'percent': round(100 * runs / total, 1) if total else 0}
+            for band, runs in enumerate(counts)]
+    return {'distribution': distribution}
+
+
+TOP_TAXA_LEVELS = ('phylum', 'genus', 'species')
+TOP_TAXA_COUNT = 10
+
+
+def _top_taxa():
+    """The taxa found in the most runs, per taxonomy database and level. The
+    host/ecological run counts are stored on each taxonomy row."""
+    detected = func.coalesce(Taxonomy.host_sample_count, 0) + func.coalesce(Taxonomy.ecological_sample_count, 0)
+    return {
+        taxonomy_type: {
+            level: db.session.execute(select(
+                Taxonomy.name, Taxonomy.host_sample_count, Taxonomy.ecological_sample_count).where(
+                Taxonomy.taxonomy_type == taxonomy_type, Taxonomy.taxonomy_level == level).order_by(
+                detected.desc()).limit(TOP_TAXA_COUNT)).all()
+            for level in TOP_TAXA_LEVELS}
+        for taxonomy_type in ('gtdb', 'globdb')}
+
+
+statistics_cache = None
+
+
+@api.route('/sandpiper_statistics', methods=['GET'])
+def sandpiper_statistics():
+    """Figures for the Statistics page. They only change when the database does,
+    so they are worked out once per process."""
+    global statistics_cache
+    if statistics_cache is None:
+        total_runs, bioprojects, bases = db.session.execute(select(
+            func.count(), func.count(distinct(NcbiMetadata.bioproject)), func.sum(NcbiMetadata.bases))).one()
+        host_counts = dict(db.session.execute(select(
+            ParsedSampleAttribute.host_or_not_mature, func.count()).group_by(
+            ParsedSampleAttribute.host_or_not_mature)).all())
+        release_year = func.extract('year', NcbiMetadata.published)
+        release_years = db.session.execute(select(release_year, func.count()).group_by(release_year)).all()
+        parsed = ParsedSampleAttribute
+        coordinates, metalog, low_complexity = db.session.execute(select(
+            func.count().filter(parsed.latitude.is_not(None), parsed.longitude.is_not(None)),
+            func.count().filter(parsed.meta_environment_biome.is_not(None)),
+            func.count().filter(parsed.low_complexity.is_(True)))).one()
+        indicpiper = None
+        if _indicator_habitat_genus_scores_exists():
+            indicpiper = db.session.execute(select(
+                func.count(distinct(IndicatorHabitatScore.run_id)))).scalar()
+        band = func.least(func.floor(parsed.known_species_fraction * KNOWN_SPECIES_BINS), KNOWN_SPECIES_BINS - 1).cast(Integer)
+        known_species = known_species_payload(db.session.execute(select(band, parsed.host_or_not_mature, func.count()).where(
+            parsed.known_species_fraction.is_not(None)).group_by(band, parsed.host_or_not_mature)).all())
+        statistics_cache = statistics_payload(
+            total_runs, bioprojects, (bases or 0) / 10**12, host_counts, release_years,
+            {'coordinates': coordinates, 'metalog': metalog, 'indicpiper': indicpiper,
+             'low_complexity': low_complexity},
+            _top_taxa())
+        statistics_cache['known_species'] = known_species
+        statistics_cache['year_breakdown'] = figures.query_year_breakdown(db.session)
+        statistics_cache['map'] = figures.query_map_cells(db.session)
+    generate_cache()
+    return jsonify({**statistics_cache, 'version': __version__, 'gtdb_version': __gtdb_version__,
+                    'scrape_date': __scrape_date__,
+                    **database_versions(metalog_provenance.get('fetched_at'), __indicpiper_version__)})
+
 
 @api.route('/markers/', methods=('GET',))
 def fetch_markers():
@@ -667,7 +811,12 @@ def fetch_metadata(sample_name):
         if v is None or str(v).lower().strip() in ACTUALLY_MISSING:
             # Do not display missing / fake data
             continue
-        
+
+        # Some attributes repeat a database column (e.g. "sample name"); show
+        # the value once.
+        if is_already_shown(d2.values(), k, v):
+            continue
+
         if k in biosample_attribute_definitions:
             biosample_dict.append({ 
                 'k': biosample_attribute_definitions[k].name, 
@@ -721,22 +870,31 @@ def fetch_metadata(sample_name):
         if len(v) > 0 and 'k' in v[0]: # don't sort e.g. study_links
             d2[k] = sorted(v, key=lambda x: x['k'].lower())
 
-    # How much of this run's information the rest of its BioProject shares;
-    # rows that differ are flagged `unique` for the front end's gold star.
-    displayed_keys = {row['raw_k'] for rows in d2.values() for row in rows if isinstance(row, dict) and 'raw_k' in row}
-    similarity = bioproject_similarity(meta, displayed_keys)
-    unique_fields = set(similarity['unique_fields']) if similarity else set()
-    for rows in d2.values():
-        for row in rows:
-            if isinstance(row, dict):
-                if row.pop('raw_k', None) in unique_fields:
-                    row['unique'] = True
-    metadata_parsed['bioproject_similarity'] = similarity
-
     # Metalog extended metadata. Already sorted and filtered to populated
     # fields by metalog_rows(); added after the sort above since it is built
     # in display form rather than from a classification.
     d2['metalog_metadata'] = metadata_dict['metalog_metadata']
+
+    # How much of this run's information the rest of its BioProject shares.
+    # Each row is tagged `difference`: 'only_here' (no other run has the
+    # field), 'differs' (a value other runs do not share) or 'expected' (an
+    # identifier-like field that differs by design). Metalog rows are compared
+    # too, under a prefixed key (see metalog_comparable_values).
+    displayed_keys = {row['raw_k'] for rows in d2.values() for row in rows if isinstance(row, dict) and 'raw_k' in row}
+    displayed_keys |= {METALOG_PREFIX + row['k'] for row in d2['metalog_metadata']}
+    similarity = bioproject_similarity(meta, displayed_keys)
+    for rows in d2.values():
+        for row in rows:
+            if isinstance(row, dict):
+                difference = row_difference(row.pop('raw_k', None), similarity)
+                if difference:
+                    row['difference'] = difference
+    for row in d2['metalog_metadata']:
+        difference = row_difference(METALOG_PREFIX + row['k'], similarity)
+        if difference:
+            row['difference'] = difference
+    metadata_parsed['bioproject_similarity'] = similarity
+
     d2['metalog_retrieved_date'] = metalog_retrieved_date()
     d2['metalog_release'] = metalog_release()
 
@@ -744,6 +902,7 @@ def fetch_metadata(sample_name):
     # after the classification sort" treatment as metalog_metadata above --
     # see indicpiper_rows()'s docstring for why most runs only have a few rows.
     d2['indicpiper_scores'] = indicpiper_rows(meta.id)
+    d2['indicpiper_version'] = __indicpiper_version__
 
     return jsonify({ 
         'metadata': d2,
@@ -881,7 +1040,8 @@ def taxonomy_search_csv(taxon):
     from datetime import datetime
     print('=== {}: running core'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     worked, condensed_profile_hits, _ = taxonomy_search_core(
-        taxon, request.args, no_limit=True, include_extras=True, return_open_cursor=True
+        taxon, request.args, no_limit=True, include_extras=True, return_open_cursor=True,
+        exclude_low_complexity=request.args.get('exclude_low_complexity') == 'true'
     )
     print('=== {}: after core'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
@@ -955,7 +1115,8 @@ def taxonomy_search_csv(taxon):
 def taxonomy_search_csv_minimal(taxon):
     taxonomy_type = request.args.get('taxonomy_type', 'gtdb')
     worked, condensed_profile_hits, _ = taxonomy_search_core(
-        taxon, request.args, no_limit=True, include_extras=False, return_open_cursor=True
+        taxon, request.args, no_limit=True, include_extras=False, return_open_cursor=True,
+        exclude_low_complexity=request.args.get('exclude_low_complexity') == 'true'
     )
 
     if worked:
@@ -1038,7 +1199,14 @@ def taxonomy_search_core(
     page = int(page) if page is not None else 0
     page_size = int(page_size) if page_size is not None else 100
 
-    if sort_field not in ['relative_abundance', 'coverage', 'release_year', 'top1_order_fraction']:
+    sort_columns = {
+        'relative_abundance': CondensedProfileCtas1.relative_abundance,
+        'coverage': CondensedProfileCtas1.filled_coverage,
+        'release_year': NcbiMetadata.published,
+        'top1_order_fraction': ParsedSampleAttribute.top1_order_fraction,
+        'organism': NcbiMetadata.taxon_name,
+    }
+    if sort_field not in sort_columns:
         return False, jsonify({ 'error': 'invalid sort field' }), None
     if sort_direction not in ['asc', 'desc']:
         return False, jsonify({ 'error': 'invalid sort direction' }), None
@@ -1091,26 +1259,10 @@ def taxonomy_search_core(
             ).where(ParsedSampleAttribute.run_id == NcbiMetadata.id)
 
         
-        if sort_field == 'relative_abundance':
-            if sort_direction == 'desc':
-                hits_query = stmt.order_by(CondensedProfileCtas1.relative_abundance.desc())
-            else:
-                hits_query = stmt.order_by(CondensedProfileCtas1.relative_abundance.asc())
-        elif sort_field == 'coverage':
-            if sort_direction == 'desc':
-                hits_query = stmt.order_by(CondensedProfileCtas1.filled_coverage.desc())
-            else:
-                hits_query = stmt.order_by(CondensedProfileCtas1.filled_coverage.asc())
-        elif sort_field == 'release_year':
-            if sort_direction == 'desc':
-                hits_query = stmt.order_by(NcbiMetadata.published.desc())
-            else:
-                hits_query = stmt.order_by(NcbiMetadata.published.asc())
-        elif sort_field == 'top1_order_fraction':
-            if sort_direction == 'desc':
-                hits_query = stmt.order_by(ParsedSampleAttribute.top1_order_fraction.desc())
-            else:
-                hits_query = stmt.order_by(ParsedSampleAttribute.top1_order_fraction.asc())
+        column = sort_columns[sort_field]
+        order = column.desc().nulls_last() if sort_direction == 'desc' else column.asc().nulls_last()
+        # The run accession breaks ties so paging through equal values is stable.
+        hits_query = stmt.order_by(order, NcbiMetadata.acc)
 
         hits_query = hits_query.where(CondensedProfileCtas1.taxonomy_id == taxonomy.id)
 
@@ -1298,25 +1450,10 @@ def get_lat_lons(taxonomy_id, max_to_show, extra_filters=None):
         min_lat_lon_relabund = 0
     return list(lat_lons.values()), lat_lons_count, min_lat_lon_relabund
 
-# Metalog environment terms -> the four categories Metalog itself uses. Matched
-# as substrings because the source values carry ENVO identifiers, e.g.
-# "animal-associated environment [ENVO:01001002]".
-METALOG_CATEGORY_RULES = (
-    ('human', ('human',)),
-    ('ocean', ('marine', 'ocean', 'sea water', 'seawater')),
-    ('animal', ('animal', 'host-associated')),
-)
-
-
-def metalog_category(biome, package):
-    """human / animal / ocean / other, or None when Metalog has no record."""
-    text = ' '.join(filter(None, (biome, package))).lower()
-    if not text.strip():
-        return None
-    for category, needles in METALOG_CATEGORY_RULES:
-        if any(needle in text for needle in needles):
-            return category
-    return 'other'
+def map_category(host_or_not):
+    """Map legend category for a group of runs, from Sandpiper's own
+    host/ecological call."""
+    return {'host': 'host_associated', 'ecological': 'ecological'}.get(host_or_not, 'unclassified')
 
 
 def get_lat_lon_clusters(taxonomy_id, precision=1, extra_filters=None):
@@ -1329,9 +1466,7 @@ def get_lat_lon_clusters(taxonomy_id, precision=1, extra_filters=None):
     however many runs match, so the whole distribution can be shown rather than
     the top slice by abundance.
 
-    Colour category is Metalog's where it exists (~14% of runs with
-    coordinates) and sandpiper's own host/ecological classification otherwise,
-    so every cell is accounted for.
+    Colour category is sandpiper's own host/ecological classification.
 
     Deliberately does NOT include per-cell study titles: grouping by
     study_title roughly doubled the row count here (~35k vs ~19k rows for one
@@ -1346,8 +1481,6 @@ def get_lat_lon_clusters(taxonomy_id, precision=1, extra_filters=None):
     stmt = select(
         rounded_lat.label('lat'),
         rounded_lon.label('lon'),
-        ParsedSampleAttribute.meta_environment_biome,
-        ParsedSampleAttribute.meta_environmental_package,
         ParsedSampleAttribute.host_or_not_mature,
         func.count().label('n'),
     ).where(
@@ -1369,18 +1502,13 @@ def get_lat_lon_clusters(taxonomy_id, precision=1, extra_filters=None):
     rows = db.session.execute(
         stmt.group_by(
             rounded_lat, rounded_lon,
-            ParsedSampleAttribute.meta_environment_biome,
-            ParsedSampleAttribute.meta_environmental_package,
             ParsedSampleAttribute.host_or_not_mature,
         )
     ).fetchall()
 
     cells = {}
-    for lat, lon, biome, package, host_or_not, count in rows:
-        category = metalog_category(biome, package)
-        if category is None:
-            category = {'host': 'host_associated',
-                        'ecological': 'ecological'}.get(host_or_not, 'unclassified')
+    for lat, lon, host_or_not, count in rows:
+        category = map_category(host_or_not)
         key = (lat, lon)
         cell = cells.setdefault(key, {'lat': lat, 'lon': lon, 'total': 0, 'categories': {}})
         cell['total'] += count
@@ -1851,18 +1979,57 @@ PEER_LIMIT = 50
 
 def bioproject_similarity(meta, displayed_keys):
     """Compare `meta` with its BioProject peers on the fields that have a row on
-    the page (`displayed_keys`), so the counts always match the stars shown."""
+    the page (`displayed_keys`), so the counts always match the flags shown.
+
+    Fields expected to differ (identifiers and the like) are compared apart from
+    the rest, so they are flagged but never lower the shared percentage."""
     if not meta.bioproject:
         return None
     peers = NcbiMetadata.query.filter(
         NcbiMetadata.bioproject == meta.bioproject, NcbiMetadata.acc != meta.acc
     ).order_by(NcbiMetadata.id).limit(PEER_LIMIT).options(joinedload(NcbiMetadata.biosample_attributes)).all()
+    # One keyed lookup for the peers' Metalog columns: joining the wide table
+    # onto the peer query instead takes seconds.
+    peer_attributes = {a.run_id: a for a in ParsedSampleAttribute.query.filter(
+        ParsedSampleAttribute.run_id.in_([peer.id for peer in peers])).all()} if peers else {}
 
-    def displayed(values):
+    def displayed(run, attributes):
+        values = {**comparable_values(run), **metalog_comparable_values(attributes)}
         return {key: value for key, value in values.items() if key in displayed_keys}
 
-    return compare_to_peers(
-        displayed(comparable_values(meta)), [displayed(comparable_values(peer)) for peer in peers])
+    def split(values):
+        informative = {k: v for k, v in values.items() if not is_expected_to_differ(k)}
+        return informative, {k: v for k, v in values.items() if k not in informative}
+
+    own_attributes = meta.parsed_sample_attributes[0] if meta.parsed_sample_attributes else None
+    run_informative, run_expected = split(displayed(meta, own_attributes))
+    peer_informative, peer_expected = zip(*(split(displayed(peer, peer_attributes.get(peer.id))) for peer in peers)) if peers else ((), ())
+    result = compare_to_peers(run_informative, list(peer_informative))
+    expected = compare_to_peers(run_expected, list(peer_expected))
+    if result is None and expected is None:
+        return None
+    if result is None:
+        result = {'n_other_runs': len(peers), 'n_fields': 0, 'percent_shared': None,
+                  'unique_fields': [], 'only_here_fields': []}
+    # A run that has no Metalog match at all would otherwise show every Metalog
+    # field as present only here, so require a peer that has Metalog data.
+    if not any(key.startswith(METALOG_PREFIX) for peer in peer_informative for key in peer):
+        result['only_here_fields'] = [f for f in result['only_here_fields'] if not f.startswith(METALOG_PREFIX)]
+    result['expected_fields'] = expected['unique_fields'] if expected else []
+    return result
+
+
+def row_difference(key, similarity):
+    """'only_here', 'differs' or 'expected' for a displayed row key, else None."""
+    if not similarity:
+        return None
+    if key in similarity['only_here_fields']:
+        return 'only_here'
+    if key in similarity['unique_fields']:
+        return 'differs'
+    if key in similarity['expected_fields']:
+        return 'expected'
+    return None
 
 def related_run_count(model_bioproject):
     example_run = NcbiMetadata.query.filter_by(bioproject=model_bioproject).first()
@@ -1997,6 +2164,7 @@ HABITAT_SCORE_RE = re.compile(r'^(?P<name>.*?)\s*(?P<expr>(?:>=|<=|>|<)\s*-?\d+(
 KEYWORD_COLUMNS = (
     NcbiMetadata.study_title, NcbiMetadata.study_abstract, NcbiMetadata.geo_loc_name,
     NcbiMetadata.taxon_name, NcbiMetadata.bioproject, NcbiMetadata.sra_study,
+    NcbiMetadata.sample_name,
 )
 
 
@@ -2148,6 +2316,12 @@ def _parse_search_condition(key, value):
             return None, None, False, False
         return _keywords_condition(terms), f'keywords: {" AND ".join(terms)}', False, False
 
+    elif key == 'grid':
+        squares = parse_grid_squares(value)
+        if squares is None:
+            return None, None, False, False
+        return grid_condition(P, squares), describe_grid(squares), True, False
+
     # --- Study / project fields ---
     elif key in ('abstract', 'study_abstract'):
         return N.study_abstract.ilike(f'%{value}%'), f'abstract: {value}', False, False
@@ -2156,11 +2330,11 @@ def _parse_search_condition(key, value):
 
     # --- Identifier fields ---
     elif key in ('sra_study', 'sra'):
-        return N.sra_study.ilike(f'%{value}%'), f'SRA study: {value}', False, False
+        return _attribute_condition('study_accession', lambda v: v.ilike(f'%{value}%')), f'SRA study: {value}', False, False
     elif key in ('experiment', 'exp'):
-        return N.experiment.ilike(f'%{value}%'), f'experiment: {value}', False, False
+        return _attribute_condition('experiment_accession', lambda v: v.ilike(f'%{value}%')), f'experiment: {value}', False, False
     elif key in ('sample_acc', 'sample'):
-        return N.sample_acc.ilike(f'%{value}%'), f'sample accession: {value}', False, False
+        return _attribute_condition('sample_accession', lambda v: v.ilike(f'%{value}%')), f'sample accession: {value}', False, False
     elif key == 'biosample':
         return N.biosample.ilike(f'%{value}%'), f'biosample: {value}', False, False
 
@@ -2348,6 +2522,57 @@ class UniversalQuery:
         return stmt
 
 
+def _attribute_condition(key: str, test):
+    """Runs having a BioSample attribute `key` whose value passes `test` (a
+    function from the value column to a condition)."""
+    return NcbiMetadata.id.in_(
+        select(BiosampleAttribute.run_id).where(BiosampleAttribute.k == key, test(BiosampleAttribute.v)))
+
+
+# A bare accession (or the start of one) typed in the search box:
+# (pattern, label, where the value is stored). The experiment, sample and study
+# accessions are empty NcbiMetadata columns in the database; their values are
+# stored as BioSample attributes, so those are searched instead.
+ACCESSION_PATTERNS = (
+    (re.compile(r'^[SED]RR\d*$', re.I), 'run accession', ('column', 'acc')),
+    (re.compile(r'^[SED]RX\d*$', re.I), 'experiment', ('attribute', 'experiment_accession')),
+    (re.compile(r'^[SED]RS\d*$', re.I), 'sample accession', ('attribute', 'sample_accession')),
+    (re.compile(r'^[SED]RP\d*$', re.I), 'SRA study', ('attribute', 'study_accession')),
+    (re.compile(r'^SAM[NED]A?\d*$', re.I), 'biosample', ('column', 'biosample')),
+    (re.compile(r'^PRJ[NED][A-Z]?\d*$', re.I), 'bioproject', ('column', 'bioproject')),
+)
+
+
+def _accession_conditions(part: str):
+    """(exact condition, starts-with condition, description) when `part` is an
+    accession such as ERR1950668 or just the start of one (ERR12564), else None."""
+    token = part.strip().upper()
+    for pattern, label, (where, name) in ACCESSION_PATTERNS:
+        if not pattern.match(token):
+            continue
+        if where == 'column':
+            field = getattr(NcbiMetadata, name)
+            exact, prefix = field == token, field.like(f'{token}%')
+        else:
+            exact = _attribute_condition(name, lambda v: v == token)
+            prefix = _attribute_condition(name, lambda v: v.like(f'{token}%'))
+        return exact, prefix, f'{label} starting {token}'
+    return None
+
+
+def _accession_condition(part: str):
+    """The condition for a typed accession: that exact accession when it exists
+    (a full accession can also be the start of a longer one), otherwise every
+    accession starting with it."""
+    conditions = _accession_conditions(part)
+    if conditions is None:
+        return None
+    exact, prefix, description = conditions
+    if db.session.execute(select(literal(1)).where(exact).select_from(NcbiMetadata).limit(1)).first():
+        return exact, description.replace(' starting', ':')
+    return prefix, description
+
+
 def parse_universal_query(q):
     """'key: value, key: value' -> UniversalQuery, or None if nothing parsed."""
     # Commas inside double quotes belong to the value, e.g.
@@ -2382,6 +2607,13 @@ def parse_universal_query(q):
                 # key was recognised but returned no results (e.g. unknown taxonomy)
                 return UniversalQuery((), desc, False, False, matches_nothing=True)
 
+        # A bare accession searches for exactly that accession.
+        accession = _accession_condition(unquote(part))
+        if accession is not None:
+            conditions.append(accession[0])
+            descriptions.append(accession[1])
+            continue
+
         # Free text fallback for unrecognised or non-key:value input
         part = unquote(part)
         conditions.append(or_(
@@ -2389,6 +2621,7 @@ def parse_universal_query(q):
             NcbiMetadata.study_abstract.ilike(f'%{part}%'),
             NcbiMetadata.geo_loc_name.ilike(f'%{part}%'),
             NcbiMetadata.taxon_name.ilike(f'%{part}%'),
+            NcbiMetadata.sample_name.ilike(f'%{part}%'),
         ))
         descriptions.append(f'"{part}"')
 
