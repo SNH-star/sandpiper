@@ -8,6 +8,7 @@
             <b-navbar-item tag="router-link" :to="{ path: '/Run/SRR9841429' }">Example 1</b-navbar-item>
             <b-navbar-item tag="router-link" :to="{ path: '/Run/ERR1914274' }">Example 2</b-navbar-item>
 
+            <b-navbar-item tag="router-link" :to="{ path: '/Statistics' }">Statistics</b-navbar-item>
             <b-navbar-item tag="router-link" :to="{ path: '/About' }">About</b-navbar-item>
         </template>
     </b-navbar>
@@ -1491,60 +1492,17 @@ export default {
     font-size: 0.78rem;
     white-space: nowrap;
   }
+  // Phones drop the logos altogether, which keeps the bar short and uncluttered.
   .sticky-logos-group {
-    // .sticky-logos-group is `display: contents` by default (see the base
-    // rule above) so Sandpiper logo + .sticky-logos-right act as separate
-    // .sticky-bar-row flex items on desktop. Only here, on phones, does it
-    // become a real flex item itself -- flex-basis 100% forces it onto its
-    // own line after row 1, and this internal flex context is what actually
-    // groups + centers all three logos as one row.
-    //
-    // `.sticky-bar-row`'s 52px padding-left (below) exists only to reserve
-    // room for `.sticky-prev-btn`, which is absolutely positioned in the
-    // top-left corner on row 1 -- but that padding applies to the whole row,
-    // including this group once it wraps onto its own line 2, where there's
-    // no Previous button to avoid. Left uncorrected, `justify-content:
-    // center` only centers the three logos *within* a box that's itself
-    // already shifted 52px right of the row's true left edge, so the whole
-    // cluster (and the Sandpiper logo, being its leftmost member) visibly
-    // drifts right of centre. `flex-basis: calc(100% + 52px)` + `margin-left:
-    // -52px` grows this item back out to the row's full unpadded width and
-    // realigns its left edge to x=0, so centering happens against the same
-    // width the row's own horizontal padding is already centered within.
-    display: flex;
-    order: 2;
-    flex: 1 0 calc(100% + 52px);
-    margin-left: -52px;
-    justify-content: center;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  .sticky-logo-left {
-    order: initial;
-    height: 36px;
-    max-width: 110px;
-  }
-  .sticky-logos-right {
-    // Overrides the 1023px breakpoint's `display: none` -- these logos
-    // should still appear on phones.
-    order: initial;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.75rem;
-    margin-left: 0;
-  }
-  .sticky-logo {
-    height: 32px;
-    max-width: 100px;
+    display: none;
   }
   .sticky-close-tab {
     // Compact bar (keys closed) is short enough to fit without scrolling,
     // so there's no need for a viewport-fixed button here -- settle into
-    // normal flow right after the logo row instead, same reasoning as the
+    // normal flow right after the search row instead, same reasoning as the
     // .is-keys-open sticky variant below (which needs it for the genuinely
     // long, scrollable keys list). Fixed positioning independent of content
-    // height was what let this sit on top of the logo row in the first
+    // height was what let this sit on top of the search row in the first
     // place.
     position: static;
     display: flex;
@@ -1567,13 +1525,23 @@ export default {
   // reaches the true end of that content, sticky has nowhere further to
   // pin to and the button settles into its natural resting spot right
   // after the last item -- no overlap, no going past the box.
+  //
+  // The base rule also sets `top: 100%` (to hang the button off the bar's
+  // bottom edge on desktop). On a `sticky` element that becomes a sticky
+  // offset of a whole scrollport from the top, which fights `bottom` and
+  // pushes the button below the visible area, out of reach. `top: auto`
+  // leaves only the bottom pin. The solid background keeps it readable
+  // over the keys list that scrolls beneath it.
   .sticky-close-tab.is-keys-open {
     position: sticky;
-    bottom: 0.75rem;
+    top: auto;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
     width: fit-content;
     margin-left: auto;
     margin-right: 0.75rem;
     right: auto;
+    background: #fff;
+    box-shadow: var(--shadow-md);
   }
   .sticky-keys-panel.is-open {
     max-height: none;
