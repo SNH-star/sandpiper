@@ -1,9 +1,10 @@
 <template>
   <section :id="compact ? null : 'sample-map'" :class="compact ? 'map-compact' : 'section container stat-figure'">
+    <chart-download v-if="!compact" target="#sample-map" name="sample-locations" />
     <h3 v-if="!compact" class="subtitle is-3 stat-title"><a class="section-anchor" href="#sample-map">#</a> Where samples were collected</h3>
     <p v-if="!compact" class="stat-note">
       Runs with coordinates, grouped into {{ data.cell }}° squares. Choose a sample type below: each circle sits on one
-      square and its area shows how many runs of that type the square holds, on one scale for both types so the two maps can be compared. The bars on the right count those runs
+      square and its area follows the square root of how many runs of that type the square holds, so small and large squares both stay readable, on one scale for both types so the two maps can be compared. The bars on the right count those runs
       by latitude. Hover or tap a circle for its counts.
     </p>
     <b-field grouped role="group" aria-label="Type of sample shown on the map" class="map-switch">
@@ -12,7 +13,7 @@
     </b-field>
     <p class="map-key stat-note">
       <span><span class="swatch" :class="'swatch-' + view" aria-hidden="true"></span>{{ view_label }} runs</span>
-      <span>Zoom: scroll over the map, pinch or use the + / − buttons; drag to pan. Zoom in for finer coastlines, a 5° grid and country names.</span>
+      <span class="export-skip">Zoom: scroll over the map, pinch or use the + / − buttons; drag to pan. Zoom in for finer coastlines, a 5° grid and country names.</span>
       <span v-if="!compact">Full-size circle: {{ max_runs.toLocaleString('en-US') }} runs, the busiest square counting both types</span>
     </p>
     <div class="map-box">
@@ -38,6 +39,7 @@
               <circle v-for="cell in bubbles" :key="cell.key" :cx="cell.x" :cy="cell.y" :r="cell.r"
                       class="map-bubble" :class="['bubble-' + view, { 'is-selected': selected && selected.key === cell.key, 'is-chosen': chosen.includes(cell.key) }]"
                       @pointerenter="pick($event, cell)" @click="activate(cell)"><title>{{ cell.title }}</title></circle>
+              <text v-for="label in world_labels" :key="label.name" :x="label.x" :y="label.y" class="map-world-label" :class="label.ocean ? 'is-ocean' : 'is-continent'" :style="{ fontSize: (LABEL_SIZE + 2) / zoom.k + 'px' }">{{ label.text }}</text>
               <text v-for="label in visible_labels" :key="label.name" :x="label.x" :y="label.y" class="map-country" :style="{ fontSize: (LABEL_SIZE / zoom.k) + 'px', strokeWidth: (3 / zoom.k) + 'px' }">{{ label.name }}</text>
             </g>
           </g>
@@ -64,17 +66,13 @@
 </template>
 
 <script>
+import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import { markRaw } from 'vue'
 import * as d3 from 'd3'
-import { feature, mesh } from 'topojson-client'
+import { mesh } from 'topojson-client'
+import { DETAIL_LEVELS, COUNTRY_LABEL_ZOOM, landOf, worldLabels, countryLabelsOf, visibleCountryLabels } from '@/components/statistics/worldGeometry'
 import countries110m from 'world-atlas/countries-110m.json'
 
-// Coastlines and borders get finer as the map zooms in. The coarse set ships
-// with the page; the finer ones load the first time they are needed.
-const DETAIL_LEVELS = [
-  { name: '10m', minZoom: 8, load: () => import('world-atlas/countries-10m.json') },
-  { name: '50m', minZoom: 2.5, load: () => import('world-atlas/countries-50m.json') }
-]
 // From this zoom on, show a 5° grid and the names of countries big enough to hold them.
 const LABEL_ZOOM = 3
 const LABEL_SIZE = 11
@@ -94,6 +92,9 @@ const LABEL_ROW = 34
 const PAD_RIGHT = 40
 const R_MAX = 24
 const R_MIN = 2.5
+// Radius grows with the square root of the run share, so a circle's area follows the square root of its runs. Run counts span
+// orders of magnitude; sizing area by count itself left every square under about 1% of the busiest one at the same minimum dot.
+const RADIUS_POWER = 0.25
 const VIEWS = {
   host_associated: { label: 'Host-associated' },
   ecological: { label: 'Ecological' }
@@ -109,6 +110,7 @@ const signed = value => (value < 0 ? '−' : '') + Math.abs(value)
 
 export default {
   name: 'SampleMapChart',
+  components: { ChartDownload },
   props: {
     data: { type: Object, required: true },
     // Search-page version: no heading, latitude bars or scale, and a click picks
@@ -167,8 +169,7 @@ export default {
       return `${this.summary} Drawn as circles sized by run count.`
     },
     land_path () {
-      const land = this.topology.objects.land || this.topology.objects.countries
-      return d3.geoPath(this.projection)(feature(this.topology, land))
+      return d3.geoPath(this.projection)(landOf(this.topology))
     },
     border_path () {
       const borders = mesh(this.topology, this.topology.objects.countries, (a, b) => a !== b)
@@ -180,25 +181,18 @@ export default {
     graticule_path () {
       return d3.geoPath(this.projection)(d3.geoGraticule().step([this.data.cell, this.data.cell])())
     },
-    // Each country's name and the box it fills, in map units (before zoom).
+    // Each country's name on its largest piece, with that piece's width in map units.
     country_labels () {
-      const path = d3.geoPath(this.projection)
-      return feature(this.topology, this.topology.objects.countries).features
-        .filter(country => country.properties && country.properties.name)
-        .map(country => {
-          const [[x0, y0], [x1, y1]] = path.bounds(country)
-          return { name: country.properties.name, x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0 }
-        })
-        .filter(label => Number.isFinite(label.x) && Number.isFinite(label.y))
+      return countryLabelsOf(this.topology, this.projection)
+    },
+    // Continents and oceans, named while the whole world is in view.
+    world_labels () {
+      return this.zoom.k < COUNTRY_LABEL_ZOOM ? worldLabels(this.projection) : []
     },
     // Names that fit inside their country and sit in the current view.
     visible_labels () {
-      if (this.zoom.k < LABEL_ZOOM) return []
-      const { k, x, y } = this.zoom
-      const onScreen = (value, offset, limit) => value * k + offset >= 0 && value * k + offset <= limit
-      return this.country_labels.filter(label =>
-        label.width * k >= label.name.length * LABEL_SIZE * LABEL_CHAR_WIDTH &&
-        onScreen(label.x, x, W) && onScreen(label.y, y, this.H))
+      if (this.zoom.k < COUNTRY_LABEL_ZOOM) return []
+      return visibleCountryLabels(this.country_labels, this.zoom, W, this.H, LABEL_SIZE, LABEL_CHAR_WIDTH)
     },
     // Largest first, so the small circles are drawn on top and stay hoverable.
     bubbles () {
@@ -208,7 +202,7 @@ export default {
         return {
           key: `${cell.lat}:${cell.lon}`,
           x, y,
-          r: Math.max(R_MIN, R_MAX * Math.sqrt(cell.count / this.max_runs)),
+          r: Math.max(R_MIN, R_MAX * (cell.count / this.max_runs) ** RADIUS_POWER),
           title: this.describe(cell)
         }
       })
@@ -261,9 +255,8 @@ export default {
   methods: {
     describe (cell) {
       const size = this.data.cell
-      const known = cell.known === null ? 'known species fraction not available' : `mean known species fraction ${cell.known}% (all ${cell.runs.toLocaleString('en-US')} runs in the square)`
       const place = `latitude ${signed(cell.lat)}° to ${signed(cell.lat + size)}°, longitude ${signed(cell.lon)}° to ${signed(cell.lon + size)}°`
-      return `${place}: ${cell[this.view].toLocaleString('en-US')} ${this.view_label.toLowerCase()} runs, ${known}`
+      return `${place}: ${cell[this.view].toLocaleString('en-US')} ${this.view_label.toLowerCase()} runs`
     },
     // Swap in the finest coastline set the zoom calls for, loading it on first use.
     ensure_detail () {
@@ -308,7 +301,7 @@ export default {
 </script>
 
 <style scoped>
-.stat-note { max-width: 62ch; font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
+.stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .section.container { padding-top: var(--space-8); padding-bottom: var(--space-4); }
 .map-box { margin-top: var(--space-4); }
 .map-wrap { position: relative; }
@@ -327,7 +320,10 @@ export default {
 .map-guide-title { font-size: 11px; text-anchor: start; fill: var(--color-ink-muted); }
 .map-guide-label { font-size: 11px; text-anchor: middle; fill: var(--color-ink-muted); }
 .map-graticule { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-map-coast); stroke-width: 0.5; opacity: 0.35; pointer-events: none; }
-.map-country { text-anchor: middle; dominant-baseline: middle; fill: var(--color-ink-muted); paint-order: stroke; stroke: var(--color-map-land); stroke-linejoin: round; pointer-events: none; user-select: none; }
+.map-country { text-anchor: middle; dominant-baseline: middle; fill: var(--color-ink); paint-order: stroke; stroke: var(--color-map-land); stroke-linejoin: round; pointer-events: none; user-select: none; }
+.map-world-label { text-anchor: middle; dominant-baseline: middle; pointer-events: none; user-select: none; }
+.map-world-label.is-continent { fill: var(--color-ink); font-weight: 600; opacity: 0.7; paint-order: stroke; stroke: var(--color-map-land); stroke-width: 3px; stroke-linejoin: round; }
+.map-world-label.is-ocean { fill: hsl(205, 45%, 32%); font-style: italic; }
 .map-equator { vector-effect: non-scaling-stroke; stroke: var(--color-map-coast); stroke-width: 0.8; stroke-dasharray: 4 5; opacity: 0.55; pointer-events: none; }
 .map-bubble { vector-effect: non-scaling-stroke; fill-opacity: 0.9; stroke: var(--color-ink); stroke-width: 0.6; cursor: pointer; touch-action: manipulation; }
 .map-bubble.is-chosen { fill-opacity: 1; stroke: var(--color-accent); stroke-width: 3; }
@@ -344,7 +340,7 @@ export default {
 .map-view-ecological :deep(.button.is-selected),
 .map-view-ecological :deep(.button.is-selected:hover),
 .map-view-ecological :deep(.button.is-selected:focus) { background-color: var(--color-sample-ecological); border-color: var(--color-sample-ecological); color: var(--color-ink); }
-.map-key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); margin-top: var(--space-2); }
+.map-key { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-2); }
 .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: 50%; border: 1px solid var(--color-ink); }
 .swatch-host_associated { background: var(--color-sample-host); }
 .swatch-ecological { background: var(--color-sample-ecological); }
