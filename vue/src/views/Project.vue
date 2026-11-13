@@ -10,6 +10,20 @@
             <p>{{ metadata.study_abstract }}</p>
           </div><br />
 
+          <section id="individual-runs">
+            <h3 class="subtitle is-4">Individual runs</h3>
+            <p v-if="metadata.num_lat_lon_runs > 0" class="individual-runs-caption">
+              {{ metadata.num_lat_lon_runs.toLocaleString('en-US') }} of this project's {{ metadata.projects.length.toLocaleString('en-US') }} runs
+              have associated latitude/longitude metadata. The number on each marker is how many runs were collected there;
+              hover a marker to list them, or click it to keep the list open.
+            </p>
+            <p v-else class="individual-runs-caption">
+              None of this project's {{ metadata.projects.length.toLocaleString('en-US') }} runs have latitude/longitude metadata.
+            </p>
+            <project-runs-map v-if="metadata.num_lat_lon_runs > 0" :lat_lons="metadata.lat_lons || []" />
+          </section>
+          <br />
+
           <b-table
             :data="metadata.projects"
             :striped="true"
@@ -69,9 +83,11 @@
 
 import { fetchProjectMetadata } from '@/api'
 import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
+import ProjectRunsMap from '@/components/ProjectRunsMap.vue'
 
 export default {
   name: 'Project',
+  components: { ProjectRunsMap },
   title () {
     return `Project overview - Sandpiper` // FIXME
   },
@@ -173,6 +189,9 @@ export default {
 </script>
 
 <style scoped>
+.individual-runs-caption {
+  margin-bottom: 0.4rem;
+}
 @media (max-width: 768px) {
   .project-page .has-text-justified {
     text-align: left !important;

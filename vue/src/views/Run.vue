@@ -20,7 +20,7 @@
           <dl class="run-facts">
             <div class="run-fact">
               <dt>Organism</dt>
-              <dd>{{ metadata.metadata_parsed.organism }}, {{ metadata.metadata_parsed.host_or_not_mature }}</dd>
+              <dd>{{ metadata.metadata_parsed.organism }}</dd>
             </div>
             <div class="run-fact">
               <dt>Sequencing</dt>
@@ -57,13 +57,13 @@
               </span>
               <span class="run-qc-meter-value">{{ known_species_fraction }}%</span>
             </div>
-            <div class="run-qc-flags">
+            <div v-if="qc_flags.length" class="run-qc-flags">
               <button
                 v-for="flag in qc_flags"
                 :key="flag.key"
                 type="button"
                 class="run-qc-flag"
-                :class="flag.active ? flag.activeClass : flag.clearClass"
+                :class="flag.cssClass"
                 aria-haspopup="dialog"
                 :aria-expanded="qc_tooltip_key === flag.key"
                 @mouseenter="showQcTooltip(flag, $event)"
@@ -73,13 +73,13 @@
                 @keydown.esc="hideQcTooltip"
               >
                 <img
-                  v-if="flag.active && flag.activeImage"
-                  :src="flag.activeImage"
+                  v-if="flag.image"
+                  :src="flag.image"
                   class="run-qc-flag-icon-img"
                   alt=""
                 />
-                <b-icon v-else :icon="flag.active ? flag.activeIcon : flag.clearIcon" size="is-small" />
-                {{ flag.active ? flag.activeLabel : flag.clearLabel }}
+                <b-icon v-else :icon="flag.icon" size="is-small" />
+                {{ flag.label }}
               </button>
             </div>
           </div>
@@ -93,7 +93,7 @@
             @mouseleave="hideQcTooltipDelayed"
           >
             {{ qc_tooltip_text }}
-            <span class="run-qc-tooltip-search">Search: {{ qc_tooltip_key }}:yes / {{ qc_tooltip_key }}:no</span>
+            <span class="run-qc-tooltip-search">Search: {{ qc_tooltip_search }}</span>
           </div>
 
           <div class="run-abstract">
@@ -127,12 +127,14 @@
                     v-for="link in publications"
                     :key="link.study_id"
                     :href="publicationHref(link)"
-                    class="run-link-pill"
+                    :title="link.title || null"
+                    :class="['run-link-pill', { 'is-gold': link.from_gold }]"
                   >
                     <span class="run-link-pill-badge">{{ publicationBadge(link) }}</span>
                     {{ link.study_id }}
                   </a>
                 </div>
+                <p v-if="publications.some(link => link.from_gold)" class="run-links-note">Gold publications are listed by <a :href="gold.url" target="_blank" rel="noopener">GOLD (JGI)</a>.</p>
                 <p class="run-links-note">A <a :href="scholar_search_url">search on Google Scholar</a> may find further publications.</p>
               </template>
             </div>
@@ -150,18 +152,7 @@
         </div>
       </section>
 
-      <nav class="section run-jump-bar" aria-label="On this page">
-        <p class="run-jump-title">On this page</p>
-        <div class="container run-jump-links">
-          <a
-            v-for="item in JUMP_ITEMS"
-            :key="item.id"
-            :href="'#' + item.id"
-            :class="{ 'is-current': current_section === item.id, 'is-group-start': item.start }"
-            :aria-current="current_section === item.id ? 'location' : null"
-            @click.prevent="jumpTo(item.id)">{{ item.label }}</a>
-        </div>
-      </nav>
+      <page-rail :items="JUMP_ITEMS" :current="current_section" strip @jump="jumpTo" />
 
       <section id="taxonomic-profile" class="section">
         <div class="container">
@@ -171,9 +162,16 @@
               GTDB ({{ GTDB_VERSION }})
             </b-radio-button>
             <b-radio-button name="taxonomy-db" v-model="taxonomy_db" native-value="globdb" @input="fetchCondensed" type="is-warning" :disabled="db_availability.globdb === false">
-              GlobDB ({{ GLOBDB_VERSION }})<span v-if="db_availability.globdb === false"> - unavailable</span>
+              GlobDB ({{ GLOBDB_VERSION }})<span v-if="db_availability.globdb === false"> - unavailable<template v-if="metadata.metadata_parsed.weebill_only"> (SingleM found no marker genes)</template></span>
             </b-radio-button>
           </b-field>
+          <p class="taxonomy-note">
+            <template v-if="taxonomy_db === 'gtdb'">
+              The GTDB profile combines SingleM’s marker-gene results with Weebill’s k-mer matching.
+              <template v-if="metadata.metadata_parsed.weebill_only">For this sample SingleM found no marker genes, so the profile comes from Weebill alone.</template>
+            </template>
+            <template v-else>The GlobDB profile uses SingleM’s marker genes only; Weebill is not used with GlobDB.</template>
+          </p>
           <div>
             <template v-if="condensed_tree != null">
               <Sunburst3 :json_tree="sunburst_tree" :overall_coverage="10.3" :known_species_fraction="known_species_fraction" root_label="Prokaryotes" scope_note="Shows bacteria and archaea only. Viruses and eukaryotes are not profiled." />
@@ -184,7 +182,7 @@
 
       <section id="prokaryotic-fraction" class="section">
         <div class="container">
-          <h3 class="title">Prokaryotic fraction</h3>
+          <h3 class="title">Prokaryotic read fraction</h3>
           <div v-if="metadata.metadata_parsed.smf || metadata.metadata_parsed.smf==0">
             <br />
             <br />
@@ -199,7 +197,7 @@
 
       <section class="section">
         <div class="container is-large">
-          <RunMetadata :mdata="metadata.metadata" :mdata_parsed="metadata.metadata_parsed" :accession="accession" />
+          <RunMetadata :mdata="metadata.metadata" :mdata_parsed="metadata.metadata_parsed" :accession="accession" :gold="gold" :gold_loading="gold_loading" />
         </div>
       </section>
 
@@ -213,8 +211,8 @@
 
           <p>Concise "SingleM condensed" format files with three columns sample name, coverage, and taxonomy are also available for download (<a :href="profile_csv_link_gtdb">GTDB ({{ GTDB_VERSION }})</a> or <a :href="profile_csv_link_globdb">GlobDB ({{ GLOBDB_VERSION }})</a>). In this format the coverage of each lineage is the coverage assigned to that taxon and not more specifically e.g. the coverage of a species is not included in the coverage shown for its genus. These taxonomic profiles can be converted to other forms (e.g. one that gives the relative abundance instead of the coverage) using the <a href="https://wwood.github.io/singlem/tools/summarise">SingleM summarise</a> tool.</p>
           <br />
-
-          <p>Unfortunately, for now, the full SingleM OTU table of {{ accession }} (GTDB ({{ GTDB_VERSION }}) annotated) tab-separated file containing information about each OTU from each marker cannot be downloaded directly from this website.</p>
+          
+          <p>Unfortunately, for now, the raw data behind the taxonomic profile (the OTU table and kmer composition) of {{ accession }} (GTDB ({{ GTDB_VERSION }}) annotated) cannot be downloaded directly from this website. If you are interested in these data, please get in touch over email.</p>
         </div>
       </section>
     </div>
@@ -249,7 +247,7 @@
 // `start` opens a new group: the profile, the NCBI metadata, then data from elsewhere.
 const JUMP_ITEMS = [
   { id: 'taxonomic-profile', label: 'Taxonomic profile' },
-  { id: 'prokaryotic-fraction', label: 'Prokaryotic fraction' },
+  { id: 'prokaryotic-fraction', label: 'Prokaryotic read fraction' },
   { id: 'submitter-information', label: 'Submitter', start: true },
   { id: 'sample-information', label: 'Sample information' },
   { id: 'sequencing-information', label: 'Sequencing' },
@@ -263,15 +261,78 @@ const JUMP_ITEMS = [
 const JUMP_LINE_FRACTION = 0.33
 const PIN_RELEASE_EVENTS = ['wheel', 'touchmove', 'keydown']
 
+import PageRail from '@/components/PageRail.vue'
 import Sunburst3 from '@/components/Sunburst3.vue'
 import RunMetadata from '@/components/RunMetadata.vue'
 import RunMetadataTable from '@/components/RunMetadataTable.vue'
 import { LMap, LTileLayer, LMarker } from '@vue-leaflet/vue-leaflet'
 
-import { api_url, fetchRunMetadata, fetchRunCondensed } from '@/api'
+import { api_url, fetchRunMetadata, fetchRunCondensed, fetchRunGold } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 import rnaIcon from '@/assets/RNA-white.png'
+
+// Flag pills appear only when the flag is set, so a typical sample shows none.
+// Low complexity is the one pass/fail judgment (red); the others are categorical
+// facts, each with its own colour so none implies a verdict.
+const QC_FLAG_DEFS = [
+  {
+    key: 'low_complexity',
+    field: 'low_complexity',
+    label: 'Low complexity',
+    hint: 'Samples where ≥95% of the community is assigned to a single order are flagged as low complexity.',
+    icon: 'flag-variant',
+    cssClass: 'run-qc-flag-active'
+  },
+  {
+    key: 'non_metagenome_organism',
+    field: 'non_metagenome_organism_strict',
+    label: 'Non-metagenome organism',
+    hint: 'The organism recorded for this sample in NCBI (for example “Homo sapiens” or “Montipora”) names a specific species, not a metagenome or community. The sample may be an isolate or a single genome, or a community deposited under its host’s name. This is judged from the recorded name only, not from the reads.',
+    icon: 'account',
+    cssClass: 'run-qc-flag-organism-single'
+  },
+  {
+    key: 'synthetic',
+    field: 'synthetic',
+    label: 'Synthetic',
+    hint: 'This sample’s reads appear synthetic (e.g. simulated or a mock community), not a real environmental sample.',
+    icon: 'flask-outline',
+    cssClass: 'run-qc-flag-synthetic'
+  },
+  {
+    key: 'weebill_only',
+    field: 'weebill_only',
+    label: 'Weebill only',
+    hint: 'SingleM found no marker genes in this sample, so its GTDB profile comes only from Weebill’s k-mer matching against GTDB genomes. GlobDB profiles use SingleM alone, so there is no GlobDB profile for it.',
+    icon: 'dna',
+    cssClass: 'run-qc-flag-weebill'
+  },
+  {
+    key: 'rna_or_non_dna',
+    field: 'rna_or_non_dna_strict',
+    label: 'RNA/non-DNA',
+    hint: 'This sample’s reads appear to be RNA or otherwise non-DNA sequencing.',
+    image: rnaIcon,
+    cssClass: 'run-qc-flag-rna'
+  }
+]
+
+// The one pill every sample gets (when known), keyed by the API's host_or_not_mature value.
+const ENVIRONMENT_FLAGS = {
+  'Eukaryote host-associated': {
+    label: 'Eukaryote host-associated',
+    hint: 'Recorded or predicted to fall under NCBI’s “organismal metagenome” taxonomy, for example gut or skin samples. The prediction is made by a machine learning model from the taxonomic profile.',
+    icon: 'paw',
+    cssClass: 'run-qc-flag-env-host'
+  },
+  ecological: {
+    label: 'Ecological',
+    hint: 'Not recorded or predicted as host-associated, for example soil or ocean samples. The prediction is made by a machine learning model from the taxonomic profile.',
+    icon: 'earth',
+    cssClass: 'run-qc-flag-env-eco'
+  }
+}
 
 export default {
   name: 'Run',
@@ -289,10 +350,15 @@ export default {
       condensed_cache: {},
       db_availability: { gtdb: null, globdb: null },
       metadata: null,
+      // JGI GOLD rows and publications, from the database; null until (and unless) it holds this run.
+      gold: null,
+      // True until the GOLD request first answers, so the filter boxes do not look empty meanwhile.
+      gold_loading: true,
       error_message: null,
       taxonomy_db: 'gtdb',
       qc_tooltip_key: null,
       qc_tooltip_text: '',
+      qc_tooltip_search: '',
       qc_tooltip_x: 0,
       qc_tooltip_y: 0,
       qc_tooltip_close_timer: null
@@ -300,6 +366,7 @@ export default {
   },
   props: ['accession'],
   components: {
+    PageRail,
     Sunburst3,
     RunMetadata,
     RunMetadataTable,
@@ -361,9 +428,10 @@ export default {
       return api_url() + '/condensed_csv_with_extras/' + this.accession + '?taxonomy_type=globdb'
     },
     publications: function () {
-      return this.metadata.metadata.study_links.filter(function (link) {
+      const own = this.metadata.metadata.study_links.filter(function (link) {
         return (typeof link['database'] !== 'undefined')
       })
+      return own.concat(this.gold_publications(own))
     },
     non_publication_study_links: function () {
       return this.metadata.metadata.study_links.filter(function (link) {
@@ -381,66 +449,17 @@ export default {
         return 'is-success'
       }
     },
-    // Low complexity is a genuine pass/fail QC judgment, so it keeps the
-    // red/green + flag/tick treatment. The other three are categorical
-    // facts, not good/bad verdicts -- e.g. a sample being RNA rather than
-    // DNA is information some users are specifically looking for, not a
-    // problem. Each of those three gets its own two-color theme (distinct
-    // from each other and from the red/green pair) so no color implies a
-    // judgment, plus an icon pair that describes the category rather than
-    // flagging/confirming it.
+    // The environment pill first, then a pill for each flag that is set.
     qc_flags: function () {
       const p = this.metadata.metadata_parsed
-      return [
-        {
-          key: 'low_complexity',
-          active: p.low_complexity,
-          activeLabel: 'Low complexity',
-          clearLabel: 'Complex',
-          activeHint: 'Samples where ≥95% of the community is assigned to a single order are flagged as low complexity.',
-          clearHint: 'Less than 95% of this sample’s community is assigned to a single order.',
-          activeIcon: 'flag-variant',
-          clearIcon: 'check-circle-outline',
-          activeClass: 'run-qc-flag-active',
-          clearClass: 'run-qc-flag-clear'
-        },
-        {
-          key: 'non_metagenome_organism',
-          active: p.non_metagenome_organism_strict,
-          activeLabel: 'Non-metagenome organism',
-          clearLabel: 'Metagenome organism',
-          activeHint: 'This sample appears to be a single organism, not a genuine metagenome.',
-          clearHint: 'This sample appears to be a genuine metagenome, not a single organism.',
-          activeIcon: 'account',
-          clearIcon: 'account-group',
-          activeClass: 'run-qc-flag-organism-single',
-          clearClass: 'run-qc-flag-organism-metagenome'
-        },
-        {
-          key: 'synthetic',
-          active: p.synthetic,
-          activeLabel: 'Synthetic',
-          clearLabel: 'Natural',
-          activeHint: 'This sample’s reads appear synthetic (e.g. simulated or a mock community), not a real environmental sample.',
-          clearHint: 'This sample’s reads do not appear synthetic.',
-          activeIcon: 'flask-outline',
-          clearIcon: 'leaf',
-          activeClass: 'run-qc-flag-synthetic',
-          clearClass: 'run-qc-flag-natural'
-        },
-        {
-          key: 'rna_or_non_dna',
-          active: p.rna_or_non_dna_strict,
-          activeLabel: 'RNA/non-DNA',
-          clearLabel: 'DNA',
-          activeHint: 'This sample’s reads appear to be RNA or otherwise non-DNA sequencing.',
-          clearHint: 'This sample’s reads appear to be standard DNA sequencing.',
-          activeImage: rnaIcon,
-          clearIcon: 'dna',
-          activeClass: 'run-qc-flag-rna',
-          clearClass: 'run-qc-flag-dna'
-        }
-      ]
+      const environment = ENVIRONMENT_FLAGS[p.host_or_not_mature]
+      const environmentPills = environment
+        ? [{ ...environment, key: 'environment', search: 'environment:host / environment:ecological' }]
+        : []
+      const flagPills = QC_FLAG_DEFS
+        .filter(def => p[def.field])
+        .map(def => ({ ...def, search: def.key + ':yes / ' + def.key + ':no' }))
+      return environmentPills.concat(flagPills)
     }
   },
   created () {
@@ -508,7 +527,8 @@ export default {
       this.qc_tooltip_x = Math.max(10, x)
       this.qc_tooltip_y = rect.bottom + 8
       this.qc_tooltip_key = flag.key
-      this.qc_tooltip_text = flag.active ? flag.activeHint : flag.clearHint
+      this.qc_tooltip_text = flag.hint
+      this.qc_tooltip_search = flag.search
     },
     hideQcTooltipDelayed () {
       clearTimeout(this.qc_tooltip_close_timer)
@@ -555,6 +575,11 @@ export default {
     fetchData () {
       const accession = this.accession
 
+      this.gold = null
+      this.gold_loading = true
+      // Fetched on its own, so the rest of the page never waits for it.
+      this.loadGold(accession)
+
       this.condensed_cache = {}
       this.condensed_tree = null
       this.db_availability = { gtdb: null, globdb: null }
@@ -577,6 +602,34 @@ export default {
         // The template gates on metadata/error_message, so the page is
         // genuinely blank until this settles either way.
         .finally(() => stopPageLoading(loadingToken))
+    },
+    // GOLD rows and publications stored in Sandpiper's database for this run (none for most runs).
+    loadGold (accession) {
+      fetchRunGold(accession)
+        .then(response => {
+          if (this.accession !== accession) return
+          this.gold = response.data.gold || null
+          this.gold_loading = false
+        })
+        .catch(() => {
+          /* no GOLD rows is fine */
+          if (this.accession === accession) this.gold_loading = false
+        })
+    },
+    // GOLD's publications as the same kind of link, skipping any the study links already list.
+    gold_publications (own) {
+      const known = new Set(own.map(link => String(link.study_id).toLowerCase()))
+      const links = []
+      for (const pub of (this.gold && this.gold.publications) || []) {
+        const link = pub.pubmed_id
+          ? { database: 'pubmed', study_id: pub.pubmed_id }
+          : { database: 'doi', study_id: pub.doi }
+        const ids = [pub.pubmed_id, pub.doi].filter(Boolean).map(id => id.toLowerCase())
+        if (!link.study_id || ids.some(id => known.has(id))) continue
+        ids.forEach(id => known.add(id))
+        links.push({ ...link, title: pub.title, from_gold: true })
+      }
+      return links
     },
     publicationHref (link) {
       const db = link['database'].toLowerCase()
@@ -607,148 +660,11 @@ export default {
 </script>
 
 <style scoped>
-/* Under the study header, "On this page" is a strip above the sections. On very
-   wide screens it moves into the empty space left of the centred content and stays
-   in view as the page scrolls, so the content itself never shifts. */
-.run-jump-bar {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-rule);
-}
-.run-page .run-jump-bar.section {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-.run-jump-title {
-  display: none;
-}
-.run-jump-links {
-  display: flex;
-  gap: var(--space-6);
-  overflow-x: auto;
-  white-space: nowrap;
-  scrollbar-width: none;
-}
-.run-jump-links::-webkit-scrollbar {
-  display: none;
-}
-.run-jump-bar a {
-  position: relative;
-  flex: none;
-  padding: var(--space-3) 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--color-ink-muted);
-  text-decoration: none;
-  transition: color 0.15s;
-}
-/* The current section is marked in the accent, drawn in from the start. */
-.run-jump-bar a::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--color-accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.2s var(--ease-spring);
-}
-/* A hairline in the gap before each new group of sections. */
-.run-jump-bar a.is-group-start::before {
-  content: '';
-  position: absolute;
-  left: calc(-1 * var(--space-3));
-  top: 30%;
-  bottom: 30%;
-  width: 1px;
-  background: var(--color-rule);
-}
-.run-jump-bar a:hover,
-.run-jump-bar a.is-current {
-  color: var(--color-ink);
-}
-.run-jump-bar a.is-current::after {
-  transform: scaleX(1);
-}
-.run-jump-bar a:active {
-  color: var(--color-accent-strong);
-}
-.run-jump-bar a:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-
 @media (min-width: 1440px) {
-  /* Content is capped at 1152px (Bulma's widescreen width) so the list fits beside it
+  /* Content is capped at 1152px (Bulma's widescreen width) so the contents list (PageRail) fits beside it
      on laptop screens; wider screens just get wider gutters. */
-  .run-page :deep(.container:not(.run-jump-links)) {
+  .run-page :deep(.container:not(.page-rail-inner)) {
     max-width: 1152px;
-  }
-  .run-jump-bar {
-    /* Pinned to the window's left edge at a fixed width: as the window narrows, the
-       space between the list and the content shrinks, and the list never moves.
-       The 1440px breakpoint is where that space is still about 1.5rem. */
-    position: fixed;
-    top: 8rem;
-    z-index: 100;
-    left: 1rem;
-    width: 6.5rem;
-    background: none;
-    border: 0;
-  }
-  .run-page .run-jump-bar.section {
-    padding: 0;
-  }
-  .run-jump-bar .container {
-    max-width: none;
-    margin: 0;
-  }
-  .run-jump-title {
-    display: block;
-    margin-bottom: var(--space-2);
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--color-ink);
-  }
-  .run-jump-links {
-    flex-direction: column;
-    gap: 0;
-    overflow: visible;
-    white-space: normal;
-    border-left: 1px solid var(--color-rule);
-  }
-  .run-jump-bar a {
-    padding: var(--space-1) 0 var(--space-1) var(--space-3);
-    font-size: 0.82rem;
-    line-height: 1.35;
-  }
-  .run-jump-bar a.is-group-start {
-    margin-top: var(--space-3);
-  }
-  .run-jump-bar a.is-group-start::before {
-    display: none;
-  }
-  /* The accent runs down the list's own hairline, beside the current section. */
-  .run-jump-bar a::after {
-    left: -1px;
-    right: auto;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    height: auto;
-    transform: scaleY(0);
-    transform-origin: top;
-  }
-  .run-jump-bar a.is-current::after {
-    transform: scaleY(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .run-jump-bar a,
-  .run-jump-bar a::after {
-    transition: none;
   }
 }
 /* A little air above a jumped-to section. */
@@ -898,8 +814,7 @@ export default {
 .run-qc-flags {
   display: flex;
   flex-wrap: wrap;
-  /* row-gap stays var(--space-2); column-gap widened so the pills (Low
-     complexity/Complex, Metagenome organism, Natural, DNA) sit a bit
+  /* row-gap stays var(--space-2); column-gap widened so the pills sit a bit
      further apart horizontally. */
   gap: var(--space-2) 0.9rem;
 }
@@ -921,43 +836,46 @@ export default {
   outline: 2px solid #3273dc;
   outline-offset: 2px;
 }
-/* Low complexity is the one genuine pass/fail QC judgment among these
-   four, so it alone keeps the red/green verdict treatment -- same green
-   as .run-qc-meter-fill.is-success and same red as .is-danger above (and
-   Bulma's $green/$red/is-success/is-danger used site-wide). */
-.run-qc-flag-clear {
-  background: hsl(141, 60%, 34%);
-  color: hsl(0, 0%, 100%);
-}
+/* Low complexity is the one genuine pass/fail QC judgment among the flag
+   pills, so it alone keeps the red verdict treatment (same red as
+   .run-qc-meter-fill.is-danger above). */
 .run-qc-flag-active {
   background: hsl(348, 75%, 42%);
   color: hsl(0, 0%, 100%);
 }
-/* The remaining three flags are categorical facts, not verdicts (e.g. RNA
-   vs. DNA isn't "bad" -- some users want RNA specifically), so each pair
-   gets its own two-color theme instead of reusing red/green. */
+/* The other flags are categorical facts, not verdicts (e.g. RNA vs. DNA isn't
+   "bad" -- some users want RNA specifically), so each has its own colour. */
 .run-qc-flag-organism-single {
   background: hsl(235, 45%, 50%);
-  color: hsl(0, 0%, 100%);
-}
-.run-qc-flag-organism-metagenome {
-  background: hsl(205, 60%, 38%);
   color: hsl(0, 0%, 100%);
 }
 .run-qc-flag-synthetic {
   background: hsl(45, 70%, 38%);
   color: hsl(0, 0%, 100%);
 }
-.run-qc-flag-natural {
-  background: hsl(25, 50%, 34%);
-  color: hsl(0, 0%, 100%);
-}
 .run-qc-flag-rna {
   background: hsl(290, 45%, 48%);
   color: hsl(0, 0%, 100%);
 }
-.run-qc-flag-dna {
-  background: hsl(265, 40%, 40%);
+.run-qc-flag-weebill {
+  background: hsl(185, 60%, 28%);
+  color: hsl(0, 0%, 100%);
+}
+/* Which methods built the profile of the selected taxonomy database. */
+.taxonomy-note {
+  margin-top: var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+/* The environment pill: same purple and green as the host and ecological
+   circles on the maps (--color-sample-host / --color-sample-ecological),
+   darkened so the white text stays readable. */
+.run-qc-flag-env-host {
+  background: hsl(277, 29%, 40%);
+  color: hsl(0, 0%, 100%);
+}
+.run-qc-flag-env-eco {
+  background: hsl(100, 30%, 30%);
   color: hsl(0, 0%, 100%);
 }
 .run-qc-flag-icon-img {
@@ -1019,6 +937,7 @@ export default {
 /* A softer, non-fully-rounded chip -- distinct from the header's solid
    status pills (related-runs, QC flags), which signal state. These are
    just references out to other sites, so a quieter outline treatment. */
+.run-link-pill.is-gold { border-color: #c9a227; background: #faf1d2; }
 .run-link-pill {
   display: inline-flex;
   align-items: center;

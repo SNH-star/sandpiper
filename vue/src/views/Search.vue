@@ -82,7 +82,7 @@
               <div class="keys-item"><code>location</code><span class="keys-example">e.g. Pacific Ocean</span></div>
               <div class="keys-item"><code>latitude</code><span class="keys-example">e.g. -33.8 or -40-30</span></div>
               <div class="keys-item"><code>longitude</code><span class="keys-example">e.g. 151.2 or 140-160</span></div>
-              <div class="keys-item"><code>grid</code><span class="keys-example">e.g. 10/-60;15/-60</span></div>
+              <div class="keys-item"><code>grid</code><span class="keys-example">e.g. h51.962/-2/host</span></div>
             </div>
 
             <div class="keys-group">
@@ -96,6 +96,7 @@
               <div class="keys-item"><code>synthetic</code><span class="keys-example">yes or no</span></div>
               <div class="keys-item"><code>non_metagenome_organism</code><span class="keys-example">yes or no</span></div>
               <div class="keys-item"><code>rna_or_non_dna</code><span class="keys-example">yes or no</span></div>
+              <div class="keys-item"><code>weebill_only</code><span class="keys-example">yes or no (profile made by Weebill alone, no SingleM marker genes)</span></div>
               <div class="keys-item">
                 <code class="keys-item-label">age <InfoTooltipButton controls="advanced-search-popover" label="Show age search help" :expanded="active_tooltip === 'age_info'" @open="showTooltip('age_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></code>
                 <span class="keys-example">e.g. 25 or 20-30</span>
@@ -161,6 +162,10 @@
                 <code class="keys-item-label">metalog <InfoTooltipButton controls="advanced-search-popover" label="Show Metalog metadata search help" :expanded="active_tooltip === 'metalog_info'" @open="showTooltip('metalog_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></code>
                 <span class="keys-example">e.g. host=Sus scrofa or diabetes</span>
               </div>
+              <div class="keys-item">
+                <code class="keys-item-label">gold <InfoTooltipButton controls="advanced-search-popover" label="Show GOLD (JGI) search help" :expanded="active_tooltip === 'gold_info'" @open="showTooltip('gold_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></code>
+                <span class="keys-example">e.g. habitat=marine, eye or Gp0119859; empty for any run with GOLD (JGI) data</span>
+              </div>
             </div>
 
           </div>
@@ -220,7 +225,7 @@
 
           <section class="adv-group" :class="{ 'is-open': adv_groups.location }">
             <button type="button" class="adv-group-toggle" :aria-expanded="adv_groups.location" aria-controls="adv-group-location" @click="toggle_adv_group('location')">
-              <span class="adv-group-title">Location<span class="adv-group-subtitle">Search by map included</span></span>
+              <span class="adv-group-title">Location</span>
               <span class="adv-group-chevron" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
               <span class="adv-group-hint">{{ adv_group_hint('location') }}</span>
             </button>
@@ -293,6 +298,14 @@
                       <b-button size="is-small" style="width: 82px;" :type="adv.rna_or_non_dna === 'yes' ? 'is-primary' : ''" :aria-pressed="adv.rna_or_non_dna === 'yes'" @click="toggle_rna_or_non_dna('yes')">Yes</b-button>
                       <b-button size="is-small" style="width: 82px;" :type="adv.rna_or_non_dna === 'no' ? 'is-primary' : ''" :aria-pressed="adv.rna_or_non_dna === 'no'" @click="toggle_rna_or_non_dna('no')">No</b-button>
                       <b-button size="is-small" :type="adv_present.rna_or_non_dna ? 'is-primary' : ''" :aria-pressed="adv_present.rna_or_non_dna" title="Match any run with an RNA/non-DNA classification" @click="toggle_rna_or_non_dna_present">Any</b-button>
+                    </div>
+                  </div>
+                  <div class="field is-floating-label low-complexity-field adv-field">
+                    <span class="label">Weebill only <b-icon v-if="universal_loading" icon="loading" custom-class="mdi-spin" size="is-small" /><InfoTooltipButton v-else controls="advanced-search-popover" label="Show Weebill only search help" :expanded="active_tooltip === 'weebill_only_info'" @open="showTooltip('weebill_only_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></span>
+                    <div class="buttons has-addons" role="group" aria-label="Weebill only">
+                      <b-button size="is-small" style="width: 82px;" :type="adv.weebill_only === 'yes' ? 'is-primary' : ''" :aria-pressed="adv.weebill_only === 'yes'" @click="toggle_weebill_only('yes')">Yes</b-button>
+                      <b-button size="is-small" style="width: 82px;" :type="adv.weebill_only === 'no' ? 'is-primary' : ''" :aria-pressed="adv.weebill_only === 'no'" @click="toggle_weebill_only('no')">No</b-button>
+                      <b-button size="is-small" :type="adv_present.weebill_only ? 'is-primary' : ''" :aria-pressed="adv_present.weebill_only" title="Match any run with a Weebill only classification" @click="toggle_weebill_only_present">Any</b-button>
                     </div>
                   </div>
                   <b-field grouped class="low-complexity-habitat-group">
@@ -368,7 +381,7 @@
           </section>
 
           <teleport to="body">
-            <div v-if="active_tooltip" id="advanced-search-popover" class="info-tooltip-box" :class="{ 'is-scroll-list': active_tooltip === 'metalog_info' }" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltipDelayed" @focusin="keepTooltipOpen" @focusout="hideTooltipDelayed" @keydown.esc="hideTooltip">
+            <div v-if="active_tooltip" id="advanced-search-popover" class="info-tooltip-box" :class="{ 'is-scroll-list': active_tooltip === 'metalog_info' || active_tooltip === 'gold_info' }" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltipDelayed" @focusin="keepTooltipOpen" @focusout="hideTooltipDelayed" @keydown.esc="hideTooltip">
               <template v-if="active_tooltip === 'organism_info'">
                 <p class="info-tooltip-title">Organism</p>
                 <p style="color: rgba(255,255,255,0.85); font-size: 0.78rem;">
@@ -494,17 +507,17 @@
               <template v-if="active_tooltip === 'grid_info'">
                 <p class="info-tooltip-title">Graph — pick places on a map</p>
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-                  An interactive world map of the runs that have coordinates, grouped into 5° squares. Each circle is one square and its
-                  area shows how many runs it holds. Hover a circle to see its counts.
+                  An interactive world map of the runs that have coordinates, the same map as on the Statistics page. It is divided into
+                  hexagons 2° across, each shaded by how many runs were collected inside it: the darker the hexagon, the more runs. Hover a hexagon to see its count.
                 </p>
                 <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
                   The switch above the map chooses which runs are drawn: <strong style="color: var(--color-sample-host);">host-associated</strong> (purple, e.g. gut or skin samples)
-                  or <strong style="color: var(--color-sample-ecological);">ecological</strong> (green, e.g. soil or ocean). Both types share one circle scale, so the two views can be compared.
+                  or <strong style="color: var(--color-sample-ecological);">ecological</strong> (green, e.g. soil or ocean). Both types share one colour scale, so the two views can be compared.
                 </p>
                 <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
-                  Click a circle to pick its square under the sample type shown; you can pick as many as you like, mixing host-associated and
-                  ecological squares, and click again to drop one. The search uses only the picked squares and leaves Latitude and
-                  Longitude alone. Clear all drops every square.
+                  Click a hexagon to pick it under the sample type shown; you can pick as many as you like, mixing host-associated and
+                  ecological hexagons, and click again to drop one. The search uses only the picked hexagons and leaves Latitude and
+                  Longitude alone. Clear all drops every hexagon. To zoom, hold Ctrl (⌘ on a Mac) and scroll, or pinch.
                 </p>
               </template>
               <template v-if="active_tooltip === 'age_info'">
@@ -539,11 +552,11 @@
               <template v-if="active_tooltip === 'non_metagenome_organism_info'">
                 <p class="info-tooltip-title">Non-metagenome organism</p>
                 <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-                  Flags samples that appear to be a single cultured organism rather than a genuine mixed-community metagenome.
+                  Flags samples whose recorded organism names a specific species rather than a metagenome or community. Judged from the recorded name only, not from the reads.
                 </p>
                 <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
-                  Yes = sequencing of one cultured/isolated organism<br />
-                  No = a genuine mixed-community metagenome
+                  Yes = organism named as a specific species (an isolate, a single genome, or a community deposited under its host’s name)<br />
+                  No = a metagenome or community name, a vague name such as “bacterium”, or no name recorded
                 </p>
               </template>
               <template v-if="active_tooltip === 'rna_or_non_dna_info'">
@@ -554,6 +567,16 @@
                 <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
                   Yes = RNA (e.g. metatranscriptomic) or other non-DNA sequencing<br />
                   No = standard DNA sequencing
+                </p>
+              </template>
+              <template v-if="active_tooltip === 'weebill_only_info'">
+                <p class="info-tooltip-title">Weebill only</p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                  Flags runs where SingleM found no marker genes, so the whole GTDB profile comes from Weebill's k-mer matching. These runs are in Sandpiper only because of Weebill. GlobDB profiles use SingleM alone, so they have no GlobDB profile.
+                </p>
+                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                  Yes = profile made by Weebill alone (no SingleM marker genes)<br />
+                  No = SingleM found marker genes
                 </p>
               </template>
               <template v-if="active_tooltip === 'metadata_info'">
@@ -581,6 +604,33 @@
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('genotype')">genotype</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('strain')">strain</button>
                 </div>
+              </template>
+              <template v-if="active_tooltip === 'gold_info'">
+                <p class="info-tooltip-title">GOLD (JGI) <span class="tooltip-hint">(click to use)</span></p>
+                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                  Finds runs that have details from the Joint Genome Institute's Genomes OnLine Database (GOLD).
+                  Only samples submitted through JGI carry a GOLD project ID (Gp followed by digits), so this
+                  is a small share of runs. Their run pages show GOLD's habitat classification, collection
+                  details, sequencing details, study description and publications in gold, within Sample
+                  information. Like Metalog, this sits beside the raw BioSample "Metadata" above, not in it.
+                  Every field GOLD records can be searched.
+                </p>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Four formats</p>
+                <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
+                  <span>gold: (empty, or tick Any) — every run with GOLD data</span>
+                  <button type="button" class="tt-clickable" @click="selectTooltipValue('Gp0119859')">gold: Gp0119859 — one GOLD project; the start of an ID also works</button>
+                  <span>gold: eye — matches any field containing this value, so it also finds IDs, lists and publication details</span>
+                  <span>gold: habitat=marine — matches only the "habitat" field</span>
+                </div>
+                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">All fields<template v-if="gold_fields.length"> ({{ gold_fields.length }})</template> — click a field to select; capitals, spaces and underscores do not matter</p>
+                <p v-if="gold_fields_failed" style="margin-bottom: 0; color: rgba(255,255,255,0.7); font-size: 0.72rem;">The list of fields could not be loaded. Type the field name followed by =, e.g. gold: habitat=marine.</p>
+                <div v-else class="info-tooltip-grid metalog-fields-scroll">
+                  <button v-for="field in gold_fields" :key="field" type="button" class="tt-clickable" @click="selectTooltipValue(field)">{{ field }}</button>
+                </div>
+                <p style="margin: 0.5rem 0 0; color: rgba(255,255,255,0.6); font-size: 0.72rem;">
+                  A field is looked up in GOLD's project, biosample, study and analysis project records, and a study's
+                  fields find all of its projects.
+                </p>
               </template>
               <template v-if="active_tooltip === 'metalog_info'">
                 <p class="info-tooltip-title">Metalog metadata — click a field to select</p>
@@ -1023,6 +1073,11 @@
                       <InfoTooltipButton controls="advanced-search-popover" label="Show Metalog metadata search help" :expanded="active_tooltip === 'metalog_info'" @open="showTooltip('metalog_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" />
                     </template>
                   </PresenceField>
+                  <PresenceField class="adv-field" label="GOLD (JGI)" v-model="adv.gold" v-model:present="adv_present.gold" placeholder="e.g. habitat=marine, eye or Gp0119859">
+                    <template #label-suffix>
+                      <InfoTooltipButton controls="advanced-search-popover" label="Show GOLD (JGI) search help" :expanded="active_tooltip === 'gold_info'" @open="showTooltip('gold_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" />
+                    </template>
+                  </PresenceField>
                 </b-field>
               </div>
             </div>
@@ -1065,7 +1120,7 @@
 </template>
 
 <script>
-import { fetchTaxonomySearchHints, fetchSandpiperStats, fetchUniversalSearch, fetchSearchFieldValues } from '@/api'
+import { fetchTaxonomySearchHints, fetchSandpiperStats, fetchUniversalSearch, fetchSearchFieldValues, fetchGoldFields } from '@/api'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import { ADVANCED_KEY_MAP, ADVANCED_GROUP_FIELDS, SEARCH_FIELDS } from '@/constants/searchFields'
@@ -1162,7 +1217,7 @@ export default {
         country: '', continent: '', location: '', latitude: '', longitude: '', grid: '',
         // Sample
         year: '', release_year: '', temperature: '', depth: '', environment: '', low_complexity: '',
-        synthetic: '', non_metagenome_organism: '', rna_or_non_dna: '',
+        synthetic: '', non_metagenome_organism: '', rna_or_non_dna: '', weebill_only: '',
         // Quality / size
         spf: '', ksf: '', gbp: '', reads: '', read_length: '',
         // Sequencing
@@ -1181,6 +1236,8 @@ export default {
         attr: '',
         // Metalog (curated/harmonised) metadata
         metalog: '',
+        // JGI GOLD project ID
+        gold: '',
         // IndicPiper habitat indicator
         habitat: '',
       },
@@ -1194,20 +1251,23 @@ export default {
         country: false, continent: false, location: false, latitude: false, longitude: false,
         year: false, release_year: false, temperature: false, depth: false, age: false,
         environment: false, low_complexity: false,
-        synthetic: false, non_metagenome_organism: false, rna_or_non_dna: false,
+        synthetic: false, non_metagenome_organism: false, rna_or_non_dna: false, weebill_only: false,
         spf: false, ksf: false, gbp: false, reads: false, read_length: false,
         platform: false, instrument: false, library_strategy: false,
         organism: false, taxonomy: false,
         study: false, abstract: false, bioproject: false,
         sra_study: false, experiment: false, sample_acc: false, biosample: false,
         organisation: false,
-        attr: false, metalog: false,
+        attr: false, metalog: false, gold: false,
         habitat: false,
       },
       adv_errors: {},
       adv_error_timers: {},
       active_tooltip: null,
       tooltip_trigger: null,
+      // GOLD (JGI) field names for the gold search help, loaded the first time it is opened.
+      gold_fields: [],
+      gold_fields_failed: false,
       tooltip_x: 0,
       tooltip_y: 0,
       tooltip_close_timer: null,
@@ -1413,8 +1473,17 @@ export default {
         )
       )
     },
+    // The GOLD (JGI) field names come from the database, so the list always matches what can be searched.
+    loadGoldFields () {
+      if (this.gold_fields.length) return
+      this.gold_fields_failed = false
+      fetchGoldFields()
+        .then(response => { this.gold_fields = response.data.fields || [] })
+        .catch(() => { this.gold_fields_failed = true })
+    },
     showTooltip (name, event) {
       clearTimeout(this.tooltip_close_timer)
+      if (name === 'gold_info') this.loadGoldFields()
       const trigger = event.currentTarget || event.target
       this.tooltip_trigger = trigger
       const rect = trigger.getBoundingClientRect()
@@ -1440,6 +1509,8 @@ export default {
         synthetic_info: 150,
         non_metagenome_organism_info: 150,
         rna_or_non_dna_info: 150,
+        weebill_only_info: 170,
+        gold_info: Math.round(window.innerHeight * 0.8),
         metalog_info: Math.round(window.innerHeight * 0.8),
       }[name] ?? 300
 
@@ -1531,6 +1602,10 @@ export default {
       } else if (this.active_tooltip === 'metalog_info') {
         this.adv_present.metalog = false
         this.adv.metalog = `${value}=`
+      } else if (this.active_tooltip === 'gold_info') {
+        this.adv_present.gold = false
+        // A project ID is used as it is; a field name starts a field=value search.
+        this.adv.gold = /^Gp\d/.test(value) ? value : `${value}=`
       }
       clearTimeout(this.tooltip_close_timer)
       this.tooltip_trigger?.focus()
@@ -1575,6 +1650,7 @@ export default {
         ['age', this.adv.age],
         ['metadata', this.adv.attr, 'attr'],
         ['metalog', this.adv.metalog],
+        ['gold', this.adv.gold],
         ['habitat', this.adv.habitat],
       ]
       for (const [key, val, stateKey = key] of text_fields) {
@@ -1593,6 +1669,8 @@ export default {
       else if (this.adv.non_metagenome_organism) parts.push(`non_metagenome_organism: ${this.adv.non_metagenome_organism}`)
       if (this.adv_present.rna_or_non_dna) parts.push('rna_or_non_dna: ')
       else if (this.adv.rna_or_non_dna) parts.push(`rna_or_non_dna: ${this.adv.rna_or_non_dna}`)
+      if (this.adv_present.weebill_only) parts.push('weebill_only: ')
+      else if (this.adv.weebill_only) parts.push(`weebill_only: ${this.adv.weebill_only}`)
       return parts.join(', ')
     },
 
@@ -1821,7 +1899,7 @@ export default {
       // These fields do not expose an "Any" button. If a presence-only query
       // populated hidden state and the user now types a value, the value must
       // replace that hidden state rather than being silently ignored.
-      for (const key of ['continent', 'taxonomy', 'bioproject', 'sra_study', 'experiment', 'sample_acc', 'biosample', 'attr', 'metalog']) {
+      for (const key of ['continent', 'taxonomy', 'bioproject', 'sra_study', 'experiment', 'sample_acc', 'biosample', 'attr', 'metalog', 'gold']) {
         if (this.adv_present[key] && (this.adv[key] || '').trim()) this.adv_present[key] = false
       }
       const dirtyFields = { ...this.advanced_dirty_fields }
@@ -1857,10 +1935,10 @@ export default {
       this.search_universal()
     },
 
-    // Squares picked on the map set only the grid key: each square carries its
+    // Hexagons picked on the map set only the grid key: each hexagon carries its
     // own sample type and bounds, so Latitude, Longitude are left alone. A
-    // single Environment choice would be ANDed with every square (wrongly
-    // excluding the other type), so picking squares clears it.
+    // single Environment choice would be ANDed with every hexagon (wrongly
+    // excluding the other type), so picking hexagons clears it.
     on_grid_change ({ grid }) {
       this.adv.grid = grid
       if (grid) {
@@ -1922,6 +2000,17 @@ export default {
     toggle_rna_or_non_dna_present () {
       this.adv_present.rna_or_non_dna = !this.adv_present.rna_or_non_dna
       if (this.adv_present.rna_or_non_dna) this.adv.rna_or_non_dna = ''
+    },
+
+    toggle_weebill_only (val) {
+      const next = this.adv.weebill_only === val ? '' : val
+      this.adv.weebill_only = next
+      if (next) this.adv_present.weebill_only = false
+    },
+
+    toggle_weebill_only_present () {
+      this.adv_present.weebill_only = !this.adv_present.weebill_only
+      if (this.adv_present.weebill_only) this.adv.weebill_only = ''
     },
 
     async search_universal () {

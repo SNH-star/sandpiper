@@ -2,6 +2,7 @@
 import sandpiperLogo from "@/assets/sandpiper_logo.png";
 import algorithmDiagram from "@/assets/singlem_weebill_integration_v4.png";
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
+import PageRail from '@/components/PageRail.vue'
 </script>
 
 <template>
@@ -18,18 +19,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
       </div>
     </header>
 
-    <nav class="section about-jump-bar" aria-label="On this page">
-      <p class="about-jump-title">On this page</p>
-      <div class="container about-jump-links">
-        <a
-          v-for="item in JUMP_ITEMS"
-          :key="item.id"
-          :href="'#' + item.id"
-          :class="{ 'is-current': current_section === item.id }"
-          :aria-current="current_section === item.id ? 'location' : null"
-          @click.prevent="jumpTo(item.id)">{{ item.label }}</a>
-      </div>
-    </nav>
+    <page-rail :items="JUMP_ITEMS" :current="current_section" strip top="8rem" @jump="jumpTo" />
 
     <section id="team" class="section about-section">
       <div class="container">
@@ -109,7 +99,9 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 
         <p>The SingleM marker-gene profiles are combined ("condensed") into a single taxonomic profile per run, representing the read coverage of each taxon in the metagenome. For GTDB, the Weebill species profile of the same run is merged in at this step: where Weebill detects a species that SingleM could not resolve to species level, that species is added to the profile. Species found by both tools keep SingleM's estimate, and a species only Weebill detects takes its coverage from the unresolved part of its clade, so SingleM remains the authority on each clade's total coverage. Relative abundance is found by dividing the coverage of each taxon by the total coverage of the metagenome, and this is used to generate the Sandpiper visualisations.</p>
 
-        <p>The known species fraction, the low complexity flag and the top order fraction are calculated from the combined SingleM + Weebill GTDB profile. The SingleM Prokaryotic Fraction (SPF) and the host prediction are based on the SingleM profile alone.</p>
+        <p>The known species fraction is calculated from the combined SingleM + Weebill GTDB profile. The low complexity flag, the top order fraction, the SingleM Prokaryotic Fraction (SPF) and the host prediction are based on the SingleM profile alone.</p>
+
+        <p>For more complicated analyses that rely on alternative taxonomic groupings or novel lineages, a more bespoke search procedure might be appropriate. These kinds of analyses cannot currently be done on the sandpiper website, but in such cases please <a :href="'mailto:'+decode('o.jbbqpebsg@dhg.rqh.nh')">get in touch</a> with us.</p>
 
         <p>Community profiles derived from older versions are available as a bulk download (see above).</p>
       </div>
@@ -119,14 +111,6 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
         <b-button size="is-small" type="is-primary" @click="setDetails(true)">Expand all</b-button>
         <b-button size="is-small" type="is-primary" @click="setDetails(false)">Collapse all</b-button>
       </div>
-
-      <details id="community-profiling" class="about-detail" open>
-        <summary><h3 class="title is-5">Community profiling</h3></summary>
-        <div class="about-detail-body">
-          <p>For ease of interpretation and search, runs on this website are represented as a 'condensed' profile. These condensed profiles unify the SingleM profiles from each marker gene (instead of 59 separate profiles) and the Weebill species profile into a single profile, collapsing OTUs from each taxon into unified groups.</p>
-          <p>For more complicated analyses that rely on alternative taxonomic groupings or novel lineages, a more bespoke search procedure might be appropriate. These kinds of analyses cannot currently be done on the sandpiper website, but in such cases please <a :href="'mailto:'+decode('o.jbbqpebsg@dhg.rqh.nh')">get in touch</a> with us.</p>
-        </div>
-      </details>
 
       <details id="spf" class="about-detail">
         <summary><h3 class="title is-5">SingleM Prokaryotic Fraction (SPF)</h3></summary>
@@ -144,10 +128,11 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
             k-mer sketches. It reduces sequencing reads and a database of reference genomes to small sketches,
             and reports which genomes are present and at what coverage. Sylph is described in Shaw &amp; Yu,
             <i>Rapid species-level metagenome profiling and containment estimation with sylph</i>,
-            <i>Nature Biotechnology</i> (2024).
+            <i>Nature Biotechnology</i> (2024), <a href="https://doi.org/10.1038/s41587-024-02412-y">https://doi.org/10.1038/s41587-024-02412-y</a>.
           </p>
-          <p><strong>Why it is used.</strong> SingleM can only name a species when the marker genes of that species are covered well enough. Matching whole genomes names species that fall short of that. In Sandpiper this assigns more of each community to named species, which raises the known species fraction.</p>
-          <p><strong>How it is used here.</strong> Each run was profiled with Weebill against the genomes of GTDB R232, using the genome database bundled with the SingleM metapackage. Its species-level results are merged into the GTDB profile when the profiles are condensed, alongside SingleM's marker-gene results. Weebill was first used in Sandpiper v2.2.*. The GlobDB profiles do not use it.</p>
+          <p><strong>What it changes.</strong> More of each community is assigned to named species, which raises the known species fraction.</p>
+          <p><strong>Weebill only runs.</strong> For some runs SingleM found no marker genes, so the whole GTDB profile comes from Weebill's k-mer matching; these runs are in Sandpiper only because of Weebill. They carry a "Weebill only" pill on the run page and can be found with <span class="query-box">weebill_only: yes</span>. GlobDB profiles use SingleM alone, so these runs have no GlobDB profile.</p>
+          <p><strong>How it is used here.</strong> Each run was profiled with Weebill against the genomes of GTDB R232, using the genome database bundled with the SingleM metapackage. Weebill was first used in Sandpiper v2.2.*; <a href="#how-built" @click.prevent="jumpTo('how-built')">how its results are merged</a> is described above.</p>
           <p><strong>Version.</strong> Weebill 0.4.0.</p>
         </div>
       </details>
@@ -170,7 +155,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
         <summary><h3 class="title is-5">Low Complexity</h3></summary>
         <div class="about-detail-body">
           <p>Samples flagged as low complexity are much less likely than most metagenomes to be true microbial communities. For instance, they might be single amplified genomes (SAGs), negative controls, or isolate genomic data that was marked as metagenomic when the data was deposited by the authors. Since the primary interest of Sandpiper is in microbial communities, these samples are hidden by default in most places on Sandpiper.</p>
-          <p>We define “low complexity” samples as those where 95% or more of the community was assigned to a single order by SingleM in the combined SingleM + Weebill profile, using the GTDB reference database.</p>
+          <p>We define “low complexity” samples as those where 95% or more of the community was assigned to a single order by SingleM, using the GTDB reference database.</p>
         </div>
       </details>
 
@@ -197,6 +182,58 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
         </div>
       </details>
 
+      <details id="gold" class="about-detail">
+        <summary><h3 class="title is-5">Gold (JGI) Metadata</h3></summary>
+        <div class="about-detail-body">
+          <p>
+            Runs that were sequenced by the Joint Genome Institute (JGI) carry a project ID from its
+            <a href="https://gold.jgi.doe.gov/">Genomes OnLine Database (GOLD)</a> in their BioSample record
+            (Gp followed by digits, for example Gp0119859). Using the
+            <a href="https://gold-ws.jgi.doe.gov/">GOLD web service</a> Sandpiper holds the additional metadata related to the metagenomes. GOLD is a curated resource, so its habitat classification, collection details and
+            study descriptions are often more complete than what the submitter gave NCBI.
+          </p>
+          <p>
+            Information is presented within Sample information on each Run Page, in gold rows next to the green Metalog rows, and
+            only for runs with a GOLD project ID; other pages show nothing. Each row's information button describes the field.
+            The rows cover GOLD's habitat path (ecosystem, category, type, subtype and specific ecosystem), collection site,
+            location, date, depth, pH, salinity, temperature and other measurements, host details, ENVO terms, the sequencing
+            platform, centre and funding programme, and the study name and description. Publications that GOLD links to the project
+            appear in gold under Publications near the top of the page, alongside those already linked from NCBI. The
+            Additional Run Metadata CSV on each page holds the Metalog and GOLD details for that run together.
+          </p>
+          <p>
+            Like the NCBI fields, each GOLD field is compared with the related runs of the same study that also have GOLD data.
+            Many runs have no related
+            GOLD runs, so no bars are shown for them.
+          </p>
+          <p>
+            Every field GOLD records can be searched with the GOLD (JGI) field in the Advanced Search, in the same way as Metalog:
+            <span class="query-box">gold: habitat=marine</span> looks only in the habitat field, <span class="query-box">gold: eye</span> looks in every field (so it
+            also finds IDs, lists and publication details), a GOLD project ID finds that project, and an empty field finds every
+            run with GOLD data. The help button beside the field lists every field name. The records are a copy taken when this
+            version was built (the Statistics page gives the date), so a later edit in GOLD shows only in the next version.
+            Contact names and email addresses in GOLD's records are not kept or shown.
+          </p>
+          <p>
+            GOLD metadata is provided by the Joint Genome Institute (JGI), a U.S. Department of Energy Office of Science user
+            facility, from the <a href="https://gold.jgi.doe.gov/">Genomes OnLine Database (GOLD)</a>. Please cite: Mukherjee S, et
+            al. Genomes OnLine Database (GOLD) v.10: new features and updates. <i>Nucleic Acids Research</i> (2024),
+            <a href="https://doi.org/10.1093/nar/gkae1000">doi:10.1093/nar/gkae1000</a>. (A portion of) These data were produced by the
+            US Department of Energy Joint Genome Institute (<a href="https://ror.org/04xm1d337">https://ror.org/04xm1d337</a>)
+            operated under Contract No. DE-AC02-05CH11231 in collaboration with the user community. GOLD data is shown as provided and is
+            subject to the <a href="https://jgi.doe.gov/disclaimer/">JGI disclaimer</a>, which gives no warranty of its accuracy or
+            completeness. Its use here does not imply endorsement by JGI or the Department of Energy.
+          </p>
+          <p class="about-tiles-title"><a href="https://gold.jgi.doe.gov/">GOLD project IDs found in this database</a></p>
+          <dl class="metalog-tiles">
+            <div v-for="tile in gold_tiles" :key="tile.key" :class="{ 'is-total': tile.key === 'runs' }">
+              <dt>{{ tile.label }}</dt>
+              <dd>{{ tile.value }}</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
+
       <details id="indicpiper" class="about-detail">
         <summary><h3 class="title is-5">IndicPiper habitat indicators</h3></summary>
         <div class="about-detail-body">
@@ -210,7 +247,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
             regenerated from Sandpiper's own data.
           </p>
           <p>
-            The result is 856 genera flagged as indicators of one of 13 habitats, each with a resampling-stability
+            Using IndicPiper v2.1.0, the result is 767 genera flagged as indicators of one of 13 habitats, each with a resampling-stability
             score from 100 runs of the analysis. For every run in this database, we then compute how
             strongly its own genus composition matches each of those 13 habitat signatures, as the
             summed relative abundance of that habitat's indicator genera present in the sample.
@@ -220,10 +257,16 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
             be searched directly via the habitat key in
             <router-link :to="{ name: 'Search' }">advanced search</router-link>. Only habitats with a
             real, non-zero match are shown for a given run most runs match a handful of habitats.
+            Triangles above and below each habitat's bar mark the average for the runs recorded as that habitat
+            (among those that have it), and the Statistics page charts these averages for every habitat.
             Add a comparison after the habitat name (e.g. soil>=0.1) to threshold on
             that habitat's score itself, rather than only matching runs where it's present at all. A
             comparison with no habitat name, e.g. >0.5, matches runs whose single
             strongest habitat match exceeds that value, whichever habitat it turns out to be.
+          </p>
+          <p>
+            Marine water is one of IndicPiper's 13 habitats, but no runs are labelled with it, so there is no average to show
+            for it on the Statistics page, and run pages have no average markers for it.
           </p>
         </div>
       </details>
@@ -275,41 +318,6 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 .about-title { margin-bottom: var(--space-2); }
 .about-lede { max-width: 70ch; margin: 0 auto; font-size: 1.1rem; line-height: 1.5; color: var(--color-ink-muted); }
 
-/* Under the header, "On this page" is a strip above the sections, as on the Run page.
-   On very wide screens it moves into the empty space left of the centred content and
-   stays in view as the page scrolls, so the content itself never shifts. */
-.about-jump-bar { background: var(--color-surface); border-bottom: 1px solid var(--color-rule); }
-.about-page .about-jump-bar.section { padding-top: 0; padding-bottom: 0; }
-.about-jump-title { display: none; }
-.about-jump-links { display: flex; gap: var(--space-6); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-.about-jump-links::-webkit-scrollbar { display: none; }
-.about-jump-bar a {
-  position: relative;
-  flex: none;
-  padding: var(--space-3) 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--color-ink-muted);
-  text-decoration: none;
-  transition: color 0.15s;
-}
-/* The current section is marked in the accent, drawn in from the start. */
-.about-jump-bar a::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--color-accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.2s var(--ease-spring);
-}
-.about-jump-bar a:hover, .about-jump-bar a.is-current { color: var(--color-ink); }
-.about-jump-bar a.is-current::after { transform: scaleX(1); }
-.about-jump-bar a:active { color: var(--color-accent-strong); }
-.about-jump-bar a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 2px; }
 /* A little air above a jumped-to section. */
 .about-page .section[id], .about-page .about-detail[id] { scroll-margin-top: var(--space-4); }
 
@@ -338,7 +346,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 .workflow-figure a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
 
 .about-detail-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-8) 0 var(--space-2); }
-.about-detail-tools-title { margin-right: var(--space-2); font-weight: 600; color: var(--color-ink); }
+.about-detail-tools-title { margin-right: var(--space-2); font-weight: 700; color: var(--color-ink); }
 
 .about-detail, .log-entry { border-top: 1px solid var(--color-rule); }
 .about-detail:last-of-type, .log-entry:last-of-type { border-bottom: 1px solid var(--color-rule); }
@@ -378,33 +386,16 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 .metalog-tiles dt { font-size: 0.85rem; color: var(--color-ink-muted); }
 .metalog-tiles dd { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--color-ink); }
 .about-note { margin-top: var(--space-2); font-size: 0.85rem; color: var(--color-ink-muted); }
+/* An example search typed in the Advanced Search: a plain grey box, in the text and in the changelog (v-html). */
+.about-page :deep(.query-box) { padding: 0.05em 0.4em; border-radius: var(--radius-bar, 4px); background: color-mix(in srgb, var(--color-ink) 10%, transparent); color: inherit; font-size: inherit; white-space: nowrap; }
 
 @media (min-width: 1440px) {
-  /* Content is capped at 1152px (Bulma's widescreen width) so the list fits beside it
+  /* Content is capped at 1152px (Bulma's widescreen width) so the contents list (PageRail) fits beside it
      on laptop screens; wider screens just get wider gutters. */
-  .about-page :deep(.container:not(.about-jump-links)) { max-width: 1152px; }
-  .about-jump-bar {
-    /* Pinned to the window's left edge at a fixed width: as the window narrows, the
-       space between the list and the content shrinks, and the list never moves. */
-    position: fixed;
-    top: 8rem;
-    z-index: 100;
-    left: 1rem;
-    width: 6.5rem;
-    background: none;
-    border: 0;
-  }
-  .about-page .about-jump-bar.section { padding: 0; }
-  .about-jump-bar .container { max-width: none; margin: 0; }
-  .about-jump-title { display: block; margin-bottom: var(--space-2); font-size: 0.82rem; font-weight: 600; color: var(--color-ink); }
-  .about-jump-links { flex-direction: column; gap: 0; overflow: visible; white-space: normal; border-left: 1px solid var(--color-rule); }
-  .about-jump-bar a { padding: var(--space-1) 0 var(--space-1) var(--space-3); font-size: 0.82rem; line-height: 1.35; }
-  /* The accent runs down the list's own hairline, beside the current section. */
-  .about-jump-bar a::after { left: -1px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; transform: scaleY(0); transform-origin: top; }
-  .about-jump-bar a.is-current::after { transform: scaleY(1); }
+  .about-page :deep(.container:not(.page-rail-inner)) { max-width: 1152px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .about-detail summary::before, .log-entry summary::before, .about-jump-bar a, .about-jump-bar a::after { transition: none; }
+  .about-detail summary::before, .log-entry summary::before { transition: none; }
 }
 </style>
 
@@ -425,7 +416,7 @@ import { METALOG_LAST_UPDATE, METALOG_SAMPLE_COUNTS, metalogCount } from '@/cons
 //           optional. The date the Metalog data was collected (e.g. '3rd March, 2026'), and the IndicPiper
 //           database version, for a version that is no longer the live build. The newest
 //           version takes both from the API, so they need not be set for it.
-// released, date (YYYY-MM-DD), runs
+// released, date (YYYY-MM-DD, or YYYY-MM when only the month is known), runs
 //           optional. An entry with a date and a run count is also drawn on the
 //           Statistics page's metagenomes-over-time graph.
 // html      the changelog list, shown as written
@@ -435,34 +426,63 @@ export const CHANGELOG = [
     version: 'v2.2.0',
     gtdb: 'R232',
     globdb: 'R232',
+    indicpiper: '2.1.0',
+    // When the GOLD (JGI) records were retrieved for this build, in the form the Metalog collected date is shown.
+    gold: '11 November 2026',
+    released: 'Novemeber 10th, 2026',
+    date: '2026-10-11',
+    runs: 926082,
     html: `<ul>
-        <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. </li>
-        <li>Addition of an Advanced Search bar option, lets user's input queries and outputs number of samples detected before jumping to random page.</li>
-        <li>On each run page, allow users to continue searching without having to return to the search page via a dropdown search bar.</li>
-        <li>Addition of a new sample adundance graph with zoom and filter functionality. </li>
-        <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (Caution message present if environment signatures != documented environment). Searchable via the new habitat key in Advanced Search.</li>
-        <li>Addition to the Sunburst model. User able to search for specific taxa where they will be highlighted. In a breadcrumb fashion user can collapse the Suburst graph with a reset view and 'go back a step' in the center.</li>
-        <li>Addition of weebill profiles to each run. Statistics related to this change:</li>
-        <li>User interface updates, restructured pages and included new features:</li>
-        <ul>
-          <li>Run pages now display Pill design to highlight important information regarding run. </li>
-          <li>Filter by unique samples within Sample Information section. Unique fields are listed in a list. Fields with unique inputs are flagged using a horizontal green stripe next to clasisifier name. </li>
-          <li>Metalog infromation present within Sample Information section. This is seperated by blue pascal shade.</li>
-          <li>Metadata present on each run page has indicator (Coloured stripe) that indicates whether metadata fields are different to other BioProject runs (Green = different value, Grey = different but expected (IDs, sizes etc), orange = only BioProject run to have this metadata entry). </li> 
-        </ul>
-        <li>New statistics page displaying database related information:</li>
-        <ul> 
-          <li>Stats related to Runs used within the database</li> 
-          <li>Types of samples.</li> 
-          <li>Location of samples collected.</li> 
-          <li>Widely detected taxa.</li> 
-          <li>Information coverage about samples.</li> 
-          <li>Profiling quality (Known species fraction (By year and types of samples).</li> 
-          <li>Phylum composition by group.</li> 
-          <li>Statistics on differences between each version of Sandpiper.</li> 
-        </ul>
-        
-        </ul>
+        <li><strong>Profiling</strong>
+          <ul>
+            <li>Addition of Weebill profiles to each run. Weebill matches reads against whole reference genomes, so more of each community is assigned to named species, which raises the known species fraction (see the Statistics page). This increase total metagenomes screened within Sandpiper from 913,071 -> 926,082</li>
+            <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (a caution message is shown if the environment signatures do not match the documented environment).</li>
+            <li>Addition to the Sunburst model. Users can search for specific taxa, which are then highlighted. In a breadcrumb fashion the Sunburst can be collapsed with a reset view and a 'go back a step' option in the centre.</li>
+            <li>Addition of a new sample abundance graph with zoom and filter functionality.</li>
+          </ul>
+        </li>
+        <li><strong>Run pages</strong>
+          <ul>
+            <li>Run pages now display pills that highlight important information about the run, including a "Weebill only" pill for runs where SingleM found no marker genes and the profile comes from Weebill alone.</li>
+            <li>The sample location map on run pages and the Statistics map of where samples were collected now use a flat web map with a clear blue sea and place names (countries, oceans and, as you zoom in, cities), with a Map and Satellite view. Both maps use free, keyless map data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> <a href="https://openfreemap.org/">(OpenFreeMap)</a> and <a href="https://s2maps.eu">Sentinel-2 cloudless</a> imagery by <a href="https://eox.at">EOX IT Services GmbH</a> (contains modified Copernicus Sentinel data 2021).</li>
+            <li>The Taxonomic profile section states which methods built the selected profile: GTDB combines SingleM and Weebill, GlobDB uses SingleM only (so Weebill-only runs have no GlobDB profile).</li>
+            <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. Metalog rows within the Sample Information section are green.</li>
+            <li>Addition of <a href="https://gold.jgi.doe.gov/">GOLD (JGI)</a> metadata and publications within each Run page for samples sequenced by JGI. GOLD rows within the Sample Information section are gold, publications linked by GOLD appear as gold pills, and an information button explains the source. GOLD's records are downloaded once and stored in the database, so run pages show them without waiting for JGI. The About page has a new GOLD (JGI) section, including how many runs and projects have GOLD data.</li>
+            <li>The Metalog and GOLD details for a run can be downloaded together as the Additional Run Metadata CSV.</li>
+            <li>Metadata on each run page has a coloured stripe beside the field name showing whether it differs from other runs: green = different value, grey = different but expected (IDs, sizes etc.), yellow = only this run has the entry. NCBI fields are compared with the other runs of the BioProject, and GOLD fields with the related runs of the same study.</li>
+            <li>Filter fields within the Sample Information section by source (Metalog, GOLD, NCBI-defined or custom attributes) or by how they differ from other runs.</li>
+            <li>On each run page, users can continue searching without returning to the search page, via a dropdown search bar.</li>
+          </ul>
+        </li>
+        <li><strong>Advanced search</strong>
+          <ul>
+            <li>Addition of an Advanced Search bar option. Users type a search query as comma-separated key: value pairs (for example "country: Australia, year: 2010-2015"), with suggestions and autocompletion as they type, and see the number of samples detected before jumping to a random sample.</li>
+            <li>Explore tabled results takes the query to a table of every matching run.</li>
+            <li>A List of keys on the search page lists every available key, grouped as Keywords, Location, Sample, Quality / Size, Sequencing, Taxonomy, Study, Identifiers, Submitter and Metadata, each with an example. Information buttons beside the keys that need more help (age, habitat, platform, instrument, library strategy, organism, taxonomy, Metadata, Metalog and GOLD (JGI)) show their allowed values or how they are searched.</li>
+            <li>The Query Syntax guide covers ranges (2-10), greater and less than (&gt;10, &gt;=10, &lt;10, &lt;=10) and exact or approximate values (10).</li>
+            <li>The advanced options form offers the same fields as inputs, including location (country, location, latitude, longitude and grid squares on the map), dates, quality, sequencing, study and metadata. Fields have an Any option that matches every run with a value recorded.</li>
+            <li>A Weebill only field (<span class="query-box">weebill_only: yes</span> or <span class="query-box">no</span>) finds runs whose profile was made by Weebill alone.</li>
+            <li>A GOLD (JGI) field finds runs by GOLD project ID, or every run with GOLD data when left empty. As with Metalog, any GOLD field can be searched, either as plain text across every field or as <code>field=value</code> (for example <span class="query-box">gold: habitat=marine</span>); the help button lists every field.</li>
+            <li>On the location map, the area of each circle now follows the square root of the number of runs, so small and large groups are both easy to read.</li>
+          </ul>
+        </li>
+        <li><strong>Statistics page</strong> (new), displaying database-wide information:
+          <ul>
+            <li>Runs by release year, and sequencing depth by release year, shown on a square-root scale so both shallow and very deep runs are readable.</li>
+            <li>Time from collection to release, in years, for host-associated and ecological samples, drawn from the runs whose collection date is recorded to the day.</li>
+            <li>Types of sample (host-associated, ecological and unclassified).</li>
+            <li>Where samples were collected, on a map.</li>
+            <li>Most widely detected taxa, which can be shown for all runs, host-associated runs or ecological runs, or for one group such as pig, human, soil or marine.</li>
+            <li>Information coverage: location, Metalog, GOLD (JGI), IndicPiper and low complexity. The IndicPiper bar is split into runs with and without a warning.</li>
+            <li>Known species fraction by release year, for all runs and separately for host-associated samples (human and mouse split into gut and non-gut) and ecological samples. A simple linear model fitted to the trend is extended forward to estimate when the fraction would reach 100%.</li>
+            <li>Prokaryotic fraction, known species fraction and average genome size by group, for host-associated and ecological samples.</li>
+            <li>Phylum composition by group.</li>
+            <li>IndicPiper indicator genera by habitat: the average indicator abundance and the average number of indicator genera per run, for the runs recorded as each habitat.</li>
+            <li>Comparison between versions of Sandpiper.</li>
+            <li>Hovering over a line highlights it, and clicking it (or its legend entry) dims the others; click again to undo. Legends show run counts, are sorted by number of runs, and read down in columns.</li>
+            <li>Every chart on the Statistics page can be downloaded as an SVG or PNG image. The download keeps any highlighted or selected lines, so the image matches what is on screen.</li>
+          </ul>
+        </li>
       </ul>`
   },
   {
@@ -482,7 +502,7 @@ export const CHANGELOG = [
         <li>NPM update</li>
         <li>New information present within each run page, under *Derived information*:</li>
         <ul>
-          <li>Non-metagenome organism (Strict/Loose): Samples flagged true when the recorded organism name references a single, specific species rather than a metagenome or a community. Loose additionally includes ambiguous placeholder names like 'bacterium', 'unidentified', etc.</li>
+          <li>Non-metagenome organism (Strict/Loose): Samples flagged true when the organism name recorded in NCBI names a specific species rather than a metagenome or a community (for example 'Homo sapiens' or 'Escherichia coli'). The sample may be an isolate or a single genome, or a community deposited under its host's name; the flag is judged from the recorded name only, not from the reads. Loose additionally includes vague placeholder names like 'bacterium', 'unidentified', etc.</li>
           <li>Synthetic: Samples flagged true when the organism name contains 'synthetic' or 'simulat' (simulated/simulation), or the BioSample library source is recorded as SYNTHETIC.</li>
           <li>RNA / non-DNA (Strict/Loose): Samples flagged true when the sequencing library strategy or BioSample library source indicate RNA or other non-DNA metadata related information.</li>
           <li>Domain-only (GTDB, GlobDB, or both): Derived from the condensed taxonomic profiles; samples flagged true where the condensed taxonomic profile did not resolve below domain-level classification.</li>
@@ -511,6 +531,8 @@ export const CHANGELOG = [
   },
   {
     heading: 'v1.1.*',
+    released: 'November 21st, 2025',
+    date: '2025-11-21',
     gtdb: 'R226',
     globdb: 'R226',
     html: `<ul>
@@ -550,6 +572,8 @@ export const CHANGELOG = [
   },
   {
     heading: 'v0.2.2',
+    released: 'February 2024',
+    date: '2024-02',
     gtdb: 'R214',
     html: `<ul>
         <li>NPM package updates.</li>
@@ -557,6 +581,8 @@ export const CHANGELOG = [
   },
   {
     heading: 'v0.2.1',
+    released: 'January 2024',
+    date: '2024-01',
     gtdb: 'R214',
     html: `<ul>
         <li>Added links to bulk download of condensed profiles.</li>
@@ -564,6 +590,8 @@ export const CHANGELOG = [
   },
   {
     heading: 'v0.2.0',
+    released: 'December 2023',
+    date: '2023-12',
     gtdb: 'R214',
     html: `<ul>
         <li>Updated to use SingleM 0.16.0, changing the species assignment and "condense" procedures</li>
@@ -598,6 +626,7 @@ const METALOG_TILES = [
 
 export default {
   name: 'About',
+  components: { PageRail },
   title: 'About - Sandpiper',
   data: function () {
     return {
@@ -615,11 +644,25 @@ export default {
       // Metalog's own published release, as recorded when the data was
       // fetched. Null until the stats call returns, and on databases built
       // before this was captured -- the computeds below fall back then.
-      metalog_release: null
+      metalog_release: null,
+      // Runs and projects carrying a GOLD project ID, counted when the database was generated.
+      gold_counts: null
     }
   },
 
   computed: {
+    gold_tiles () {
+      const counts = this.gold_counts
+      const share = counts && this.num_runs ? (100 * counts.runs / this.num_runs).toFixed(1) + '%' : '—'
+      return [
+        { key: 'runs', label: 'Runs with GOLD data', value: metalogCount(counts?.runs) },
+        { key: 'projects', label: 'GOLD projects', value: metalogCount(counts?.projects) },
+        { key: 'stored', label: 'Projects with a GOLD record', value: metalogCount(counts?.stored) },
+        { key: 'publications', label: 'Projects with publications', value: metalogCount(counts?.publications) },
+        { key: 'share', label: 'Share of all runs', value: share }
+      ]
+    },
+
     metalog_last_update () {
       return this.metalog_release?.last_metadata_update || METALOG_LAST_UPDATE
     },
@@ -655,6 +698,7 @@ export default {
           this.gtdb_version = r.gtdb_version
           this.metalog_retrieved_date = r.metalog_retrieved_date
           this.metalog_release = r.metalog_release
+          this.gold_counts = r.gold_counts || null
         })
     },
 
