@@ -14,7 +14,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, make_response, current_app, Response, stream_with_context
 
-from sqlalchemy import Integer, select, distinct, or_, and_, case, literal
+from sqlalchemy import Integer, String, column, select, distinct, or_, and_, case, literal, values
 from sqlalchemy.sql import func, text
 from sqlalchemy.orm import joinedload, lazyload, aliased
 
@@ -38,6 +38,8 @@ from .metagenome_similarity import METALOG_PREFIX, comparable_values, is_already
 from .grid import describe_grid, grid_condition, parse_grid_squares
 from .keywords import LIKE_ESCAPE, like_pattern, parse_keyword_terms
 from .match_cache import MatchCache
+from .indicpiper_warnings import count_cautions, mapped_organisms
+from . import gold, gold_db, weebill_only
 from . import statistics_figures as figures
 from .version import __version__, __gtdb_version__, __indicpiper_version__, __scrape_date__
 
@@ -293,6 +295,30 @@ def setup_sql_logging():
 
 
 
+gold_counts_cache = None
+
+
+def gold_counts():
+    """Runs whose BioSample carries a GOLD project ID, the distinct projects, how many of them the database holds a GOLD record for and how many of those have publications: fixed for a given database."""
+    global gold_counts_cache
+    if gold_counts_cache is None:
+        runs, projects = db.session.execute(text(
+            "SELECT count(DISTINCT run_id), count(DISTINCT v) FROM biosample_attributes "
+            "WHERE k = 'sample_alias' AND regexp_matches(v, '^Gp[0-9]{5,}$')")).one()
+        stored = publications = 0
+        schema = gold_db.get_schema(db.session.connection())
+        if not schema.is_empty:
+            # Of those projects: how many have a record in the gold_* tables, and how many of those have publications.
+            has_publications = ' OR '.join("p.{} LIKE '[{{%'".format(name) for name in ('genomePublications', 'otherPublications')
+                                           if name in schema.columns[gold_db.PROJECTS]) or 'FALSE'
+            stored, publications = db.session.execute(text(
+                "SELECT count(*), count(*) FILTER (WHERE " + has_publications + ") "
+                "FROM (SELECT DISTINCT v FROM biosample_attributes WHERE k = 'sample_alias' "
+                "AND regexp_matches(v, '^Gp[0-9]{5,}$')) ids JOIN gold_projects p ON p.projectGoldId = ids.v")).one()
+        gold_counts_cache = {'runs': runs, 'projects': projects, 'stored': stored, 'publications': publications}
+    return gold_counts_cache
+
+
 @api.route('/sandpiper_stats', methods=['GET'])
 def sandpiper_stats():
     global sandpiper_stats_cache
@@ -309,23 +335,37 @@ def sandpiper_stats():
         'gtdb_version': __gtdb_version__,
         'metalog_retrieved_date': metalog_retrieved_date(),
         'metalog_release': metalog_release(),
+        'gold_counts': gold_counts(),
     })
 
 SAMPLE_TYPE_ORDER = (('host', 'host_associated'), ('ecological', 'ecological'), (None, 'unclassified'))
-COVERAGE_ORDER = ('coordinates', 'metalog', 'indicpiper', 'low_complexity')
+COVERAGE_ORDER = ('coordinates', 'metalog', 'gold', 'indicpiper', 'low_complexity')
 
 
 def _percent(count, total):
     return round(100 * count / total, 1) if total else 0
 
 
-def statistics_payload(total_runs, bioprojects, terabases, host_counts, release_years, coverage_counts, top_taxa):
+def _coverage_row(key, runs, total_runs, indicpiper_caution):
+    """One coverage figure; IndicPiper's also splits its runs into those without
+    and with a warning."""
+    row = {'key': key, 'runs': runs, 'percent': None if runs is None else _percent(runs, total_runs)}
+    if key == 'indicpiper' and runs is not None and indicpiper_caution is not None:
+        clear = runs - indicpiper_caution
+        row.update(clear_runs=clear, clear_percent=_percent(clear, total_runs),
+                   caution_runs=indicpiper_caution, caution_percent=_percent(indicpiper_caution, total_runs))
+    return row
+
+
+def statistics_payload(total_runs, bioprojects, terabases, host_counts, release_years, coverage_counts, top_taxa,
+                       indicpiper_caution=None):
     """Shape the Statistics page's figures: counts plus their share of all runs.
 
     host_counts: Sandpiper's host/ecological call -> runs (None = no call).
     release_years: (year string or None, runs) pairs.
     coverage_counts: name -> runs, or None when that table is not in the database.
     top_taxa: taxonomy type -> level -> (name, host runs, ecological runs) rows.
+    indicpiper_caution: of the runs with IndicPiper scores, how many carry a warning (None when unknown).
     """
     return {
         'totals': {'runs': total_runs, 'bioprojects': bioprojects, 'terabases': round(terabases, 1)},
@@ -335,10 +375,8 @@ def statistics_payload(total_runs, bioprojects, terabases, host_counts, release_
         'release_years': sorted(
             ({'year': int(year), 'runs': runs} for year, runs in release_years if year is not None),
             key=lambda row: row['year']),
-        'coverage': [
-            {'key': key, 'runs': coverage_counts.get(key),
-             'percent': None if coverage_counts.get(key) is None else _percent(coverage_counts[key], total_runs)}
-            for key in COVERAGE_ORDER],
+        'coverage': [_coverage_row(key, coverage_counts.get(key), total_runs, indicpiper_caution)
+                     for key in COVERAGE_ORDER],
         'top_taxa': {
             taxonomy_type: {
                 level: sorted(
@@ -382,17 +420,53 @@ TOP_TAXA_COUNT = 10
 
 
 def _top_taxa():
-    """The taxa found in the most runs, per taxonomy database and level. The
-    host/ecological run counts are stored on each taxonomy row."""
-    detected = func.coalesce(Taxonomy.host_sample_count, 0) + func.coalesce(Taxonomy.ecological_sample_count, 0)
-    return {
-        taxonomy_type: {
-            level: db.session.execute(select(
-                Taxonomy.name, Taxonomy.host_sample_count, Taxonomy.ecological_sample_count).where(
-                Taxonomy.taxonomy_type == taxonomy_type, Taxonomy.taxonomy_level == level).order_by(
-                detected.desc()).limit(TOP_TAXA_COUNT)).all()
-            for level in TOP_TAXA_LEVELS}
-        for taxonomy_type in ('gtdb', 'globdb')}
+    """The taxa found in the most runs, per taxonomy database and level: the top
+    ten by all runs, by host runs and by ecological runs together, so the page can
+    show any of the three. The host/ecological run counts are stored on each taxonomy row."""
+    host = func.coalesce(Taxonomy.host_sample_count, 0)
+    ecological = func.coalesce(Taxonomy.ecological_sample_count, 0)
+
+    def rows(taxonomy_type, level):
+        found = {}
+        for order in (host + ecological, host, ecological):
+            for row in db.session.execute(select(
+                    Taxonomy.id, Taxonomy.name, Taxonomy.host_sample_count, Taxonomy.ecological_sample_count).where(
+                    Taxonomy.taxonomy_type == taxonomy_type, Taxonomy.taxonomy_level == level).order_by(
+                    order.desc()).limit(TOP_TAXA_COUNT)).all():
+                found[row.id] = (row.name, row.host_sample_count, row.ecological_sample_count)
+        return list(found.values())
+
+    return {taxonomy_type: {level: rows(taxonomy_type, level) for level in TOP_TAXA_LEVELS}
+            for taxonomy_type in ('gtdb', 'globdb')}
+
+
+def _indicpiper_caution_runs():
+    """Of the runs with IndicPiper scores, how many carry a warning: the organism
+    names no covered habitat, or the strongest habitat signal is not the one the
+    organism names (a tie for strongest counts as agreement). Rules live in
+    indicpiper_warnings.py."""
+    scores = IndicatorHabitatScore
+    scored = select(scores.run_id).distinct().subquery()
+    run_counts = dict(db.session.execute(
+        select(NcbiMetadata.taxon_name, func.count())
+        .join(scored, scored.c.run_id == NcbiMetadata.id)
+        .group_by(NcbiMetadata.taxon_name)).all())
+    mapped = mapped_organisms(run_counts)
+    mismatched = 0
+    if mapped:
+        expected = values(column('organism', String), column('habitat', String), name='expected').data(list(mapped.items()))
+        per_run = (
+            select(func.max(scores.score).label('top'),
+                   func.max(scores.score).filter(scores.habitat == expected.c.habitat).label('own'))
+            .select_from(scores)
+            .join(NcbiMetadata, NcbiMetadata.id == scores.run_id)
+            .join(expected, expected.c.organism == NcbiMetadata.taxon_name)
+            .group_by(scores.run_id, expected.c.habitat)
+        ).subquery()
+        mismatched = db.session.execute(
+            select(func.count()).select_from(per_run).where(or_(per_run.c.own.is_(None), per_run.c.own < per_run.c.top))
+        ).scalar()
+    return count_cautions(run_counts, mismatched)
 
 
 statistics_cache = None
@@ -416,21 +490,22 @@ def sandpiper_statistics():
             func.count().filter(parsed.latitude.is_not(None), parsed.longitude.is_not(None)),
             func.count().filter(parsed.meta_environment_biome.is_not(None)),
             func.count().filter(parsed.low_complexity.is_(True)))).one()
-        indicpiper = None
+        indicpiper = indicpiper_caution = None
         if _indicator_habitat_genus_scores_exists():
             indicpiper = db.session.execute(select(
                 func.count(distinct(IndicatorHabitatScore.run_id)))).scalar()
+            indicpiper_caution = _indicpiper_caution_runs()
         band = func.least(func.floor(parsed.known_species_fraction * KNOWN_SPECIES_BINS), KNOWN_SPECIES_BINS - 1).cast(Integer)
         known_species = known_species_payload(db.session.execute(select(band, parsed.host_or_not_mature, func.count()).where(
             parsed.known_species_fraction.is_not(None)).group_by(band, parsed.host_or_not_mature)).all())
         statistics_cache = statistics_payload(
             total_runs, bioprojects, (bases or 0) / 10**12, host_counts, release_years,
-            {'coordinates': coordinates, 'metalog': metalog, 'indicpiper': indicpiper,
+            {'coordinates': coordinates, 'metalog': metalog, 'gold': gold_counts()['runs'], 'indicpiper': indicpiper,
              'low_complexity': low_complexity},
-            _top_taxa())
+            _top_taxa(), indicpiper_caution=indicpiper_caution)
         statistics_cache['known_species'] = known_species
         statistics_cache['year_breakdown'] = figures.query_year_breakdown(db.session)
-        statistics_cache['map'] = figures.query_map_cells(db.session)
+        statistics_cache['map'] = {**figures.query_map_cells(db.session), **figures.query_map_hexes(db.session)}
     generate_cache()
     return jsonify({**statistics_cache, 'version': __version__, 'gtdb_version': __gtdb_version__,
                     'scrape_date': __scrape_date__,
@@ -618,16 +693,84 @@ def fetch_indicpiper_csv(sample_name):
     return response
 
 
-@api.route('/metalog_csv/<string:sample_name>', methods=('GET',))
-def fetch_metalog_csv(sample_name):
-    """This run's own Metalog record as a downloadable single-row CSV.
-    Unlike the bulk /metalog_results_csv (which has to keep every meta_*
-    column so every run's row lines up under the same header), this is
-    narrowed to only the columns actually populated for this run -- no
-    empty/NaN columns -- since it's a single row and there's no shared
-    header to keep consistent. Column set matches RunMetadata.vue's
-    Metalog section, which is driven by the same "populated only" rule
-    (see ParsedSampleAttribute.metalog_rows() in models.py).
+def _gold_project_id_for(sample_name):
+    """The run's GOLD project ID (Gp...), recorded as its BioSample sample_alias, or None."""
+    values = [row[0] for row in db.session.execute(
+        select(BiosampleAttribute.v)
+        .join(NcbiMetadata, NcbiMetadata.id == BiosampleAttribute.run_id)
+        .where(NcbiMetadata.acc == sample_name)
+        .where(or_(BiosampleAttribute.k == 'sample_alias', BiosampleAttribute.k.ilike('%gold%'))))]
+    return gold.find_project_id(values)
+
+
+def _gold_peer_project_ids(sample_name, own_project_id):
+    """GOLD project IDs of the page's related runs that have one (at most PEER_LIMIT).
+
+    Related runs are the ones the run page's "related runs" pill counts: runs of the same
+    study (same study abstract, or the same title when there is none). JGI gives each GOLD
+    sample its own NCBI BioProject, so the NCBI BioProject would leave almost every GOLD run
+    with nobody to compare with. Returns a key for the group and the project IDs.
+    """
+    meta = NcbiMetadata.query.filter_by(acc=sample_name).first()
+    if meta is None:
+        return None, []
+    if meta.study_abstract:
+        same_study, key = NcbiMetadata.study_abstract == meta.study_abstract, ('abstract', meta.study_abstract)
+    elif meta.study_title:
+        same_study, key = NcbiMetadata.study_title == meta.study_title, ('title', meta.study_title)
+    else:
+        return None, []
+    ids = db.session.execute(
+        select(BiosampleAttribute.v)
+        .join(NcbiMetadata, NcbiMetadata.id == BiosampleAttribute.run_id)
+        .where(same_study, NcbiMetadata.acc != sample_name)
+        .where(BiosampleAttribute.k == 'sample_alias', BiosampleAttribute.v.like('Gp0%'))
+        .order_by(NcbiMetadata.id).limit(PEER_LIMIT)).scalars().all()
+    return key, [i for i in dict.fromkeys(ids) if i != own_project_id and gold.find_project_id([i])]
+
+
+def _gold_with_peer_comparison(summary, sample_name):
+    """The summary with each row tagged against the related runs' GOLD records in the database."""
+    _, peer_ids = _gold_peer_project_ids(sample_name, summary['project_id'])
+    peers = list(gold_db.fetch_summaries(db.session.connection(), peer_ids).values())
+    return {**summary, 'rows': gold.tag_differences(summary['rows'], peers),
+            'comparison': {'peers_compared': len(peers), 'peers_total': len(peer_ids)}}
+
+
+def _gold_summary_for(sample_name):
+    """The GOLD summary stored in the database for a run, or None (no GOLD project ID, or none stored)."""
+    project_id = _gold_project_id_for(sample_name)
+    if project_id is None:
+        return None
+    return gold_db.fetch_summary(db.session.connection(), project_id)
+
+
+@api.route('/gold/<string:sample_name>', methods=('GET',))
+def fetch_gold(sample_name):
+    """JGI GOLD rows and publications for a run whose BioSample carries a GOLD project ID.
+
+    Read from the database's gold_* tables. ``{'gold': null}`` means there is nothing to show
+    (no GOLD project ID, or the database holds nothing for it).
+    """
+    summary = _gold_summary_for(sample_name)
+    if summary is None:
+        return jsonify({'gold': None})
+    return jsonify({'gold': _gold_with_peer_comparison(summary, sample_name)})
+
+
+@api.route('/gold_fields', methods=('GET',))
+def fetch_gold_fields():
+    """Every GOLD field a ``gold:`` search can name (``gold: habitat=soil``); empty without GOLD tables."""
+    return jsonify({'fields': gold_db.get_schema(db.session.connection()).field_names()})
+
+
+def _metalog_csv_pairs(sample_name):
+    """(column, value) pairs for this run's populated Metalog fields, or None when there are none.
+
+    Narrowed to only the columns actually populated for this run -- no empty/NaN columns --
+    since a single row has no shared header to keep consistent. The set matches RunMetadata.vue's
+    Metalog rows, which follow the same "populated only" rule (see
+    ParsedSampleAttribute.metalog_rows() in models.py).
     """
     meta_columns = [r[0] for r in db.session.execute(text(
         "SELECT column_name FROM information_schema.columns "
@@ -635,8 +778,7 @@ def fetch_metalog_csv(sample_name):
         "ORDER BY column_name"
     ))]
     if not meta_columns:
-        return jsonify({'error': 'No Metalog metadata available in this database.'}), 404
-
+        return None
     row = db.session.execute(text(
         "SELECT nm.acc AS acc, {select_list} "
         "FROM parsed_sample_attributes psa "
@@ -644,25 +786,43 @@ def fetch_metalog_csv(sample_name):
         "WHERE nm.acc = :acc".format(
             select_list=', '.join('psa."{}"'.format(c) for c in meta_columns))
     ), {'acc': sample_name}).fetchone()
-
     if row is None:
-        return jsonify({'error': 'No Metalog metadata recorded for {}.'.format(sample_name)}), 404
+        return None
+    return [(c, v) for c, v in zip(meta_columns, row[1:]) if v is not None and str(v).strip() != ''] or None
 
-    populated = [(c, v) for c, v in zip(meta_columns, row[1:])
-                 if v is not None and str(v).strip() != '']
-    if not populated:
-        return jsonify({'error': 'No Metalog metadata recorded for {}.'.format(sample_name)}), 404
 
+def _csv_response(sample_name, pairs, suffix):
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(['Run'] + [c for c, _ in populated])
-    writer.writerow([row.acc] + [v for _, v in populated])
-
+    writer.writerow(['Run'] + [c for c, _ in pairs])
+    writer.writerow([sample_name] + [v for _, v in pairs])
     response = make_response(buffer.getvalue())
-    cd = 'attachment; filename=sandpiper_v{}_{}_metalog.csv'.format(__version__, sample_name)
-    response.headers['Content-Disposition'] = cd
+    response.headers['Content-Disposition'] = 'attachment; filename=sandpiper_v{}_{}_{}.csv'.format(
+        __version__, sample_name, suffix)
     response.mimetype = 'text/csv'
     return response
+
+
+@api.route('/metalog_csv/<string:sample_name>', methods=('GET',))
+def fetch_metalog_csv(sample_name):
+    """This run's own Metalog record as a downloadable single-row CSV. Unlike the bulk
+    /metalog_results_csv (which keeps every meta_* column so every run lines up under one header)."""
+    pairs = _metalog_csv_pairs(sample_name)
+    if pairs is None:
+        return jsonify({'error': 'No Metalog metadata recorded for {}.'.format(sample_name)}), 404
+    return _csv_response(sample_name, pairs, 'metalog')
+
+
+@api.route('/additional_metadata_csv/<string:sample_name>', methods=('GET',))
+def fetch_additional_metadata_csv(sample_name):
+    """The metadata Sandpiper adds to a run beyond NCBI -- Metalog and GOLD (JGI) -- as a single-row CSV."""
+    pairs = list(_metalog_csv_pairs(sample_name) or [])
+    summary = _gold_summary_for(sample_name)
+    if summary is not None:
+        pairs += gold.csv_pairs(summary)
+    if not pairs:
+        return jsonify({'error': 'No additional metadata recorded for {}.'.format(sample_name)}), 404
+    return _csv_response(sample_name, pairs, 'additional_metadata')
 
 
 def wordnode_json(wordnode, order, depth):
@@ -734,6 +894,8 @@ def fetch_metadata(sample_name):
         'non_metagenome_organism_strict': metadata_dict['parsed_sample_attributes']['non_metagenome_organism_strict'],
         'non_metagenome_organism_loose': metadata_dict['parsed_sample_attributes']['non_metagenome_organism_loose'],
         'synthetic': metadata_dict['parsed_sample_attributes']['synthetic'],
+        # (this function has a local named db, so the session comes from the model's query)
+        'weebill_only': weebill_only.flag_for_run(NcbiMetadata.query.session.connection(), meta.id),
         'rna_or_non_dna_strict': metadata_dict['parsed_sample_attributes']['rna_or_non_dna_strict'],
         'rna_or_non_dna_loose': metadata_dict['parsed_sample_attributes']['rna_or_non_dna_loose'],
         'domain_only_gtdb': metadata_dict['parsed_sample_attributes']['domain_only_gtdb'],
@@ -817,6 +979,17 @@ def fetch_metadata(sample_name):
         if is_already_shown(d2.values(), k, v):
             continue
 
+        # The study alias is an identifier, so it is listed under Other identifiers
+        # rather than with the BioSample's Sample information.
+        if k == 'study_alias':
+            d2.setdefault(IDENTIFIERS_TYPE_METADATA, []).append({
+                'k': 'study alias',
+                'v': v,
+                'is_custom': False,
+                'raw_k': k,
+                'description': 'The alias the submitter gave the study when registering it with the SRA.'})
+            continue
+
         if k in biosample_attribute_definitions:
             biosample_dict.append({ 
                 'k': biosample_attribute_definitions[k].name, 
@@ -832,17 +1005,9 @@ def fetch_metadata(sample_name):
         d2[SAMPLE_INFO_TYPE_METADATA] = []
     d2[SAMPLE_INFO_TYPE_METADATA].extend(biosample_dict)
 
-    # Inject computed complexity fractions into sequencing metadata
+    # The top order fraction is shown under Derived information (from mdata_parsed in the front end).
     if SEQUENCING_TYPE_METADATA not in d2:
         d2[SEQUENCING_TYPE_METADATA] = []
-    top1 = metadata_dict['parsed_sample_attributes']['top1_order_fraction']
-    if top1 is not None:
-        d2[SEQUENCING_TYPE_METADATA].append({
-            'k': 'top order fraction',
-            'v': f'{top1:.2f}%',
-            'is_custom': False,
-            'description': 'Fraction of prokaryotic reads assigned to the single most abundant order. Samples where ≥95% of the community is assigned to a single order are flagged as low complexity and are less likely to represent true microbial communities they may be SAGs, negative controls, or isolate genomic data mistakenly deposited as metagenomic.'
-        })
 
     # Some are double e.g. https://sandpiper.qut.edu.au/run/SRR9224309 has 2 PubMed study_links
     final_study_links = []
@@ -1956,7 +2121,13 @@ def project():
     else:
         # Sort projects by run acc, numerically after removing the SRR/DRR/etc prefix
         projects.sort(key=lambda x: int(x[0].acc[3:]))
+        # The same markers the taxonomy page's Individual runs map draws, for this project's runs.
+        same_study = (NcbiMetadata.study_title == example_run.study_title
+                      if not example_run.study_abstract else NcbiMetadata.study_abstract == example_run.study_abstract)
+        lat_lons, num_lat_lon_runs, _ = get_lat_lons(None, QUERY_MAX_MARKERS, [same_study])
         return jsonify({
+            'lat_lons': lat_lons,
+            'num_lat_lon_runs': num_lat_lon_runs,
             'study_abstract': projects[0][0].study_abstract,
             'smf_mean': round(sum([p[1] for p in projects]) / len(projects), 0),
             'known_species_mean': round(sum([p[3] for p in projects])*100 / len(projects), 0),
@@ -2259,6 +2430,20 @@ def _parse_search_condition(key, value):
         elif val_lower in ('no', 'false', '0'):
             return P.synthetic == False, 'synthetic: no', True, False
         return None, None, False, False
+    elif key == 'weebill_only':
+        # Runs Weebill introduced: no SingleM marker-gene hits, so the profile is Weebill's k-mer matching alone.
+        # Held in the weebill_only_runs table; a database without it matches nothing.
+        if not weebill_only.is_available(db.session.connection()):
+            return None, None, False, False
+        runs = weebill_only.run_ids().scalar_subquery()
+        val_lower = value.strip().lower()
+        if not val_lower:
+            return N.id.isnot(None), 'Weebill only: (any)', False, False
+        if val_lower in ('yes', 'true', '1'):
+            return N.id.in_(runs), 'Weebill only: yes', False, False
+        elif val_lower in ('no', 'false', '0'):
+            return N.id.notin_(runs), 'Weebill only: no', False, False
+        return None, None, False, False
     elif key == 'non_metagenome_organism':
         if not value.strip():
             return P.non_metagenome_organism_strict.isnot(None), 'non-metagenome organism: (any)', True, False
@@ -2426,6 +2611,26 @@ def _parse_search_condition(key, value):
                 or_(*[column.ilike(f'%{value}%') for column in meta_columns.values()])
             ).distinct()
         return N.id.in_(subq), f'metalog: {value}', False, False
+
+    # --- JGI GOLD search ---
+    # Runs whose BioSample carries a GOLD project ID (Gp...), i.e. runs that have GOLD (JGI)
+    # details on their page. Like metalog, three forms: an empty value means any such run;
+    # a GOLD project ID (or the start of one) finds that project; "field=text" looks only in
+    # the GOLD field of that name and plain text looks in every GOLD field (see
+    # gold_db.matching_project_ids). GOLD's records are stored in the gold_* tables, which
+    # are linked to runs through the BioSample sample_alias.
+    elif key == 'gold':
+        conditions = [BiosampleAttribute.k.ilike('sample_alias'), BiosampleAttribute.v.like('Gp0%')]
+        wanted = value.strip()
+        if re.match(r'^Gp\d*$', wanted, re.I):
+            conditions.append(BiosampleAttribute.v.like('Gp' + wanted[2:] + '%'))
+        elif wanted:
+            project_ids = gold_db.matching_project_ids(gold_db.get_schema(db.session.connection()), wanted)
+            if project_ids is None:
+                return None, None, False, False
+            conditions.append(BiosampleAttribute.v.in_(project_ids))
+        subq = select(BiosampleAttribute.run_id).where(*conditions).distinct()
+        return N.id.in_(subq), 'gold: {}'.format(wanted or '(any)'), False, False
 
     # --- IndicPiper habitat-indicator search ---
     # Matches runs with a nonzero indicator_habitat_scores row for the given
