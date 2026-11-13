@@ -10,14 +10,14 @@
 // They are Metalog's own published numbers, not counts derived from the
 // downloaded files: the extended-wide files only cover samples that carry
 // extended metadata, so their row counts are legitimately lower.
-export const METALOG_LAST_UPDATE = '2026-08-21'
+export const METALOG_LAST_UPDATE = '2026-10-13'
 
 export const METALOG_SAMPLE_COUNTS = {
-  human: 114861,
+  human: 114929,
   animal: 11243,
   ocean: 6062,
-  environmental: 27122,
-  total: 159288
+  environmental: 27076,
+  total: 159310
 }
 
 const MONTHS = [

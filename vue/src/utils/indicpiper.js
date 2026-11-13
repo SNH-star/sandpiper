@@ -1,22 +1,8 @@
 // Only explicit habitat labels are compared; ambiguous organism names are omitted.
-const recordedHabitats = new Map(Object.entries({
-  'soil metagenome': 'soil',
-  'wastewater metagenome': 'wastewater',
-  'human oral metagenome': 'human oral',
-  'human saliva metagenome': 'human oral',
-  'human skin metagenome': 'human skin',
-  'human vaginal metagenome': 'human vaginal',
-  'marine sediment metagenome': 'marine sediment',
-  'glacier metagenome': 'glacier',
-  'hydrothermal vent metagenome': 'hydrothermal vent',
-  'freshwater sediment metagenome': 'freshwater sediment',
-  'freshwater metagenome': 'freshwater water',
-  'freshwater water metagenome': 'freshwater water',
-  'phyllosphere metagenome': 'phyllosphere',
-  'rhizosphere metagenome': 'soil',
-  ...Object.fromEntries(['human', 'pig', 'bovine', 'sheep', 'canine', 'goat', 'mammalian']
-    .map(host => [`${host} gut metagenome`, 'mammalian gut'])),
-}))
+// The same file is read by backend/bin/summarise_groups.py to group runs by habitat.
+import habitatLabels from '@/constants/indicpiperHabitats.json'
+
+const recordedHabitats = new Map(Object.entries(habitatLabels))
 
 function canonicalOrganism(organism) {
   return organism.toLowerCase().replace(/_/g, ' ')

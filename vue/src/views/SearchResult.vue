@@ -160,24 +160,13 @@
                this would always read "0 other runs are not shown". -->
           <p v-if="!cluster && !is_query" class="individual-runs-caption">{{ (total_num_results - num_lat_lon_runs).toLocaleString("en-US") }} other runs are not shown on this map.</p>
 
-          <div id="individual-runs-map" class="individual-runs-map">
-            <l-map ref="individualRunsMap" style="width: 100%; height: 100%;" :zoom.sync="zoom" :center.sync="center">
-              <l-tile-layer :url="url" :attribution="attribution" :options="tile_layer_options" />
-              <!-- The selected cluster's dot, copied from the summary map: same colour, outline and ground size, but more opaque so it stands out over the map tiles, so it is small zoomed out and grows as you zoom in. -->
-              <l-circle v-if="cluster" :lat-lng="[cluster.lat, cluster.lon]" :radius="cluster.radius"
-                :color="cluster.colour" :weight="cluster.strokeWidth" :fill-color="cluster.colour" :fill-opacity="0.5" />
-              <l-marker v-for="markerLatLng in this.lat_lons" v-bind:key="markerLatLng[0]" :lat-lng="markerLatLng['lat_lon']">
-                <l-popup :content="html_for_map_popup(markerLatLng)" :options="{ interactive: true }">
-                </l-popup>
-              </l-marker>
-            </l-map>
-          </div>
-          <div class="map-reset-row">
-            <button type="button" class="map-reset" @click="reset_map()"><b-icon icon="refresh" size="is-small" /> reset zoom</button>
-            <button v-if="cluster" type="button" class="map-reset" @click="clearCluster()">
-              <b-icon icon="close" size="is-small" /> reset map selection
-            </button>
-          </div>
+          <individual-runs-map ref="individualRunsMap" :lat_lons="lat_lons" :cluster="cluster">
+            <template #actions>
+              <button v-if="cluster" type="button" class="map-reset" @click="clearCluster()">
+                <b-icon icon="close" size="is-small" /> reset map selection
+              </button>
+            </template>
+          </individual-runs-map>
         </div>
       </section>
 
@@ -288,28 +277,8 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { splitQueryParts, unquoteQueryValue } from '@/composables/useSearchAutocomplete'
 import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
-// If you need to reference 'L', such as in 'L.icon', then be sure to
-// explicitly import 'leaflet' into your component
-// import L from 'leaflet'
-import { LMap, LTileLayer, LMarker, LPopup, LCircle } from '@vue-leaflet/vue-leaflet'
 import TaxonomySampleMap from '@/components/TaxonomySampleMap.vue'
-
-import { Icon, latLng } from 'leaflet'
-
-// Import marker icon images as modules
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-
-// Make the marker appear https://vue-leaflet.github.io/vue-leaflet/#/quick-start#marker-icons-are-missing
-delete Icon.Default.prototype._getIconUrl
-Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow
-})
-
-const default_zoom = 1.5
+import IndividualRunsMap from '@/components/IndividualRunsMap.vue'
 
 export default {
   name: 'SearchResults',
@@ -322,11 +291,7 @@ export default {
   props: ['taxonomy', 'query'],
   components: {
     TaxonomySampleMap,
-    LMap,
-    LTileLayer,
-    LMarker,
-    LPopup,
-    LCircle
+    IndividualRunsMap
   },
   data: function () {
     return {
@@ -361,22 +326,6 @@ export default {
       // Only the latest request may update the table / summary (quick clicks overlap).
       runs_request: 0,
       global_request: 0,
-      // Use the plain tile.openstreetmap.org host - the a/b/c subdomains are
-      // deprecated by the OSM operations working group and just cost extra TLS
-      // handshakes now that tiles are served over HTTP/2.
-      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      // OSM's tile servers refuse requests that arrive without a Referer
-      // header, serving an "Access blocked" tile instead of the map. Some
-      // browsers (notably privacy-hardened mobile ones and in-app webviews)
-      // default to no-referrer, so set the policy explicitly on the tile
-      // images rather than relying on the browser default. 'origin' sends
-      // only https://sandpiper.qut.edu.au/, not the page being viewed.
-      tile_layer_options: { referrerPolicy: 'origin' },
-      attribution:
-        '&copy; <a target="_blank" href="http://osm.org/copyright">OpenStreetMap</a> contributors',
-      defaultCenter: latLng(0, 0),
-      center: latLng(0, 0),
-      zoom: default_zoom
     }
   },
   computed: {
@@ -469,10 +418,6 @@ export default {
         select.id = `matching-samples-sort-${i}`
         select.setAttribute('aria-label', 'Sort samples by')
       })
-    },
-    reset_map: function () {
-      this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
-      this.zoom = default_zoom
     },
     async fetchGlobalData () {
       if (this.is_query) return this.fetchQueryPage()
@@ -584,9 +529,6 @@ export default {
       if (this.is_query) this.query_taxon = data.taxon ?? null
       this.num_host_runs = data.num_host_runs
       this.num_ecological_runs = data.num_ecological_runs
-      // Not while a cluster is selected: this runs again when its scoped data
-      // arrives, and would pull the map back off the cluster it just zoomed to.
-      if (!this.cluster) this.center = latLng(this.defaultCenter.lat, this.defaultCenter.lng)
     },
     // No taxonomy_type in the URL: GTDB's summary and a count-only check of
     // GlobDB go out together. That one check also answers "is the taxon in the
@@ -671,18 +613,6 @@ export default {
         style: 'text-align: center;'
       }
     },
-    html_for_map_popup (markerLatLng) {
-      let toReturn = ''
-      Object.entries(markerLatLng.samples).forEach((description_samples) => {
-        toReturn += '<p>' + description_samples[0] + '</p>'
-        toReturn += '<ul>'
-        description_samples[1].forEach((sample) => {
-          toReturn += '<li><a href="' + this.run_path(sample) + '">' + sample + '</a></li>'
-        })
-        toReturn += '</ul>'
-      })
-      return toReturn
-    },
     onClusterSelected (cluster) {
       // Filtering happens server-side, so reset to page 1 and refetch. The
       // filter is deliberately sticky: it clears only on navigating back or
@@ -718,12 +648,7 @@ export default {
       // setting the :zoom.sync/:center.sync props: those apply later and
       // would fight this move. They follow the map through its own events.
       this.$nextTick(() => {
-        const mapComponent = this.$refs.individualRunsMap
-        if (mapComponent && mapComponent.leafletObject) {
-          // Fit the circle (its radius is in metres, so ask Leaflet for its bounds).
-          const bounds = latLng(cluster.lat, cluster.lon).toBounds(cluster.radius * 2)
-          mapComponent.leafletObject.fitBounds(bounds, { padding: [30, 30], animate: false })
-        }
+        if (this.$refs.individualRunsMap) this.$refs.individualRunsMap.fitCluster(cluster)
         const target = document.getElementById('individual-runs-map')
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' })
       })
@@ -933,17 +858,6 @@ export default {
 .matching-count-caption {
   text-align: center;
 }
-.individual-runs-map {
-  width: 100%;
-  height: 900px;
-  max-width: 100%;
-}
-.map-reset-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.25rem;
-}
 .map-reset {
   appearance: none;
   min-height: 44px;
@@ -978,10 +892,6 @@ export default {
 @media (max-width: 768px) {
   .taxonomy-switcher :deep(.field-body > .field.is-grouped) {
     flex-wrap: wrap;
-  }
-  .individual-runs-map {
-    height: clamp(320px, 60vh, 500px);
-    height: clamp(320px, 60dvh, 500px);
   }
   .results-actions {
     align-items: stretch;

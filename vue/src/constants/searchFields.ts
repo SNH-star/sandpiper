@@ -8,7 +8,7 @@
 // tooltips. It also feeds the autocomplete dropdown (useSearchAutocomplete).
 //
 // `values` counts and `liveField` targets were verified against
-// sandpiper_40.duckdb directly (ncbi_metadata / parsed_sample_attributes /
+// sandpiper_43.duckdb directly (ncbi_metadata / parsed_sample_attributes /
 // indicator_habitat_scores), not guessed -- see the counts inline. Two real
 // data-quality findings came out of that verification, kept as comments
 // rather than silently "fixed" in the data itself:
@@ -75,8 +75,8 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   { key: 'location', aliases: ['geo'], group: 'location', example: 'e.g. Pacific Ocean', liveField: 'location' },
   { key: 'latitude', aliases: ['lat'], group: 'location', example: 'e.g. -33.8 or -40-30' },
   { key: 'longitude', aliases: ['lon'], group: 'location', example: 'e.g. 151.2 or 140-160' },
-  // Squares picked on the map: semicolon-separated south-west corners, see utils/grid.ts.
-  { key: 'grid', aliases: ['graph'], group: 'location', example: 'e.g. 10/-60;15/-60' },
+  // Areas picked on the map: semicolon-separated hexagon centres (or, from older links, square corners), see utils/grid.ts.
+  { key: 'grid', aliases: ['graph'], group: 'location', example: 'e.g. h51.962/-2/host' },
 
   // --- Sample ---
   { key: 'year', aliases: [], group: 'sample', example: 'e.g. 2010 or 2010-2015' },
@@ -85,38 +85,39 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   { key: 'depth', aliases: [], group: 'sample', example: 'e.g. 0-200' },
   {
     key: 'environment', aliases: ['env'], group: 'sample', example: 'host or ecological',
-    // parsed_sample_attributes.host_or_not_mature: host 660,848 / ecological 234,889
+    // parsed_sample_attributes.host_or_not_mature: host 662,834 / ecological 236,149
     values: [
-      { value: 'host', count: 660848 },
-      { value: 'ecological', count: 234889 },
+      { value: 'host', count: 662834 },
+      { value: 'ecological', count: 236149 },
     ],
   },
   {
     key: 'low_complexity', aliases: [], group: 'sample', example: 'yes or no',
     values: [
-      { value: 'no', count: 836050 },
-      { value: 'yes', count: 77021 },
+      { value: 'no', count: 849808 },
+      { value: 'yes', count: 76274 },
     ],
   },
   {
     key: 'synthetic', aliases: [], group: 'sample', example: 'yes or no',
     values: [
-      { value: 'no', count: 908555 },
-      { value: 'yes', count: 4516 },
+      { value: 'no', count: 921514 },
+      { value: 'yes', count: 4568 },
     ],
   },
   {
     key: 'non_metagenome_organism', aliases: [], group: 'sample', example: 'yes or no',
     values: [
-      { value: 'no', count: 843172 },
-      { value: 'yes', count: 69899 },
+      { value: 'no', count: 853991 },
+      { value: 'yes', count: 72091 },
     ],
   },
+  { key: 'weebill_only', aliases: [], group: 'sample', example: 'yes or no (runs with no SingleM marker genes, profiled by Weebill alone)' },
   {
     key: 'rna_or_non_dna', aliases: [], group: 'sample', example: 'yes or no',
     values: [
-      { value: 'no', count: 900284 },
-      { value: 'yes', count: 12787 },
+      { value: 'no', count: 913075 },
+      { value: 'yes', count: 13007 },
     ],
   },
   { key: 'age', aliases: [], group: 'sample', example: 'e.g. 25 or 20-30' },
@@ -125,19 +126,19 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
     // indicator_habitat_scores: count(distinct run_id) per habitat -- the
     // only 13 values that actually match (see file header).
     values: [
-      { value: 'human oral', count: 509429 },
-      { value: 'mammalian gut', count: 508568 },
-      { value: 'human vaginal', count: 448625 },
-      { value: 'wastewater', count: 238151 },
-      { value: 'soil', count: 168287 },
-      { value: 'phyllosphere', count: 162508 },
-      { value: 'human skin', count: 133154 },
-      { value: 'freshwater sediment', count: 127508 },
-      { value: 'freshwater water', count: 126424 },
-      { value: 'glacier', count: 109939 },
-      { value: 'marine sediment', count: 73834 },
-      { value: 'marine water', count: 39513 },
-      { value: 'hydrothermal vent', count: 16009 },
+      { value: 'human oral', count: 608517 },
+      { value: 'mammalian gut', count: 563948 },
+      { value: 'human vaginal', count: 535487 },
+      { value: 'wastewater', count: 346831 },
+      { value: 'human skin', count: 306649 },
+      { value: 'phyllosphere', count: 232604 },
+      { value: 'soil', count: 203226 },
+      { value: 'glacier', count: 162992 },
+      { value: 'freshwater sediment', count: 143183 },
+      { value: 'freshwater water', count: 132888 },
+      { value: 'marine sediment', count: 86204 },
+      { value: 'marine water', count: 42969 },
+      { value: 'hydrothermal vent', count: 21143 },
     ],
   },
 
@@ -151,87 +152,87 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   // --- Sequencing ---
   {
     key: 'platform', aliases: [], group: 'sequencing', example: 'e.g. Illumina',
-    // ncbi_metadata.platform: ILLUMINA 912,954 + Illumina 108 folded into one
+    // ncbi_metadata.platform: ILLUMINA 926,073 (including a rare 'Illumina' casing variant) folded into one
     // display entry (see file header); Metagenomic 9 is a real but mislabeled
     // submitter value (a library type, not a platform).
     values: [
-      { value: 'ILLUMINA', count: 913062 },
+      { value: 'ILLUMINA', count: 926073 },
       { value: 'Metagenomic', count: 9 },
     ],
   },
   {
     key: 'instrument', aliases: ['model'], group: 'sequencing', example: 'e.g. HiSeq 2500',
-    // ncbi_metadata.model, excluding "unspecified" (42,661) and junk
+    // ncbi_metadata.model, excluding "unspecified" (42,850) and junk
     // single-letter values ('S'/'T'/'G', 4 rows each) -- neither is a real
     // instrument name a user would search for.
     values: [
-      { value: 'Illumina NovaSeq 6000', count: 400769 },
-      { value: 'Illumina HiSeq 2500', count: 102228 },
-      { value: 'Illumina HiSeq 4000', count: 65697 },
-      { value: 'NextSeq 500', count: 61852 },
-      { value: 'Illumina HiSeq 2000', count: 57969 },
-      { value: 'Illumina MiSeq', count: 32223 },
-      { value: 'HiSeq X Ten', count: 27933 },
-      { value: 'Illumina NovaSeq X', count: 24885 },
-      { value: 'NextSeq 2000', count: 20452 },
-      { value: 'NextSeq 550', count: 20159 },
-      { value: 'Illumina HiSeq 3000', count: 16272 },
-      { value: 'Illumina NovaSeq X Plus', count: 14247 },
-      { value: 'Illumina HiSeq X', count: 10428 },
-      { value: 'Illumina HiSeq 1000', count: 4059 },
-      { value: 'Illumina HiSeq 1500', count: 2977 },
-      { value: 'NextSeq 1000', count: 1839 },
-      { value: 'Illumina MiniSeq', count: 1463 },
-      { value: 'Illumina Genome Analyzer IIx', count: 1307 },
-      { value: 'Illumina Genome Analyzer II', count: 1158 },
-      { value: 'Illumina Genome Analyzer', count: 1000 },
-      { value: 'Illumina HiSeq X Ten', count: 541 },
-      { value: 'HiSeq X Five', count: 446 },
-      { value: 'Illumina HiScanSQ', count: 344 },
-      { value: 'Illumina iSeq 100', count: 95 },
+      { value: 'Illumina NovaSeq 6000', count: 406195 },
+      { value: 'Illumina HiSeq 2500', count: 103261 },
+      { value: 'Illumina HiSeq 4000', count: 67198 },
+      { value: 'NextSeq 500', count: 63550 },
+      { value: 'Illumina HiSeq 2000', count: 58378 },
+      { value: 'Illumina MiSeq', count: 32890 },
+      { value: 'HiSeq X Ten', count: 28101 },
+      { value: 'Illumina NovaSeq X', count: 25098 },
+      { value: 'NextSeq 550', count: 21033 },
+      { value: 'NextSeq 2000', count: 20626 },
+      { value: 'Illumina HiSeq 3000', count: 16327 },
+      { value: 'Illumina NovaSeq X Plus', count: 14408 },
+      { value: 'Illumina HiSeq X', count: 10494 },
+      { value: 'Illumina HiSeq 1000', count: 4110 },
+      { value: 'Illumina HiSeq 1500', count: 3011 },
+      { value: 'NextSeq 1000', count: 1872 },
+      { value: 'Illumina MiniSeq', count: 1489 },
+      { value: 'Illumina Genome Analyzer IIx', count: 1401 },
+      { value: 'Illumina Genome Analyzer II', count: 1234 },
+      { value: 'Illumina Genome Analyzer', count: 1027 },
+      { value: 'Illumina HiSeq X Ten', count: 542 },
+      { value: 'HiSeq X Five', count: 448 },
+      { value: 'Illumina HiScanSQ', count: 365 },
+      { value: 'Illumina iSeq 100', count: 107 },
       { value: 'Nova seq', count: 42 },
       { value: 'MiSeq i100', count: 12 },
     ],
   },
   {
     key: 'library_strategy', aliases: ['strategy'], group: 'sequencing', example: 'e.g. WGS',
-    // ncbi_metadata.library_strategy: exact match to all 34 distinct DB values.
+    // ncbi_metadata.library_strategy: exact match to all 35 distinct DB values.
     values: [
-      { value: 'WGS', count: 757270 },
-      { value: 'OTHER', count: 71234 },
-      { value: 'AMPLICON', count: 35656 },
-      { value: 'WGA', count: 24704 },
-      { value: 'RNA-Seq', count: 12668 },
-      { value: 'Targeted-Capture', count: 5625 },
-      { value: 'POOLCLONE', count: 1275 },
-      { value: 'WXS', count: 1137 },
-      { value: 'WCS', count: 1043 },
-      { value: 'Hi-C', count: 911 },
-      { value: 'CLONE', count: 319 },
-      { value: 'ChIP-Seq', count: 282 },
-      { value: 'Bisulfite-Seq', count: 149 },
+      { value: 'WGS', count: 767418 },
+      { value: 'OTHER', count: 72071 },
+      { value: 'AMPLICON', count: 36324 },
+      { value: 'WGA', count: 25045 },
+      { value: 'RNA-Seq', count: 12882 },
+      { value: 'Targeted-Capture', count: 6246 },
+      { value: 'POOLCLONE', count: 1279 },
+      { value: 'WXS', count: 1152 },
+      { value: 'WCS', count: 1047 },
+      { value: 'Hi-C', count: 946 },
+      { value: 'CLONE', count: 343 },
+      { value: 'ChIP-Seq', count: 320 },
+      { value: 'Bisulfite-Seq', count: 153 },
       { value: 'Synthetic-Long-Read', count: 117 },
-      { value: 'RAD-Seq', count: 105 },
-      { value: 'ATAC-seq', count: 75 },
-      { value: 'CLONEEND', count: 73 },
-      { value: 'Tn-Seq', count: 71 },
+      { value: 'RAD-Seq', count: 116 },
+      { value: 'Tn-Seq', count: 101 },
+      { value: 'ATAC-seq', count: 81 },
+      { value: 'CLONEEND', count: 74 },
       { value: 'shotgun sequencing', count: 52 },
-      { value: 'FAIRE-seq', count: 46 },
-      { value: 'miRNA-Seq', count: 36 },
+      { value: 'FAIRE-seq', count: 48 },
+      { value: 'miRNA-Seq', count: 40 },
       { value: 'FL-cDNA', count: 36 },
       { value: 'DNase-Hypersensitivity', count: 35 },
-      { value: 'CTS', count: 33 },
+      { value: 'CTS', count: 34 },
       { value: 'MRE-Seq', count: 31 },
       { value: 'FINISHING', count: 25 },
+      { value: 'GBS', count: 15 },
       { value: 'ssRNA-seq', count: 15 },
-      { value: 'GBS', count: 14 },
       { value: 'EST', count: 14 },
-      { value: 'RIP-Seq', count: 9 },
+      { value: 'RIP-Seq', count: 11 },
       { value: 'ncRNA-Seq', count: 5 },
       { value: 'Ribo-seq', count: 3 },
-      { value: 'Tethered Chromatin Conformation Capture', count: 1 },
-      { value: 'NOMe-Seq', count: 1 },
       { value: 'MBD-Seq', count: 1 },
+      { value: 'NOMe-Seq', count: 1 },
+      { value: 'Tethered Chromatin Conformation Capture', count: 1 },
     ],
   },
 
@@ -256,6 +257,7 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   // --- Metadata ---
   { key: 'attr', aliases: ['attribute', 'biosample_attr', 'metadata'], group: 'metadata', example: 'e.g. host=Sus scrofa' },
   { key: 'metalog', aliases: [], group: 'metadata', example: 'e.g. host=Sus scrofa or diabetes' },
+  { key: 'gold', aliases: ['gold_jgi'], group: 'metadata', example: 'e.g. habitat=marine or eye (leave empty for any run with GOLD data)' },
 ]
 
 export const ADVANCED_KEY_MAP: Record<string, string> = Object.fromEntries(
