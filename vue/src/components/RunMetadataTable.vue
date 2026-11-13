@@ -89,7 +89,7 @@ const DIFFERENCE_TIPS = {
   }
 }
 const TOOLTIP_WIDTH = 280
-const SOURCE_LABELS = { metalog: 'Metalog' }
+const SOURCE_LABELS = { metalog: 'Metalog', gold: 'GOLD (JGI)' }
 
 export default {
   name: 'RunMetadataTable',
@@ -183,6 +183,7 @@ export default {
   font-size: 0.8rem;
 }
 .source-chip.src-metalog, .run-metadata-table :deep(tr.src-metalog > td) { background: #dcefdc; }
+.source-chip.src-gold, .run-metadata-table :deep(tr.src-gold > td) { background: #f5e6b3; }
 .empty-note {
   padding: 0.75rem 1rem;
   color: #888;

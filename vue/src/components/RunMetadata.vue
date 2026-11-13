@@ -20,27 +20,35 @@
         <div v-if="show_sample_help" id="sample-help" class="content metalog-help">
           <p>
             Details about the sample this run was sequenced from, such as where and when it was collected, the host or
-            environment, and anything else the submitter recorded. Rows coloured green come from Metalog.
+            environment, and anything else the submitter recorded. Rows coloured green come from Metalog and rows coloured gold come from GOLD (JGI).
           </p>
           <p>
             <b><a href="https://metalog.embl.de/downloads" target="_blank" rel="noopener" class="source-link src-metalog">Metalog</a></b>: curated extra details from Metalog, added only when this sample is found there.
           </p>
+          <p>
+            <b><a href="https://gold.jgi.doe.gov/" target="_blank" rel="noopener" class="source-link src-gold">GOLD (JGI)</a></b>: details from the Joint Genome Institute's Genomes OnLine Database, added only when this sample
+            was submitted through JGI and carries a GOLD project ID. They come from a copy of GOLD's records held in Sandpiper and include GOLD's own habitat classification, collection details, sequencing details and the study description.
+            GOLD is provided by the Joint Genome Institute (JGI), a U.S. Department of Energy Office of Science user facility.
+            Please cite Mukherjee S, et al., <i>Nucleic Acids Research</i> (2024),
+            <a href="https://doi.org/10.1093/nar/gkae1000" target="_blank" rel="noopener">doi:10.1093/nar/gkae1000</a>.
+            (A portion of) These data were produced by the US Department of Energy Joint Genome Institute
+            (<a href="https://ror.org/04xm1d337" target="_blank" rel="noopener">https://ror.org/04xm1d337</a>) operated under
+            Contract No. DE-AC02-05CH11231 in collaboration with the user community.
+            It is shown as provided, with no warranty and no endorsement by JGI or the Department of Energy
+            (<a href="https://jgi.doe.gov/disclaimer/" target="_blank" rel="noopener">JGI disclaimer</a>;
+            <router-link to="/about#gold">more on the About page</router-link>).
+          </p>
         </div>
-        <div v-if="lat_lon() !== null">
-          <!-- I cannot get center.sync to reset when reset_map() is clicked, oh well -->
-          <l-map :style="map_style" :zoom.sync="zoom" :center.sync="center">
-            <l-tile-layer :url="url" :attribution="attribution" :options="tile_layer_options" />
-            <l-marker :lat-lng="lat_lon()" />
-          </l-map>
-          <button type="button" class="map-reset" @click="reset_map()"><b-icon icon="refresh" size="is-small" /> reset zoom</button>
-          <br />
-        </div>
+        <RunLocationMap v-if="lat_lon() !== null" :lat="lat_lon()[0]" :lon="lat_lon()[1]" />
         <RunMetadataTable :table_data="filtered_sample_rows" :empty_text="sample_filters_active ? 'No fields match these filters.' : null">
           <template #after-key>
             <fieldset class="sample-filters">
               <legend class="sample-filters-title">Filter fields</legend>
-              <label v-for="f in SAMPLE_FILTERS" :key="f.key" v-show="!f.difference || difference_counts[f.key] > 0" class="sample-filter">
-                <input type="checkbox" name="sample-filters" :id="'sample-filter-' + f.key" v-model="sample_filters" :value="f.key" />
+              <label v-for="f in SAMPLE_FILTERS" :key="f.key" v-show="!f.difference || difference_counts[f.key] > 0"
+                     :class="['sample-filter', { 'is-unavailable': is_filter_unavailable(f) }]"
+                     :title="is_filter_unavailable(f) ? NO_METADATA_TOOLTIP : null">
+                <input type="checkbox" name="sample-filters" :id="'sample-filter-' + f.key" v-model="sample_filters" :value="f.key"
+                       :disabled="is_filter_unavailable(f)" />
                 <span v-if="f.difference" :class="['diff-swatch', 'diff-' + f.key]" aria-hidden="true"></span>
                 <span>{{ f.label }}<template v-if="f.difference"> ({{ difference_counts[f.key] }})</template></span>
               </label>
@@ -56,7 +64,7 @@
           <button type="button" class="metalog-info" :aria-expanded="show_metalog_help" aria-controls="metalog-help-merged" aria-label="About Metalog metadata" @click="show_metalog_help = !show_metalog_help">
             <b-icon icon="information-outline" size="is-small" />
           </button>
-          <b-button tag="a" type="is-info" size="is-small" :href="metalog_csv_link()">Download Run Specific CSV</b-button>
+          <b-button tag="a" type="is-info" size="is-small" :href="additional_csv_link()">Additional Run Metadata CSV</b-button>
           <div v-if="show_metalog_help" id="metalog-help-merged" class="content metalog-help">
             <p>
               Derived from
@@ -69,6 +77,31 @@
               <a href="https://doi.org/10.1093/nar/gkaf1118" target="_blank" rel="noopener">https://doi.org/10.1093/nar/gkaf1118</a>.
               Records are matched by BioSample, so every run sharing this BioSample shows the same record.
               Bulk download for all Metalog metadata is on the <router-link to="/about#bulk-download">About page</router-link>.
+            </p>
+          </div>
+        </div>
+        <div v-if="gold" id="gold" class="section-note">
+          GOLD (JGI) rows
+          <button type="button" class="metalog-info" :aria-expanded="show_gold_help" aria-controls="gold-help" aria-label="About GOLD (JGI) metadata" @click="show_gold_help = !show_gold_help">
+            <b-icon icon="information-outline" size="is-small" />
+          </button>
+          <b-button v-if="metalog_metadata().length === 0" tag="a" type="is-info" size="is-small" :href="additional_csv_link()">Additional Run Metadata CSV</b-button>
+          <div v-if="show_gold_help" id="gold-help" class="content metalog-help">
+            <p>
+              GOLD records the habitat, collection details and sequencing history of samples sequenced by JGI. This run is
+              matched through the GOLD project ID
+              <a :href="gold.url" target="_blank" rel="noopener">{{ gold.project_id }}</a>
+              in its BioSample record; runs without one show nothing here. Sandpiper holds a copy of GOLD's records taken when
+              this version was built, so later edits in GOLD show only in the next version. Contact names and email addresses
+              are not kept or shown. GOLD's publications appear under Publications near the top of the page.
+            </p>
+            <p>
+              GOLD rows are coloured gold and Metalog rows green. The bar beside a field compares it with related runs from
+              the same study that also have GOLD data: only in this sample, differs, or differs as expected.
+              <template v-if="gold.comparison && gold.comparison.peers_total > 0">
+                {{ gold.comparison.peers_compared }} of {{ gold.comparison.peers_total }} related runs with a GOLD project ID have a GOLD record to compare with.
+              </template>
+              <template v-else>There are no related runs to compare with, so no bars are shown.</template>
             </p>
           </div>
         </div>
@@ -119,7 +152,7 @@
               <b-icon icon="information-outline" size="is-small" />
             </button>
           </span>
-          <b-button v-if="metalog_metadata().length > 0" tag="a" type="is-info" size="is-small" :href="metalog_csv_link()">Download Run Specific CSV</b-button>
+          <b-button v-if="metalog_metadata().length > 0" tag="a" type="is-info" size="is-small" :href="additional_csv_link()">Additional Run Metadata CSV</b-button>
         </h3>
         <p class="section-note">
           Bulk download for all Metalog metadata found in this database is available on the <router-link to="/about#bulk-download">About page</router-link>.
@@ -155,12 +188,11 @@
         <h3 class="title section-heading">
           <span>
             IndicPiper habitat indicators
-            <span v-if="indicpiper_version" class="indicpiper-version">(indicator database v{{ indicpiper_version }})</span>
             <button type="button" class="metalog-info" :aria-expanded="show_indicpiper_help" aria-controls="indicpiper-help" aria-label="About IndicPiper habitat indicators" @click="show_indicpiper_help = !show_indicpiper_help">
               <b-icon icon="information-outline" size="is-small" />
             </button>
           </span>
-          <b-button v-if="indicpiper_scores().length > 0" tag="a" type="is-info" size="is-small" :href="indicpiper_csv_link()">Download Run Specific CSV</b-button>
+          <b-button v-if="indicpiper_scores().length > 0" tag="a" type="is-info" size="is-small" :href="indicpiper_csv_link()">Additional Run Metadata CSV</b-button>
         </h3>
         <p class="section-note">
           Bulk download for all IndicPiper habitat results found in this database is available on the <router-link to="/about#bulk-download">About page</router-link>.
@@ -182,9 +214,7 @@
         <div v-if="indicpiper_uncovered_organism" class="notification is-warning" role="status">
           <strong>Environment not covered by IndicPiper</strong>
           <p>
-            This run is labelled “{{ indicpiper_uncovered_organism }}”, which was not part of the list of
-            environments used in the IndVal analysis. IndicPiper’s reference database is limited to
-            13 habitats, so the habitat percentages below should be interpreted with caution.
+            This run is labelled "{{ indicpiper_uncovered_organism }}", which is not one of the 13 habitats IndicPiper was built from, so the habitat percentages below should be interpreted with caution.
           </p>
         </div>
         <div v-if="indicpiper_mismatch" class="notification is-warning" role="status">
@@ -212,14 +242,8 @@
 
 <script>
 
-// If you need to reference 'L', such as in 'L.icon', then be sure to
-// explicitly import 'leaflet' into your component
-// import L from 'leaflet'
-import { LMap, LTileLayer, LMarker } from '@vue-leaflet/vue-leaflet'
-
-
-import { Icon, latLng } from 'leaflet'
 import RunMetadataTable from '@/components/RunMetadataTable.vue'
+import RunLocationMap from '@/components/RunLocationMap.vue'
 import IndicPiperHabitatChart from '@/components/IndicPiperHabitatChart.vue'
 import { indicpiperMismatch, indicpiperUncoveredOrganism, formatIndicPiperPercent } from '@/utils/indicpiper'
 // Same Metalog release the About page quotes: the API value when the database
@@ -227,20 +251,6 @@ import { indicpiperMismatch, indicpiperUncoveredOrganism, formatIndicPiperPercen
 import { METALOG_LAST_UPDATE, metalogLongDate } from '@/constants/metalog'
 import { api_url } from '@/api'
 
-// Import marker icon images as modules
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-
-// Make the marker appear https://vue-leaflet.github.io/vue-leaflet/#/quick-start#marker-icons-are-missing
-delete Icon.Default.prototype._getIconUrl
-Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow
-})
-
-const default_zoom = 0.5
 
 // Tick boxes above the Sample information table. The origin boxes are
 // alternatives (a row is shown when it matches any ticked one), and so are the
@@ -249,57 +259,47 @@ const default_zoom = 0.5
 // explicitly.
 const SAMPLE_FILTERS = [
   { key: 'metalog', label: 'Metalog', test: r => r.source === 'metalog' },
-  { key: 'defined', label: 'NCBI-defined attributes', test: r => r.source !== 'metalog' && !r.is_custom },
-  { key: 'custom', label: 'Custom attributes', test: r => !!r.is_custom },
+  { key: 'gold', label: 'GOLD (JGI)', test: r => r.source === 'gold' },
+  { key: 'defined', label: 'NCBI-defined attributes', test: r => !r.source && !r.is_custom },
+  { key: 'custom', label: 'Custom attributes', test: r => !r.source && !!r.is_custom },
   { key: 'only_here', label: 'Only in this sample (field absent from other samples)', test: r => r.difference === 'only_here', difference: true },
-  { key: 'differs', label: 'Differs from other samples', test: r => r.difference === 'differs', difference: true },
-  { key: 'expected', label: 'Differs as expected (IDs, sizes, dates)', test: r => r.difference === 'expected', difference: true }
+  { key: 'differs', label: 'variable within bioproject', test: r => r.difference === 'differs', difference: true },
+  { key: 'expected', label: 'variable trivially (IDs, base count, etc.)', test: r => r.difference === 'expected', difference: true }
 ]
+
+// Shown on a filter box when this run has no Sample information rows of that kind.
+const TOP_ORDER_FRACTION_DESCRIPTION = '“Top order fraction” is derived based on the SingleM profile. It is the fraction of prokaryotic reads assigned to the single most abundant order. Samples where ≥95% of the community is assigned to a single order are flagged as low complexity and are less likely to represent true microbial communities. They may be SAGs, negative controls, or isolate genomic data mistakenly (or conservatively) deposited as metagenomic.'
+const NO_METADATA_TOOLTIP = "This sample doesn't contain this metadata"
 
 export default {
   name: 'RunMetadata',
-  props: ['mdata','mdata_parsed','accession'],
+  props: ['mdata','mdata_parsed','accession','gold','gold_loading'],
   components: {
-    LMap,
-    LTileLayer,
-    LMarker,
+    RunLocationMap,
     RunMetadataTable,
     IndicPiperHabitatChart
   },
   data () {
     return {
       medata: this.mdata,
-      // Use the plain tile.openstreetmap.org host - the a/b/c subdomains are
-      // deprecated by the OSM operations working group and just cost extra TLS
-      // handshakes now that tiles are served over HTTP/2.
-      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      // OSM's tile servers refuse requests that arrive without a Referer
-      // header, serving an "Access blocked" tile instead of the map. Some
-      // browsers (notably privacy-hardened mobile ones and in-app webviews)
-      // default to no-referrer, so set the policy explicitly on the tile
-      // images rather than relying on the browser default. 'origin' sends
-      // only https://sandpiper.qut.edu.au/, not the page being viewed.
-      tile_layer_options: { referrerPolicy: 'origin' },
-      attribution:
-        '&copy; <a target="_blank" href="http://osm.org/copyright">OpenStreetMap</a> contributors',
-      zoom: default_zoom,
-      center: latLng(0, 0),
-      bounds: null,
       show_sample_help: false,
       show_metalog_help: false,
+      show_gold_help: false,
       SAMPLE_FILTERS,
+      NO_METADATA_TOOLTIP,
       sample_filters: [],
       show_indicpiper_help: false
     }
   },
-  mounted () {
-    this.center = this.get_default_map_center()
-  },
   computed: {
-    // Sample information rows; only Metalog rows are tagged (and coloured).
+    // Sample information rows; only Metalog (green) and GOLD (gold) rows are tagged and coloured.
+    // GOLD rows arrive later, from their own request, and only for runs GOLD knows.
+    gold_rows () {
+      return (this.gold && this.gold.rows) || []
+    },
     sample_rows () {
       const own = this.mdata.sample_info_metadata || []
-      return own.concat(this.metalog_metadata().map(r => ({ ...r, source: 'metalog' })))
+      return own.concat(this.metalog_metadata().map(r => ({ ...r, source: 'metalog' })), this.gold_rows)
     },
     sample_filters_active () {
       return this.sample_filters.length > 0
@@ -313,6 +313,11 @@ export default {
         (origins.length === 0 || origins.some(f => f.test(r))) &&
         (differences.length === 0 || differences.some(f => f.test(r))))
     },
+    // Filter boxes with nothing to filter on: greyed out and disabled. GOLD rows arrive late, so
+    // its box is left alone until the GOLD request has answered.
+    unavailable_filter_keys () {
+      return SAMPLE_FILTERS.filter(f => this.is_filter_unavailable(f)).map(f => f.key)
+    },
     // How many Sample information rows fall in each difference group.
     difference_counts () {
       const counts = {}
@@ -324,16 +329,9 @@ export default {
     indicpiper_uncovered_organism() {
       return indicpiperUncoveredOrganism(this.mdata_parsed?.organism)
     },
-    indicpiper_version() {
-      return this.mdata.indicpiper_version || null
-    },
     indicpiper_mismatch() {
       return indicpiperMismatch(this.mdata_parsed?.organism, this.indicpiper_scores())
     },
-    map_style: function () {
-      return { height: '300px', width: '100%', maxWidth: '550px' }
-    },
-
     // Metalog's own release date, as recorded when the data was fetched.
     // Databases built before that was captured carry no release block, so
     // fall back to the last value recorded in the front end.
@@ -342,7 +340,17 @@ export default {
       return metalogLongDate(released || METALOG_LAST_UPDATE)
     },
   },
+  watch: {
+    // A ticked box whose rows disappear (moving to another run) must not keep filtering.
+    unavailable_filter_keys (keys) {
+      this.sample_filters = this.sample_filters.filter(key => !keys.includes(key))
+    }
+  },
   methods: {
+    is_filter_unavailable (f) {
+      if (f.key === 'gold' && this.gold_loading) return false
+      return !this.sample_rows.some(f.test)
+    },
     formatIndicPiperPercent,
     // Populated meta_ fields for this run, already filtered and sorted by the
     // API. Absent for runs indexed before the metalog merge, hence the guard.
@@ -355,32 +363,12 @@ export default {
     indicpiper_scores: function () {
       return this.mdata.indicpiper_scores || []
     },
-    metalog_csv_link: function () {
-      return api_url() + '/metalog_csv/' + this.accession
+    // Metalog and GOLD (JGI) details for this run, as one CSV.
+    additional_csv_link: function () {
+      return api_url() + '/additional_metadata_csv/' + this.accession
     },
     indicpiper_csv_link: function () {
       return api_url() + '/indicpiper_csv/' + this.accession
-    },
-    get_default_map_center: function () {
-      const lat_lon = this.lat_lon()
-      if (lat_lon !== null) {
-        // Near the poles, the map is too small and so the marker can be hidden
-        if (lat_lon[0] > 45) {
-          return latLng(45.0, lat_lon[1])
-        } else if (lat_lon[0] < -45) {
-          return latLng(-45.0, lat_lon[1])
-        } else {
-          return latLng(0, lat_lon[1])
-        }
-      } else {
-        return latLng(0, 0)
-      }
-    },
-    reset_map: function () {
-      // Setting the center here doesn't appear to have any effect
-      this.center = this.get_default_map_center()
-      // Zoom works though
-      this.zoom = default_zoom
     },
     // Data to be put in the general metadata. This method is actually mostly
     // dead code now, but kept as it is used in one place
@@ -468,9 +456,9 @@ export default {
       const yesNo = (v) => (v === null || typeof v === 'undefined' ? 'Unknown' : (v ? 'Yes' : 'No'))
       const rows = [
         { k: 'Non-metagenome organism (strict)', flag: p.non_metagenome_organism_strict,
-          description: "TRUE when the organism is a specific single organism (not a metagenome or community term), excluding ambiguous generic names." },
+          description: "True when the organism recorded for the sample in NCBI names a specific species rather than a metagenome or community, for example 'Escherichia coli', 'Homo sapiens' or 'Montipora'. The sample may be an isolate or a single genome, or a community deposited under its host's name. This is judged from the recorded name only, not from the reads. Names containing 'metagenome', community terms such as 'uncultured' or 'microbiome', vague names such as 'bacterium' or 'unidentified', and missing names are not flagged." },
         { k: 'Non-metagenome organism (loose)', flag: p.non_metagenome_organism_loose,
-          description: "As strict, but including ambiguous generic names such as 'bacterium' or 'unidentified'." },
+          description: "As strict, but vague names such as 'bacterium' or 'unidentified' also count as true. Judged from the recorded organism name only, not from the reads." },
         { k: 'Synthetic', flag: p.synthetic,
           description: "TRUE for synthetic or simulated metagenomes, or a SYNTHETIC library source." },
         { k: 'RNA / non-DNA (strict)', flag: p.rna_or_non_dna_strict,
@@ -484,7 +472,10 @@ export default {
         { k: 'Domain-only (both)', flag: p.domain_only_both,
           description: "TRUE when neither GTDB nor GlobDB resolves below domain level." }
       ]
-      return rows.map(r => ({ k: r.k, v: yesNo(r.flag), is_custom: false, description: r.description }))
+      const flags = rows.map(r => ({ k: r.k, v: yesNo(r.flag), is_custom: false, description: r.description }))
+      const top1 = p.top1_order_fraction
+      if (top1 === null || typeof top1 === 'undefined') return flags
+      return [{ k: 'Top order fraction', v: top1.toFixed(2) + '%', is_custom: false, description: TOP_ORDER_FRACTION_DESCRIPTION }].concat(flags)
     },
     lat_lon () {
       const parsed_data = this.mdata_parsed
@@ -509,6 +500,9 @@ export default {
 .source-link.src-metalog:visited { color: #2e7d32; }
 .source-link.src-metalog:hover { color: #1b5e20; }
 .source-link.src-metalog:active { color: #124116; }
+.source-link.src-gold:link, .source-link.src-gold:visited { color: #8a6a00; }
+.source-link.src-gold:hover { color: #6b5200; }
+.source-link.src-gold:active { color: #4d3b00; }
 
 /* Same vocabulary as the Run page's Identifiers block: quiet label,
    quiet outlined 6px chips, teal as the only accent. */
@@ -550,6 +544,15 @@ export default {
 .sample-filter input {
   accent-color: var(--color-accent);
 }
+/* No rows of this kind for the run: still shown, but greyed out and not clickable. */
+.sample-filter.is-unavailable {
+  color: var(--color-ink-muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sample-filter.is-unavailable input {
+  cursor: not-allowed;
+}
 .sample-filters-clear {
   appearance: none;
   border: 0;
@@ -574,19 +577,9 @@ export default {
 .metalog-info:hover {
   color: #363636;
 }
-.metalog-info:focus-visible,
-.map-reset:focus-visible {
+.metalog-info:focus-visible {
   outline: 2px solid #3273dc;
   outline-offset: 2px;
-}
-.map-reset {
-  appearance: none;
-  border: 0;
-  padding: 0.4rem 0;
-  background: transparent;
-  color: #3273dc;
-  cursor: pointer;
-  font: inherit;
 }
 .metalog-help {
   margin-bottom: 1rem;
@@ -624,9 +617,6 @@ export default {
   }
   .metalog-info {
     min-width: 44px;
-    min-height: 44px;
-  }
-  .map-reset {
     min-height: 44px;
   }
   .section-heading :deep(.button) {
