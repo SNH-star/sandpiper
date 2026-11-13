@@ -39,15 +39,15 @@ import extern
 sys.path = [os.path.join(os.path.dirname(os.path.realpath(__file__)),'..')] + sys.path
 
 def latest_indicpiper_version():
-    """Number of the highest genus_habitat_indicators_v*.csv in the IndicPiper
-    submodule, the file the Snakefile builds the habitat scores from."""
+    """Version (e.g. '2.1.0') of the highest genus_habitat_indicators_v*.csv in the
+    IndicPiper submodule, the file the Snakefile builds the habitat scores from."""
     submodule_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'indicpiper_custom', 'IndicPiper')
-    versions = [int(m.group(1)) for m in
-                (re.search(r'_v(\d+)\.csv$', path) for path in glob.glob(os.path.join(submodule_dir, 'genus_habitat_indicators_v*.csv')))
+    versions = [tuple(int(part) for part in m.group(1).split('.')) for m in
+                (re.search(r'_v(\d+(?:\.\d+)*)\.csv$', path) for path in glob.glob(os.path.join(submodule_dir, 'genus_habitat_indicators_v*.csv')))
                 if m]
     if not versions:
         raise Exception("No genus_habitat_indicators_v*.csv in {} -- pass --indicpiper-version".format(submodule_dir))
-    return str(max(versions))
+    return '.'.join(str(part) for part in max(versions))
 
 
 if __name__ == '__main__':
