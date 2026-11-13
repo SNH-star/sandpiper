@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from api.grid import MAX_GRID_SQUARES, parse_grid_squares  # noqa: E402
@@ -135,3 +137,106 @@ def test_typed_squares_filter_by_their_own_sample_type_on_duckdb():
         squares = [(30, 115, 'host'), (10, -60, 'ecological')]
         rows = session.scalars(select(Row.id).where(grid_condition(Row, squares)).order_by(Row.id)).all()
     assert rows == [1, 3]
+
+
+# --- Hexagons: pieces written "h<latitude>/<longitude>[/type]", naming a map hexagon by its centre ---
+
+def test_hexagons_parse_from_their_centres():
+    from api.grid import Hexagon
+    hexes = parse_grid_squares('h0/0;h1.732/1/host')
+    assert hexes == [Hexagon(0.0, 0.0, None), Hexagon(pytest.approx(1.7320508), 1.0, 'host')]
+
+
+def test_a_hexagon_centre_is_snapped_to_the_exact_centre():
+    """The map sends centres rounded to three decimals; the search uses the unrounded one."""
+    (hexagon,) = parse_grid_squares('h51.962/-2')
+    assert hexagon.lat == pytest.approx(30 * 3 ** 0.5, abs=1e-9)
+    assert hexagon.lon == -2.0
+
+
+def test_hexagons_must_be_centres_of_the_map_grid_and_on_earth():
+    for bad in ('h0.5/0', 'h0/1', 'h1.732/0', 'h91/0', 'h0/182', 'ha/b', 'h0', 'h0/0/soil', 'h0/0/host/x'):
+        assert parse_grid_squares(bad) is None, bad
+
+
+def test_squares_and_hexagons_can_share_a_value_and_repeats_are_dropped():
+    from api.grid import Hexagon
+    assert parse_grid_squares('10/-60;h0/0;h0/0;h0.0004/0') == [(10, -60), Hexagon(0.0, 0.0, None)]
+
+
+def test_hexagons_are_described_with_their_size():
+    from api.grid import describe_grid
+    assert describe_grid(parse_grid_squares('h0/0/host;h1.732/1/host')) == (
+        'grid: 2 host hexagons of 2° (centred latitude 0° to 1.7°, longitude 0° to 1°)')
+
+
+def _hexagon_rows(points):
+    """An in-memory DuckDB table of (id, latitude, longitude, sample type) rows, and its mapped class."""
+    from sqlalchemy import Column, Float, Integer, String, create_engine
+    from sqlalchemy.orm import Session, declarative_base
+
+    Base = declarative_base()
+
+    class Row(Base):
+        __tablename__ = 'hexagon_rows'
+        id = Column(Integer, primary_key=True, autoincrement=False)
+        latitude = Column(Float)
+        longitude = Column(Float)
+        host_or_not_mature = Column(String)
+
+    engine = create_engine('duckdb:///:memory:')
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    session.add_all([Row(id=i, latitude=lat, longitude=lon, host_or_not_mature=kind)
+                     for i, (lat, lon, kind) in enumerate(points, start=1)])
+    session.commit()
+    return session, Row
+
+
+def test_hexagon_condition_matches_the_runs_inside_it_on_duckdb():
+    from sqlalchemy import select
+    from api.grid import grid_condition
+    session, Row = _hexagon_rows([
+        (0.0, 0.0, 'host'),      # 1: the centre
+        (0.5, -1.0, 'host'),     # 2: on the west edge, which belongs to the hexagon
+        (0.5, 1.0, 'host'),      # 3: on the east edge, which belongs to the next hexagon east
+        (1.1, 0.0, 'host'),      # 4: just under the top corner
+        (1.1, 0.5, 'host'),      # 5: past the sloping edge, in the row above
+        (-0.9, -0.3, 'host'),    # 6: inside the lower sloping edges
+        (0.0, 0.0, 'ecological'),  # 7
+    ])
+    with session:
+        inside = session.scalars(select(Row.id).where(
+            grid_condition(Row, parse_grid_squares('h0/0'))).order_by(Row.id)).all()
+        host_only = session.scalars(select(Row.id).where(
+            grid_condition(Row, parse_grid_squares('h0/0/host'))).order_by(Row.id)).all()
+    assert inside == [1, 2, 4, 6, 7]
+    assert host_only == [1, 2, 4, 6]
+
+
+def test_hexagon_condition_agrees_with_the_map_binning():
+    """Every point is matched by the hexagon the statistics map counts it in, and by no other."""
+    import random
+    from sqlalchemy import select
+    from api.grid import grid_condition
+    from api.statistics_figures import MAP_HEX_DEGREES, hex_centre
+    rng = random.Random(7)
+    # Whole and half degrees sit on hexagon edges, so they are over-represented on purpose.
+    points = [(round(rng.uniform(-80, 80) * 2) / 2 if i % 2 else rng.uniform(-80, 80),
+               round(rng.uniform(-170, 170) * 2) / 2 if i % 3 else rng.uniform(-170, 170), 'host')
+              for i in range(400)]
+    session, Row = _hexagon_rows(points)
+    with session:
+        for index, (lat, lon, _) in enumerate(points, start=1):
+            centre_lon, centre_lat = hex_centre(lon, lat, MAP_HEX_DEGREES)
+            matched = session.scalars(select(Row.id).where(
+                grid_condition(Row, parse_grid_squares(f'h{centre_lat}/{centre_lon}')))).all()
+            assert index in matched, (lat, lon)
+            assert all(hex_centre(points[i - 1][1], points[i - 1][0], MAP_HEX_DEGREES) == (centre_lon, centre_lat)
+                       for i in matched), (lat, lon)
+
+
+def test_a_single_hexagon_is_described_by_its_centre():
+    from api.grid import describe_grid
+    assert describe_grid(parse_grid_squares('h51.962/-2/host')) == (
+        'grid: 1 host hexagon of 2° (centred latitude 52°, longitude -2°)')

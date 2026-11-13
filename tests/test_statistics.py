@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from api.api import statistics_payload  # noqa: E402
@@ -8,7 +10,7 @@ from api.api import statistics_payload  # noqa: E402
 HOST = {'host': 600, 'ecological': 300, None: 100}
 YEARS = [('2021', 10), ('2020', 5), (None, 3), ('2022', 20)]
 TOP_TAXA = {'gtdb': {'genus': [('g__Small', 10, 5), ('g__Big', 400, 100), ('g__Gap', None, 50)]}}
-COVERAGE = {'coordinates': 500, 'metalog': 150, 'indicpiper': 900, 'low_complexity': 80}
+COVERAGE = {'coordinates': 500, 'metalog': 150, 'gold': 26, 'indicpiper': 900, 'low_complexity': 80}
 
 
 def _payload(**overrides):
@@ -36,8 +38,8 @@ def test_release_years_are_sorted_and_skip_missing_years():
 
 def test_coverage_rows_carry_count_and_percent_in_a_fixed_order():
     rows = _payload()['coverage']
-    assert [row['key'] for row in rows] == ['coordinates', 'metalog', 'indicpiper', 'low_complexity']
-    assert [row['percent'] for row in rows] == [50.0, 15.0, 90.0, 8.0]
+    assert [row['key'] for row in rows] == ['coordinates', 'metalog', 'gold', 'indicpiper', 'low_complexity']
+    assert [row['percent'] for row in rows] == [50.0, 15.0, 2.6, 90.0, 8.0]
 
 
 def test_missing_coverage_count_is_reported_as_unavailable_not_zero():
@@ -93,7 +95,8 @@ def test_distribution_of_an_empty_group_is_all_zero():
     assert all(row['percent'] == 0 for row in distribution['ecological'])
 
 
-from api.statistics_figures import map_cells_payload, year_breakdown_payload  # noqa: E402
+from api.statistics_figures import (  # noqa: E402
+    hex_centre, map_cells_payload, map_hexes_payload, year_breakdown_payload)
 
 
 def test_year_breakdown_accumulates_and_skips_missing_years():
@@ -109,6 +112,37 @@ def test_map_cells_carry_sample_type_counts_and_percent_known():
     assert cells[1]['known'] is None
 
 
+def test_hex_centre_of_a_point_on_a_centre_is_that_point():
+    assert hex_centre(0, 0, 2) == (0, 0)
+    assert hex_centre(2, 0, 2) == (2, 0)
+
+
+def test_hex_centre_is_the_nearest_centre_of_the_hexagon_grid():
+    import math
+    width = 2
+    row_height = width * math.sqrt(3) / 2
+    centres = [((column + (row % 2) / 2) * width, row * row_height)
+               for row in range(-6, 7) for column in range(-6, 7)]
+    for step_x in range(-30, 31):
+        for step_y in range(-30, 31):
+            lon, lat = step_x * 0.13, step_y * 0.11
+            nearest = min(math.dist((lon, lat), centre) for centre in centres)
+            # Centres are rounded to three decimals, so allow that much.
+            assert math.dist((lon, lat), hex_centre(lon, lat, width)) == pytest.approx(nearest, abs=1e-3)
+
+
+def test_map_hexes_add_up_the_runs_that_share_a_hexagon():
+    payload = map_hexes_payload([(0.1, 0.2, 3, 1), (-0.2, -0.1, 2, 4), (0.0, 2.1, 0, 7)], width=2)
+    assert payload['width'] == 2
+    assert payload['hexes'] == [
+        {'lon': 0, 'lat': 0, 'host_associated': 5, 'ecological': 5},
+        {'lon': 2, 'lat': 0, 'host_associated': 0, 'ecological': 7}]
+
+
+def test_map_hexes_leave_out_coordinates_with_no_host_or_ecological_runs():
+    assert map_hexes_payload([(10, 10, 0, 0)])['hexes'] == []
+
+
 def test_database_versions_report_metalog_date_and_indicpiper_version():
     from api.api import database_versions
     assert database_versions('2026-03-03T10:15:00+10:00', '2') == {
@@ -119,3 +153,4 @@ def test_database_versions_leave_missing_values_null():
     from api.api import database_versions
     assert database_versions(None, None) == {'metalog_collected_date': None, 'indicpiper_version': None}
     assert database_versions('not a date', '2')['metalog_collected_date'] is None
+

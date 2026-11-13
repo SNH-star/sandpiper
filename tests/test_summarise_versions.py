@@ -163,3 +163,23 @@ def test_main_computes_only_the_versions_that_are_not_reused(tmp_path, monkeypat
     assert [v['label'] for v in written['versions']] == ['2.2.0', '2.0.0']
     assert written['versions'][1].get('cached') is True
     assert written['blacklist_sha256'] == summarise_versions.file_sha256(str(blacklist))
+
+
+def test_genome_size_is_summarised_per_group_in_megabases():
+    frame = pd.DataFrame({
+        'organism': ['mouse metagenome', 'mouse gut metagenome', 'soil metagenome', 'soil metagenome'],
+        'host_or_not': ['host', 'host', 'ecological', 'host'],
+        'average_bacterial_archaeal_genome_size': [2e6, 4e6, 6e6, 1e6]})
+    result = summarise_versions.summarise(frame)
+    assert result['genome_size_host_groups']['mouse']['runs'] == 2
+    assert result['genome_size_host_groups']['mouse']['median'] == 3.0
+    assert result['genome_size_host_groups']['human'] is None
+    assert result['genome_size_ecological_groups']['soil']['median'] == 6.0
+    # Same bins as the overall genome size histogram, so the curves line up with it.
+    assert result['genome_size_host_groups']['mouse']['start'] == result['genome_size_mb']['start']
+
+
+def test_genome_size_groups_are_none_when_the_column_is_absent():
+    frame = pd.DataFrame({'organism': ['mouse metagenome'], 'host_or_not': ['host']})
+    result = summarise_versions.summarise(frame)
+    assert all(value is None for value in result['genome_size_host_groups'].values())
