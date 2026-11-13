@@ -301,6 +301,7 @@ export default {
 </script>
 
 <style scoped>
+/* The base map (sea, land, borders, coast) uses the colours of the Statistics page's hexagon map, so the two match. */
 .stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .section.container { padding-top: var(--space-8); padding-bottom: var(--space-4); }
 .map-box { margin-top: var(--space-4); }
@@ -312,19 +313,19 @@ export default {
 .map-zoom-reset { font-size: 0.8rem; }
 .map-zoom-button:hover:not(:disabled), .map-zoom-button:focus-visible { border-color: var(--color-accent); }
 .map-zoom-button:disabled { opacity: 0.45; cursor: default; }
-.map-sea { fill: var(--color-map-sea); }
-.map-land { fill: var(--color-map-land); }
-.map-border { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-map-border); stroke-width: 0.8; }
-.map-coast { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-map-coast); stroke-width: 1; }
+.map-sea { fill: var(--color-hexmap-sea); }
+.map-land { fill: var(--color-hexmap-land); }
+.map-border { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-hexmap-border); stroke-width: 0.8; }
+.map-coast { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-hexmap-coast); stroke-width: 1.2; }
 .map-guide { stroke: var(--color-ink-muted); stroke-width: 0.8; opacity: 0.35; pointer-events: none; }
 .map-guide-title { font-size: 11px; text-anchor: start; fill: var(--color-ink-muted); }
 .map-guide-label { font-size: 11px; text-anchor: middle; fill: var(--color-ink-muted); }
-.map-graticule { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-map-coast); stroke-width: 0.5; opacity: 0.35; pointer-events: none; }
-.map-country { text-anchor: middle; dominant-baseline: middle; fill: var(--color-ink); paint-order: stroke; stroke: var(--color-map-land); stroke-linejoin: round; pointer-events: none; user-select: none; }
+.map-graticule { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-hexmap-coast); stroke-width: 0.5; opacity: 0.35; pointer-events: none; }
+.map-country { text-anchor: middle; dominant-baseline: middle; fill: var(--color-ink); paint-order: stroke; stroke: var(--color-hexmap-land); stroke-linejoin: round; pointer-events: none; user-select: none; }
 .map-world-label { text-anchor: middle; dominant-baseline: middle; pointer-events: none; user-select: none; }
-.map-world-label.is-continent { fill: var(--color-ink); font-weight: 600; opacity: 0.7; paint-order: stroke; stroke: var(--color-map-land); stroke-width: 3px; stroke-linejoin: round; }
+.map-world-label.is-continent { fill: var(--color-ink); font-weight: 600; opacity: 0.7; paint-order: stroke; stroke: var(--color-hexmap-land); stroke-width: 3px; stroke-linejoin: round; }
 .map-world-label.is-ocean { fill: hsl(205, 45%, 32%); font-style: italic; }
-.map-equator { vector-effect: non-scaling-stroke; stroke: var(--color-map-coast); stroke-width: 0.8; stroke-dasharray: 4 5; opacity: 0.55; pointer-events: none; }
+.map-equator { vector-effect: non-scaling-stroke; stroke: var(--color-hexmap-coast); stroke-width: 0.8; stroke-dasharray: 4 5; opacity: 0.55; pointer-events: none; }
 .map-bubble { vector-effect: non-scaling-stroke; fill-opacity: 0.9; stroke: var(--color-ink); stroke-width: 0.6; cursor: pointer; touch-action: manipulation; }
 .map-bubble.is-chosen { fill-opacity: 1; stroke: var(--color-accent); stroke-width: 3; }
 .map-compact { margin-top: var(--space-3); }

@@ -23,17 +23,17 @@
         </div>
         <span class="year-label">{{ row.year }}</span>
       </div>
-      <svg v-if="isSplit" class="year-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <svg v-if="isSplit && !cumulative" class="year-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <polyline :points="cumulativePoints" fill="none" vector-effect="non-scaling-stroke" />
       </svg>
     </div>
-    <p class="stat-note year-readout" aria-live="polite">{{ readout }}</p>
+    <p class="stat-note year-readout" :class="{ 'export-skip': !selectedYear }" aria-live="polite">{{ readout }}</p>
     <div class="stat-note year-key">
       <template v-if="isSplit">
         <span v-for="item in TYPES" :key="item.key"><span class="year-swatch" :class="'type-' + item.key" aria-hidden="true"></span>{{ item.label }}</span>
-        <span><span class="year-swatch year-line-swatch" aria-hidden="true"></span>Running total, {{ total.toLocaleString('en-US') }} runs</span>
+        <span v-if="!cumulative"><span class="year-swatch year-line-swatch" aria-hidden="true"></span>Running total, {{ total.toLocaleString('en-US') }} runs</span>
       </template>
-      <span v-else><span class="year-swatch type-all" aria-hidden="true"></span>Runs released</span>
+      <span v-else><span class="year-swatch type-all" aria-hidden="true"></span>{{ cumulative ? 'Total runs released by the end of the year' : 'Runs released' }}</span>
       <span v-if="partialRow"><span class="year-swatch is-partial" aria-hidden="true"></span>{{ partialRow.year }} is partial: runs released before {{ partialDate }}</span>
     </div>
   </div>
@@ -57,6 +57,8 @@ export default {
     years: { type: Array, required: true },
     // Per-year runs by sample call, from the breakdown query; when absent the bars are plain.
     breakdown: { type: Object, default: null },
+    // Each bar is the total released up to and including its year, so the last bar is every run.
+    cumulative: { type: Boolean, default: false },
     partialDate: { type: String, default: '' }
   },
   data () { return { TYPES, selectedYear: null } },
@@ -76,18 +78,32 @@ export default {
     total () {
       return this.years.reduce((sum, row) => sum + row.runs, 0)
     },
+    // Each year's bar: its own runs, or with `cumulative` everything released up to its year,
+    // for the total and for each sample call.
+    shown () {
+      const running = { runs: 0, ...Object.fromEntries(TYPES.map(item => [item.key, 0])) }
+      return this.years.map(row => {
+        const own = { runs: row.runs, ...(this.byYear.get(row.year) || {}) }
+        if (!this.cumulative) return own
+        Object.keys(running).forEach(key => { running[key] += own[key] || 0 })
+        return { ...running }
+      })
+    },
     rows () {
-      const most = Math.max(...this.years.map(row => row.runs), 1)
+      const most = Math.max(...this.shown.map(row => row.runs), 1)
       return this.years.map((row, i) => {
-        const counts = this.byYear.get(row.year)
+        const counts = this.isSplit ? this.shown[i] : null
         const counted = counts ? TYPES.reduce((sum, item) => sum + counts[item.key], 0) : 0
+        const runs = this.shown[i].runs
         return {
           year: row.year,
-          runs: row.runs,
-          short: SHORT_NUMBER.format(row.runs),
-          height: Math.max((TALLEST_BAR_PERCENT * row.runs) / most, 1),
+          runs,
+          short: SHORT_NUMBER.format(runs),
+          height: Math.max((TALLEST_BAR_PERCENT * runs) / most, 1),
           is_partial: i === this.years.length - 1,
-          title: `${row.year}: ${row.runs.toLocaleString('en-US')} runs`,
+          title: this.cumulative
+            ? `${row.year}: ${runs.toLocaleString('en-US')} runs released in total (${row.runs.toLocaleString('en-US')} in ${row.year})`
+            : `${row.year}: ${runs.toLocaleString('en-US')} runs`,
           parts: TYPES.map(item => ({ key: item.key, percent: counted ? (100 * counts[item.key]) / counted : 0 }))
         }
       })
@@ -96,7 +112,7 @@ export default {
     readout () {
       const row = this.rows.find(item => item.year === this.selectedYear)
       if (!row) return 'Tap or click a bar to see its number of runs.'
-      const counts = this.byYear.get(row.year)
+      const counts = this.isSplit ? this.shown[this.rows.indexOf(row)] : null
       if (!counts) return row.title
       const split = TYPES.map(item => `${item.label.toLowerCase()} ${counts[item.key].toLocaleString('en-US')}`).join(', ')
       return `${row.title} (${split})`
@@ -115,7 +131,10 @@ export default {
     chartLabel () {
       const first = this.years[0]
       const last = this.years[this.years.length - 1]
-      const split = this.isSplit ? ', split by sample call, with the running total' : ''
+      const split = this.isSplit ? ', split by sample call' + (this.cumulative ? '' : ', with the running total') : ''
+      if (this.cumulative) {
+        return `Column chart of the total runs released by the end of each year, from ${first.runs.toLocaleString('en-US')} in ${first.year} to ${this.total.toLocaleString('en-US')} in ${last.year}${split}`
+      }
       return `Column chart of runs released each year, from ${first.runs.toLocaleString('en-US')} in ${first.year} to ${last.runs.toLocaleString('en-US')} in ${last.year}${split}`
     }
   }
@@ -215,18 +234,18 @@ export default {
 }
 
 .stat-note {
-  max-width: 62ch;
   font-size: 0.9rem;
   line-height: 1.5;
   color: var(--color-ink-muted);
 }
+/* Entries read down each column, like a newspaper, not across. */
 .year-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-6);
+  column-width: 16rem;
+  column-gap: var(--space-6);
   max-width: none;
   margin-top: var(--space-4);
 }
+.year-key > span { display: block; break-inside: avoid; margin-bottom: var(--space-1); }
 .year-swatch {
   display: inline-block;
   width: 0.8rem;

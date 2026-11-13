@@ -1,11 +1,11 @@
 <template>
   <div :id="figure.id" class="group-figure">
     <h4 class="stat-panel-title"><a class="section-anchor" :href="'#' + figure.id">#</a> {{ figure.title }}</h4>
-    <p class="stat-note">
+    <p v-if="!bare" class="stat-note">
       {{ figure.note }} Each group is the runs whose organism is “&lt;name&gt; metagenome”{{ figure.gutNote }}. This uses the
       newest version ({{ version.label }}, GTDB {{ version.gtdb }}). Curves show density, so the area under each is 1.
     </p>
-    <density-chart :chart="chart" interactive />
+    <density-chart :chart="chart" interactive :bare="bare" :vertical-lines="measure === 'genome'" />
   </div>
 </template>
 
@@ -22,7 +22,10 @@ const MEASURES = {
     title: 'Known species fraction',
     note: 'The share of a run’s community that belongs to species already named in GTDB.',
     x_title: 'Known species fraction (%)',
-    describe: 'Known species fraction'
+    describe: 'Known species fraction',
+    unit: '%',
+    x_step: 1,
+    x_ticks: [0, 25, 50, 75, 100]
   },
   spf: {
     prefix: 'spf_',
@@ -30,7 +33,21 @@ const MEASURES = {
     title: 'Prokaryotic fraction',
     note: 'The share of a run’s reads that SingleM estimates are bacterial or archaeal (SPF).',
     x_title: 'Prokaryotic fraction (%)',
-    describe: 'Prokaryotic fraction (SPF)'
+    describe: 'Prokaryotic fraction (SPF)',
+    unit: '%',
+    x_step: 1,
+    x_ticks: [0, 25, 50, 75, 100]
+  },
+  genome: {
+    prefix: 'genome_size_',
+    idSuffix: '-genome',
+    title: 'Average genome size',
+    note: 'The average genome size of the bacteria and archaea in each run. Runs above 8 Mb are counted in the last bin.',
+    x_title: 'Genome size (Mb)',
+    describe: 'Average genome size',
+    unit: ' Mb',
+    x_step: 0.25,
+    x_ticks: [0, 2, 4, 6, 8]
   }
 }
 
@@ -69,6 +86,8 @@ export default {
   name: 'GroupDensityCharts',
   components: { DensityChart },
   props: {
+    // Leaves out the explanation, for a page that gives it once above both charts.
+    bare: { type: Boolean, default: false },
     kind: { type: String, required: true, validator: value => value in FIGURES },
     measure: { type: String, default: 'known', validator: value => value in MEASURES }
   },
@@ -98,10 +117,10 @@ export default {
         title: this.spec.title,
         note: this.spec.note,
         x_title: this.spec.x_title,
-        unit: '%',
-        point_label: value => `${value}%`,
-        x_step: 1,
-        x_ticks: [0, 25, 50, 75, 100].map(value => ({ value, label: String(value) })),
+        unit: this.spec.unit,
+        point_label: value => `${value}${this.spec.unit}`,
+        x_step: this.spec.x_step,
+        x_ticks: this.spec.x_ticks.map(value => ({ value, label: String(value) })),
         series: present.map(group => ({
           colour: group.colour,
           label: `${group.label} (${histograms[group.name].runs.toLocaleString('en-US')} runs)`,
@@ -115,7 +134,7 @@ export default {
 </script>
 
 <style scoped>
-.stat-note { max-width: 62ch; font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
+.stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .group-figure { min-width: 0; }
 .section-anchor:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 </style>

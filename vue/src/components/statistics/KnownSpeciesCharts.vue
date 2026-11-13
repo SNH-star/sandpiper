@@ -1,5 +1,6 @@
 <template>
   <section id="known-species" class="section container stat-figure">
+    <chart-download target="#known-species" name="known-species-fraction" />
     <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#known-species">#</a> Known species fraction</h3>
     <p v-for="note in notes" :key="note" class="stat-note">{{ note }}</p>
     <density-chart :chart="chart" interactive />
@@ -7,6 +8,7 @@
 </template>
 
 <script>
+import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import DensityChart from '@/components/statistics/DensityChart.vue'
 import { buildDensityChart } from '@/components/statistics/density'
 
@@ -18,7 +20,7 @@ const PERCENT_TICKS = [0, 25, 50, 75, 100]
 
 export default {
   name: 'KnownSpeciesCharts',
-  components: { DensityChart },
+  components: { DensityChart, ChartDownload },
   props: {
     data: { type: Object, required: true },
     gtdbVersion: { type: String, required: true },
@@ -65,7 +67,7 @@ export default {
       let cumulative = 0
       for (let n = 0; n < percent.length; n++) {
         if (percent[n] > 0 && cumulative + percent[n] >= 50) {
-          return +(first + width * (n + (50 - cumulative) / percent[n])).toFixed(1)
+          return +(first + width * (n + (50 - cumulative) / percent[n])).toFixed(2)
         }
         cumulative += percent[n]
       }
@@ -77,7 +79,6 @@ export default {
 
 <style scoped>
 .stat-note {
-  max-width: 62ch;
   font-size: 0.9rem;
   line-height: 1.5;
   color: var(--color-ink-muted);

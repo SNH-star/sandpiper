@@ -1,12 +1,6 @@
 <template>
   <div :id="figure.id" class="phylum-figure">
     <h4 class="stat-panel-title"><a class="section-anchor" :href="'#' + figure.id">#</a> {{ figure.title }}</h4>
-    <p class="stat-note">
-      The mean relative abundance of each phylum across a group’s runs, so each bar sums to 100%. The ten
-      phyla with the highest mean abundance are shown; the rest, and anything not placed in a phylum, are Other.
-      Groups are the same runs as the known species fraction figures, listed from the most runs to the fewest
-      (the run count is under each name).
-    </p>
     <ul class="phylum-rows">
       <li v-for="row in rows" :key="row.name" class="phylum-row">
         <span class="phylum-name">{{ row.label }}<span class="phylum-runs">{{ row.runs.toLocaleString('en-US') }} runs</span></span>
@@ -20,7 +14,7 @@
     </ul>
     <div class="phylum-axis" aria-hidden="true"><span v-for="tick in TICKS" :key="tick" :style="{ left: tick + '%' }">{{ tick }}</span></div>
     <p class="stat-note phylum-axis-title">Relative abundance (%)</p>
-    <div class="stat-note phylum-key" role="group" aria-label="Highlight phyla. Click to select several; double-click to clear.">
+    <div class="stat-note phylum-key" :style="{ '--key-rows': keyRows(2), '--key-rows-narrow': keyRows(2) }" role="group" aria-label="Highlight phyla. Click to select several; double-click to clear.">
       <button v-for="item in key" :key="item.phylum" type="button" class="phylum-key-item" :class="{ 'is-dim': dimmed(item.phylum) }"
               :aria-pressed="String(selected.includes(item.phylum))"
               @click="selected = toggleKey(selected, item.phylum)" @dblclick.prevent="selected = []">
@@ -66,6 +60,8 @@ export default {
     this.selected = this.defaultSelected
   },
   methods: {
+    // Rows needed to lay the key (and its Reset button) out in this many columns, filling down.
+    keyRows (columns) { return Math.ceil((this.key.length + 1) / columns) },
     toggleKey,
     dimmed (phylum) { return isDimmed(this.selected, phylum) }
   },
@@ -106,9 +102,9 @@ export default {
           phylum,
           percent: group.percent[phylum],
           colour: this.colours[phylum],
-          title: `${phylum.replace(/_/g, ' ')}: ${group.percent[phylum]}%`
+          title: `${phylum}: ${group.percent[phylum]}%`
         })).filter(segment => segment.percent > 0)
-        const top = segments.slice(0, 3).map(segment => `${segment.phylum.replace(/_/g, ' ')} ${Math.round(segment.percent)}%`)
+        const top = segments.slice(0, 3).map(segment => `${segment.phylum} ${Math.round(segment.percent)}%`)
         return {
           name,
           label: name.charAt(0).toUpperCase() + name.slice(1),
@@ -119,14 +115,14 @@ export default {
       })
     },
     key () {
-      return this.data.phyla.map(phylum => ({ phylum, label: phylum.replace(/_/g, ' '), colour: this.colours[phylum] }))
+      return this.data.phyla.map(phylum => ({ phylum, label: phylum, colour: this.colours[phylum] }))
     }
   }
 }
 </script>
 
 <style scoped>
-.stat-note { max-width: 62ch; font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
+.stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .phylum-figure { --phylum-outline: color-mix(in srgb, var(--color-ink) 70%, transparent); min-width: 0; }
 .phylum-rows { margin: var(--space-6) 0 0; padding: 0; list-style: none; }
 .phylum-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-1) 0; }
@@ -144,7 +140,10 @@ export default {
 .phylum-axis { position: relative; height: 1.2rem; margin: var(--space-1) 0 0 calc(7rem + var(--space-3)); font-size: 0.8rem; color: var(--color-ink-muted); }
 .phylum-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .phylum-axis-title { margin-left: calc(7rem + var(--space-3)); }
-.phylum-key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin-top: var(--space-3); }
+/* Two columns read down like a newspaper and share the width of their half, so even the longest name (bold when picked) stays on one line inside it. */
+.phylum-key { display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--key-rows, 4), auto); grid-auto-columns: minmax(0, 1fr); gap: var(--space-1) var(--space-6); margin-top: var(--space-3); }
+.phylum-key-item, .phylum-reset { text-align: left; }
+@media (max-width: 640px) { .phylum-key { grid-template-rows: repeat(var(--key-rows-narrow, 6), auto); gap: var(--space-1) var(--space-4); } }
 .phylum-key-item, .phylum-reset { font: inherit; color: var(--color-ink); background: none; border: 1px solid transparent; border-radius: var(--radius-bar); padding: 0 var(--space-2); cursor: pointer; touch-action: manipulation; user-select: none; }
 .phylum-key-item[aria-pressed="true"] { border-color: var(--color-ink-muted); font-weight: 600; }
 .phylum-key-item.is-dim { color: var(--color-ink-muted); }

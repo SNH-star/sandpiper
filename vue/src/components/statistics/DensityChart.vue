@@ -1,15 +1,17 @@
 <template>
   <div class="density-chart">
-    <h3 class="subtitle is-5">{{ chart.title }}</h3>
-    <p class="stat-note">{{ chart.note }}</p>
+    <template v-if="!bare">
+      <h3 class="subtitle is-5">{{ chart.title }}</h3>
+      <p class="stat-note">{{ chart.note }}</p>
+    </template>
     <div class="line-chart">
-      <p class="line-y-title">Density</p>
+      <p class="line-y-title">{{ chart.y_title }}</p>
       <div class="line-plot" role="img" :aria-label="chart.aria"
            @pointermove="move" @pointerdown="move" @pointerleave="hovered = null">
         <div v-for="tick in chart.y_ticks" :key="tick.percent" class="line-gridline" :style="{ bottom: tick.percent + '%' }">
           <span class="line-tick-label">{{ tick.label }}</span>
         </div>
-        <span v-for="tick in verticalTicks" :key="'v' + tick.label" class="line-vline" :style="{ left: tick.percent + '%' }"></span>
+        <span v-for="percent in verticalTicks" :key="'v' + percent" class="line-vline" :style="{ left: percent + '%' }"></span>
         <svg class="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <template v-for="line in drawn" :key="line.label">
             <path :d="line.area" :style="{ fill: shade(line) }" class="line-area" :class="{ 'is-dim': dimmed(line) }" />
@@ -17,7 +19,8 @@
           </template>
           <!-- Wide invisible strokes on top: hovering a line (not the shaded area) picks it out. -->
           <path v-for="line in chart.lines" :key="'hit-' + line.label" :d="line.curve" class="line-hit" fill="none"
-                vector-effect="non-scaling-stroke" @pointerenter="hoveredLine = line.label" @pointerleave="hoveredLine = null" />
+                vector-effect="non-scaling-stroke" @pointerenter="hoveredLine = line.label" @pointerleave="hoveredLine = null"
+                @click="pickLine(line)" />
         </svg>
         <span v-for="mark in chart.marks" :key="mark.symbol + mark.left" class="chart-mark" :tabindex="mark.text ? 0 : null"
               :class="{ 'is-left': mark.left > 55 }" :style="{ left: mark.left + '%', bottom: mark.bottom + '%' }"
@@ -44,14 +47,14 @@
     <p v-if="chart.footnote" class="stat-note chart-footnote">{{ chart.footnote }}</p>
     <p v-if="!interactive" class="stat-note density-legend">
       <span v-for="line in chart.lines" :key="line.label">
-        <span class="density-swatch" :style="{ background: line.colour }" aria-hidden="true"></span>{{ line.label }}, median {{ line.median }}{{ chart.unit }}
+        <span class="density-swatch" :style="{ background: line.colour }" aria-hidden="true"></span>{{ line.label }}, median {{ line.median_text }}{{ chart.unit }}
       </span>
     </p>
     <div v-else class="stat-note density-legend is-stacked" role="group" aria-label="Highlight lines. Click to select several; double-click to clear.">
       <button v-for="line in chart.lines" :key="line.label" type="button" class="density-legend-item"
               :class="{ 'is-dim': dimmed(line) }" :aria-pressed="String(selected.includes(line.label))"
               @click="selected = toggleKey(selected, line.label)" @dblclick.prevent="selected = []">
-        <span class="density-swatch" :style="{ background: shade(line) }" aria-hidden="true"></span>{{ line.label }}, median {{ line.median }}{{ chart.unit }}
+        <span class="density-swatch" :style="{ background: shade(line) }" aria-hidden="true"></span>{{ line.label }}, median {{ line.median_text }}{{ chart.unit }}
       </button>
       <button type="button" class="density-reset" @click="selected = [...defaultSelected]">Reset</button>
     </div>
@@ -70,18 +73,30 @@ export default {
     chart: { type: Object, required: true },
     // Makes the legend clickable: select lines to highlight them and grey out the rest.
     interactive: { type: Boolean, default: false },
+    // Leaves out the title and note, for a page that explains the charts once above them.
+    bare: { type: Boolean, default: false },
     // Draws a faint vertical line up from each x-axis tick.
     verticalLines: { type: Boolean, default: false },
     // Labels highlighted to begin with and after Reset; none means nothing is greyed out.
     defaultSelected: { type: Array, default: () => [] }
   },
+  emits: ['update:selected'],
   data () {
     return { hovered: null, hoveredLine: null, selected: [...this.defaultSelected] }
   },
+  watch: {
+    // Tells the page which lines are highlighted (none = all), including once when the chart is made.
+    selected: {
+      immediate: true,
+      handler (labels) { this.$emit('update:selected', [...labels]) }
+    }
+  },
   computed: {
-    // Ticks strictly inside the plot; one at either end would only trace the axis.
+    // Faint line positions strictly inside the plot (the x_grid if the chart has one, else its ticks); one at either end would only trace the axis.
     verticalTicks () {
-      return this.verticalLines ? this.chart.x_ticks.filter(tick => tick.percent > 0 && tick.percent < 100) : []
+      if (!this.verticalLines) return []
+      const places = this.chart.x_grid.length ? this.chart.x_grid : this.chart.x_ticks.map(tick => tick.percent)
+      return places.filter(percent => percent > 0 && percent < 100)
     },
     // Greyed-out lines first, so the highlighted ones are drawn over them.
     drawn () {
@@ -93,10 +108,16 @@ export default {
     legendDimmed (line) {
       return this.interactive && isDimmed(this.selected, line.label)
     },
-    // Hovering a line picks it out over the legend's selection; otherwise the legend decides.
+    // Selected lines stay bright whatever is hovered, so two of them can be followed to where they cross;
+    // hovering another line brightens it as well. With nothing selected, hovering picks out one line.
     dimmed (line) {
-      if (this.hoveredLine !== null) return line.label !== this.hoveredLine
-      return this.legendDimmed(line)
+      if (line.label === this.hoveredLine) return false
+      const hasSelection = this.interactive && this.selected.length > 0
+      return hasSelection ? this.legendDimmed(line) : this.hoveredLine !== null
+    },
+    // Clicking a hovered line does what clicking its legend entry does: select it, click again to undo.
+    pickLine (line) {
+      if (this.interactive) this.selected = toggleKey(this.selected, line.label)
     },
     shade (line) {
       return this.dimmed(line) ? DIM_COLOUR : line.colour
@@ -113,7 +134,7 @@ export default {
 </script>
 
 <style scoped>
-.stat-note { max-width: 62ch; font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
+.stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .stat-note + .stat-note { margin-top: var(--space-2); }
 .density-chart { margin-top: var(--space-8); }
 .line-chart { position: relative; margin: var(--space-6) 0 var(--space-2) 4.4rem; --plot-height: 14rem; }
@@ -149,12 +170,14 @@ export default {
 .line-area { stroke: none; fill-opacity: 0.1; pointer-events: none; }
 .line-stroke { pointer-events: none; }
 .line-hit { stroke: transparent; stroke-width: 12; pointer-events: stroke; }
+.line-hit:hover { cursor: pointer; }
 .line-axis { position: relative; height: 1.4rem; }
 .line-x-label { position: absolute; top: var(--space-1); transform: translateX(-50%); font-size: 0.8rem; color: var(--color-ink-muted); white-space: nowrap; }
 .line-x-title { margin-top: var(--space-1); font-size: 0.85rem; text-align: center; color: var(--color-ink-muted); }
-.density-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); }
+.density-legend { column-width: 16rem; column-gap: var(--space-6); }
+.density-legend > span { display: block; break-inside: avoid; margin-bottom: var(--space-1); }
 /* The clickable legend: one item per line, so a long label never splits into a second column. */
-.density-legend.is-stacked { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: var(--space-1); }
+.density-legend.is-stacked { display: flex; column-width: auto; flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: var(--space-1); }
 .density-legend.is-stacked .density-legend-item { text-align: left; }
 .line-stroke.is-dim { stroke-width: 1.5; }
 .line-area.is-dim { fill-opacity: 0.03; }

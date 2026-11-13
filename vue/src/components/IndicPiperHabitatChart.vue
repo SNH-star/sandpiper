@@ -1,6 +1,10 @@
 <template>
   <div class="indicpiper-chart">
     <p class="section-note">Habitat totals, genus values, and bar lengths show indicator abundance as a percentage of the sample.</p>
+    <p v-if="anyAverage" class="average-legend">
+      <span class="average-key" aria-hidden="true"><span class="average-glyph is-down"></span><span class="average-glyph"></span></span>
+      <span>Average for the runs recorded as that habitat that have indicator genera for it. Hover or focus a triangle for the figures.</span>
+    </p>
     <div v-for="row in habitats" :key="row.k" class="habitat-row">
       <div class="habitat-row-header">
         <button
@@ -17,18 +21,22 @@
         <span class="habitat-score">{{ formatPercent(row.score) }}</span>
       </div>
 
-      <div class="habitat-bar" role="img" :aria-label="barAriaLabel(row)">
-        <router-link
-          v-for="seg in segments(row)"
-          :key="seg.genus"
-          :to="taxonomyLink(seg.genus)"
-          class="habitat-bar-segment"
-          tabindex="-1"
-          :style="{ width: seg.widthPct + '%', backgroundColor: colorScale(seg.genus) }"
-          :title="seg.indValLabel !== null
-            ? `${seg.genus}: ${seg.percentLabel} of the sample / IndVal ${seg.indValLabel} -- click to view this genus on the taxonomy page`
-            : `${seg.genus}: ${seg.percentLabel} of the sample -- click to view this genus on the taxonomy page`"
-        ></router-link>
+      <div class="habitat-bar-wrap">
+        <span v-if="groupAverage(row)" class="average-mark is-above" :class="{ 'is-right': groupAverage(row).position > 60 }" :style="{ left: groupAverage(row).position + '%' }" tabindex="0" :aria-label="groupAverage(row).title"><span class="average-tip" role="tooltip">{{ groupAverage(row).title }}</span></span>
+        <div class="habitat-bar" role="img" :aria-label="barAriaLabel(row)">
+          <router-link
+            v-for="seg in segments(row)"
+            :key="seg.genus"
+            :to="taxonomyLink(seg.genus)"
+            class="habitat-bar-segment"
+            tabindex="-1"
+            :style="{ width: seg.widthPct + '%', backgroundColor: colorScale(seg.genus) }"
+            :title="seg.indValLabel !== null
+              ? `${seg.genus}: ${seg.percentLabel} of the sample / IndVal ${seg.indValLabel} -- click to view this genus on the taxonomy page`
+              : `${seg.genus}: ${seg.percentLabel} of the sample -- click to view this genus on the taxonomy page`"
+          ></router-link>
+        </div>
+        <span v-if="groupAverage(row)" class="average-mark is-below" :class="{ 'is-right': groupAverage(row).position > 60 }" :style="{ left: groupAverage(row).position + '%' }" tabindex="0" :aria-label="groupAverage(row).title"><span class="average-tip" role="tooltip">{{ groupAverage(row).title }}</span></span>
       </div>
 
       <div v-if="expanded[row.k]" :id="detailId(row.k)" class="habitat-detail">
@@ -51,6 +59,7 @@
 <script>
 import * as d3 from 'd3'
 import { formatIndicPiperPercent } from '@/utils/indicpiper'
+import SUMMARIES from '@/constants/groupSummaries.json'
 
 export default {
   name: 'IndicPiperHabitatChart',
@@ -69,6 +78,9 @@ export default {
     }
   },
   computed: {
+    anyAverage() {
+      return this.habitats.some(h => this.groupAverage(h))
+    },
     // One color per genus, stable across every bar/tooltip on this chart.
     // Evenly divides the full hue circle by the actual genus count, which
     // guarantees a hard minimum hue gap between every pair (360/perRing
@@ -103,6 +115,18 @@ export default {
   methods: {
     toggle(key) {
       this.expanded[key] = !this.expanded[key]
+    },
+    // Where the average of the runs recorded as this habitat falls on the bar (the same 0-1 scale), or null
+    // when no run is recorded as it.
+    groupAverage(row) {
+      const group = (SUMMARIES.indicpiper_by_habitat || {})[row.k]
+      if (!group || !group.runs || !Number.isFinite(group.mean_abundance_matched)) return null
+      const percent = group.mean_abundance_matched * 100
+      return {
+        position: Math.min(percent, 100),
+        title: `Typical ${row.k} run: across ${group.matched_runs.toLocaleString('en-US')} runs labelled ${row.k} that contain ${row.k} indicator genera, ` +
+          `these genera make up on average ${this.formatPercent(group.mean_abundance_matched)} of the sample (${group.mean_genera_matched.toFixed(1)} genera per run).`,
+      }
     },
     detailId(key) {
       return `indicpiper-detail-${key.replace(/[^a-z0-9]+/gi, '-')}`
@@ -194,6 +218,100 @@ export default {
   font-variant-numeric: tabular-nums;
   color: hsl(0, 0%, 40%);
   white-space: nowrap;
+}
+
+.habitat-bar-wrap {
+  position: relative;
+  padding: 0.45rem 0;
+}
+
+/* A small triangle above (pointing down) and below (pointing up) the bar at the group average. */
+.average-mark {
+  position: absolute;
+  z-index: 2;
+  width: 1.1rem;
+  height: 0.45rem;
+  transform: translateX(-50%);
+  cursor: help;
+}
+
+.average-mark.is-above { top: 0; }
+.average-mark.is-below { bottom: 0; }
+
+/* The triangle itself; the mark around it is a larger target for the pointer and the keyboard. */
+.average-mark::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 0.32rem solid transparent;
+  border-right: 0.32rem solid transparent;
+}
+
+.average-mark.is-above::before { top: 0; border-top: 0.42rem solid hsl(0, 0%, 25%); }
+.average-mark.is-below::before { bottom: 0; border-bottom: 0.42rem solid hsl(0, 0%, 25%); }
+
+.average-mark:focus-visible {
+  outline: 2px solid var(--color-accent, #3273dc);
+  outline-offset: 1px;
+}
+
+.average-tip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 16rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--color-ink, hsl(0, 0%, 15%));
+  background: var(--color-surface, hsl(0, 0%, 100%));
+  border: 1px solid var(--color-rule, hsl(0, 0%, 82%));
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.average-mark.is-above .average-tip { bottom: calc(100% + 0.25rem); }
+.average-mark.is-below .average-tip { top: calc(100% + 0.25rem); }
+.average-mark.is-right .average-tip { left: auto; right: 0; transform: none; }
+.average-mark:hover .average-tip,
+.average-mark:focus .average-tip { display: block; }
+
+.average-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  color: hsl(0, 0%, 40%);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* The key shows both triangles as they sit on a bar: one above, one below. */
+.average-key {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.average-glyph {
+  width: 0;
+  height: 0;
+  border-left: 0.32rem solid transparent;
+  border-right: 0.32rem solid transparent;
+  border-bottom: 0.42rem solid hsl(0, 0%, 25%);
+}
+
+.average-glyph.is-down {
+  border-bottom: 0;
+  border-top: 0.42rem solid hsl(0, 0%, 25%);
 }
 
 .habitat-bar {

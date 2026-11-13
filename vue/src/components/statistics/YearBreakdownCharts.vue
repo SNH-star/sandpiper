@@ -60,7 +60,7 @@ export default {
 </script>
 
 <style scoped>
-.stat-note { max-width: 62ch; font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
+.stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .stack-chart { position: relative; display: flex; align-items: stretch; gap: 2px; height: 14rem; margin: var(--space-6) 0 var(--space-6); border-bottom: 1px solid var(--color-rule); }
 .stack-col { position: relative; display: flex; flex: 1 1 0; min-width: 0; flex-direction: column; }
 .stack-area { display: flex; flex: 1; align-items: flex-end; }
@@ -71,7 +71,8 @@ export default {
 @media (max-width: 640px) { .stack-col:nth-child(even) .stack-label { visibility: hidden; } }
 .stack-line { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .stack-line polyline { stroke: var(--color-ink); stroke-width: 2; }
-.key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); margin-top: var(--space-6); }
+.key { column-width: 16rem; column-gap: var(--space-6); margin-top: var(--space-6); }
+.key > span { display: block; break-inside: avoid; margin-bottom: var(--space-1); }
 .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); }
 .line-swatch { height: 2px; vertical-align: middle; background: var(--color-ink); }
 .type-host_associated { background: var(--color-sample-host); }

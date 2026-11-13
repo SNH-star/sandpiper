@@ -32,10 +32,14 @@ export function basesLabel (bases) {
 // x_step: how finely the hover snaps along x, in the histograms' own units (default: one bin).
 // marks: [{ x, density, symbol, text }] drawn at a position in the chart's own units (clamped to the plot).
 // footnote: text shown below the chart.
+// y_title: label of the density axis (default 'Density').
+// median_decimals: decimals shown in each line's median, so they all line up (default 2).
+
+// x_grid: x values that get a faint, unlabelled vertical line (with vertical-lines on; default: the x_ticks).
 export function buildDensityChart ({
   key, title, note, x_title: xTitle, unit, x_ticks: xTicks, series, missing = [],
   point_label: pointLabel = value => String(value), x_step: xStep = null,
-  marks = [], footnote = ''
+  marks = [], footnote = '', y_title: yTitle = 'Density', x_grid: xGrid = [], median_decimals: medianDecimals = 2
 }) {
   const first = series.length ? series[0].histogram : null
   const step = first ? first.start[1] - first.start[0] : 1
@@ -80,6 +84,8 @@ export function buildDensityChart ({
     unit,
     missing,
     footnote,
+    y_title: yTitle,
+    x_grid: xGrid.map(value => place(value)),
     marks: marks.map(mark => ({
       symbol: mark.symbol,
       text: mark.text || '',
@@ -102,7 +108,14 @@ export function buildDensityChart ({
     },
     lines: series.map((item, n) => {
       const points = lines[n].map(([x, density]) => [place(x), 100 - (100 * density) / yMax])
-      return { colour: item.colour, label: item.label, median: item.histogram.median, curve: curve(points), area: area(points) }
+      return {
+        colour: item.colour,
+        label: item.label,
+        median: item.histogram.median,
+        median_text: item.histogram.median === null ? 'not available' : Number(item.histogram.median).toFixed(medianDecimals),
+        curve: curve(points),
+        area: area(points)
+      }
     }),
     x_ticks: xTicks.map(tick => ({ label: tick.label, percent: place(tick.value) })),
     y_ticks: d3.range(0, yMax + yStep / 2, yStep).map(value => ({
