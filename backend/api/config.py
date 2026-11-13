@@ -18,7 +18,7 @@ class BaseConfig:
     else:
         print("Running in DB production mode")
         # Open read-only to avoid database lock issues.
-        DB_NAME = 'sandpiper_40.duckdb'
+        DB_NAME = 'sandpiper_43.duckdb'
     LYRA_DB_PATH = 'duckdb:///'+os.path.join(os.path.dirname(__file__), '../db/{}'.format(DB_NAME))
     # LYRA_DB_PATH = 'duckdb:////scratch/sandpiper/sandpiper_33.duckdb'
     # LYRA_DB_PATH = 'duckdb:////scratch/sandpiper/sandpiper_19_test.duckdb'
@@ -42,3 +42,8 @@ class BaseConfig:
         SQLALCHEMY_ENGINE_OPTIONS = {
             "connect_args": {"read_only": True}
         }
+
+    # JGI GOLD web service (https://gold-ws.jgi.doe.gov/). Only bin/fetch_gold.py uses this, to download
+    # GOLD's records into the database build; the API reads them from the database and never calls GOLD.
+    # Set GOLD_OFFLINE_TOKEN in the environment. Do NOT commit a token here.
+    GOLD_OFFLINE_TOKEN = os.environ.get('GOLD_OFFLINE_TOKEN', '')
