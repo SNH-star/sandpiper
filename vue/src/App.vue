@@ -151,6 +151,7 @@
                     <code class="keys-item-label">metalog <InfoTooltipButton controls="run-search-popover" label="Show Metalog metadata search help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'metalog_info'" @open="showStickyTooltip($event, 'metalog_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /> <button type="button" class="keys-any-btn" title="Match any run with Metalog data present" @click="insert_sticky_metalog_any">Any</button></code>
                     <span class="keys-example">e.g. host=Sus scrofa or diabetes</span>
                   </div>
+                  <div class="keys-item"><code>gold</code><span class="keys-example">e.g. habitat=marine, eye or Gp0119859; empty for any run with GOLD (JGI) data</span></div>
                 </div>
               </div>
               <div class="sticky-syntax-row">

@@ -109,10 +109,15 @@ $colors: map-merge($colors, $addColors);
   // Near-black and amber for the map's circles: the strongest pair against the pale map.
   --color-map-bubble-host: hsl(225, 18%, 13%);
   --color-map-bubble-ecological: hsl(44, 100%, 50%);
-  --color-map-sea: hsl(205, 40%, 93%);
+  --color-map-sea: hsl(205, 62%, 74%);
   --color-map-land: hsl(40, 25%, 88%);
   --color-map-border: hsl(30, 12%, 52%);
   --color-map-coast: hsl(30, 12%, 38%);
+  // Statistics hexagon density map: a pale base so the shaded hexagons carry the colour.
+  --color-hexmap-sea: hsl(208, 68%, 95%);
+  --color-hexmap-land: hsl(0, 0%, 100%);
+  --color-hexmap-border: hsl(0, 0%, 74%);
+  --color-hexmap-coast: hsl(0, 0%, 23%);
 
   // How a Sample information field compares with the rest of its BioProject.
   --color-diff-only-here: hsl(45, 95%, 48%);

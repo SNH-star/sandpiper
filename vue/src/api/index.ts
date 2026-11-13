@@ -33,6 +33,15 @@ export function fetchRunMetadata (runId: string) {
   return axios.get(`${API_URL}/metadata/${runId}`)
 }
 
+export function fetchRunGold (runId: string) {
+  return axios.get(`${API_URL}/gold/${runId}`)
+}
+
+// Every GOLD (JGI) field a `gold:` search can name.
+export function fetchGoldFields () {
+  return axios.get(`${API_URL}/gold_fields`)
+}
+
 export function fetchRunCondensed (runId: string, taxonomyType: string) {
   return axios.get(`${API_URL}/condensed/${runId}?taxonomy_type=${taxonomyType}`)
 }
