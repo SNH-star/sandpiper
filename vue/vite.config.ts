@@ -9,6 +9,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+  optimizeDeps: {
+    // maplibre-gl loads its own worker file (maplibre-gl-worker.mjs) from beside the package. The dev server's
+    // dependency optimiser does not copy that file, so the map fails to start; serving the package as it is fixes it.
+    exclude: ['maplibre-gl']
+  },
   server: {
     // This checkout lives on a network-mounted home directory (HPC), where
     // the default fs.watch/inotify-based watcher frequently misses file
