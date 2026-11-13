@@ -40,6 +40,10 @@ GUT_GROUPS = ('bovine', 'human', 'mouse', 'pig')
 GROUP_KEYS = {'host': 'host_groups', 'ecological': 'ecological_groups'}
 SPF_GROUP_KEYS = {'host': 'spf_host_groups', 'ecological': 'spf_ecological_groups'}
 SPF_COLUMN = 'singlem_prokaryotic_fraction'
+GENOME_SIZE_COLUMN = 'average_bacterial_archaeal_genome_size'
+GENOME_SIZE_GROUP_KEYS = {'host': 'genome_size_host_groups', 'ecological': 'genome_size_ecological_groups'}
+BASES_PER_MB = 1e6
+GENOME_SIZE_EDGES = np.arange(0, GENOME_SIZE_MAX_MB + GENOME_SIZE_BIN_MB, GENOME_SIZE_BIN_MB)
 
 
 def group_labels(name: str) -> tuple:
@@ -64,15 +68,18 @@ def histogram(values: pd.Series, edges: np.ndarray) -> Optional[dict]:
     }
 
 
-def group_histograms(frame: pd.DataFrame, call: str, column: str = 'known_species_fraction') -> dict:
+def group_histograms(frame: pd.DataFrame, call: str, column: str = 'known_species_fraction',
+                     edges: Optional[np.ndarray] = None, divisor: float = 1.0) -> dict:
     """Histograms of a percent column (known species fraction by default) for
     each named group of runs with this host call; a group with no runs (or no
-    column) is None."""
+    column) is None. `edges` default to percent bins; `divisor` rescales the
+    column first (bases to megabases for genome size)."""
     if not {'organism', 'host_or_not', column} <= set(frame.columns):
         return {name: None for name in GROUP_NAMES[call]}
-    edges = np.arange(0, 100 + KNOWN_BIN_PERCENT, KNOWN_BIN_PERCENT)
+    if edges is None:
+        edges = np.arange(0, 100 + KNOWN_BIN_PERCENT, KNOWN_BIN_PERCENT)
     in_call = frame[frame['host_or_not'] == call]
-    return {name: histogram(in_call.loc[in_call['organism'].isin(group_labels(name)), column], edges)
+    return {name: histogram(in_call.loc[in_call['organism'].isin(group_labels(name)), column] / divisor, edges)
             for name in GROUP_NAMES[call]}
 
 
@@ -107,11 +114,11 @@ def summarise(frame: pd.DataFrame, summary_rows: Optional[int] = None) -> dict:
         'unclassified': int((~calls.isin(CALLS)).sum()) if len(calls) else int(len(frame)),
         'known_species_fraction': histogram(
             column('known_species_fraction'), np.arange(0, 100 + KNOWN_BIN_PERCENT, KNOWN_BIN_PERCENT)),
-        'genome_size_mb': histogram(
-            column('average_bacterial_archaeal_genome_size') / 1e6,
-            np.arange(0, GENOME_SIZE_MAX_MB + GENOME_SIZE_BIN_MB, GENOME_SIZE_BIN_MB)),
+        'genome_size_mb': histogram(column(GENOME_SIZE_COLUMN) / BASES_PER_MB, GENOME_SIZE_EDGES),
         **{GROUP_KEYS[call]: group_histograms(frame, call) for call in CALLS},
         **{SPF_GROUP_KEYS[call]: group_histograms(frame, call, SPF_COLUMN) for call in CALLS},
+        **{GENOME_SIZE_GROUP_KEYS[call]: group_histograms(frame, call, GENOME_SIZE_COLUMN, GENOME_SIZE_EDGES, BASES_PER_MB)
+           for call in CALLS},
         'depth_log10_bases': histogram(
             np.log10(column('metagenome_size')),
             np.arange(DEPTH_LOG10_MIN, DEPTH_LOG10_MAX + DEPTH_LOG10_STEP, DEPTH_LOG10_STEP)),

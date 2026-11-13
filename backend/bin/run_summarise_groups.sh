@@ -5,8 +5,11 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 KINGFISHER=snakemake/prod/kingfisher_metadata/20261026
+# The website database, opened read-only, for the most widely detected taxa of each group.
+DB=${SANDPIPER_DB:-backend/db/sandpiper_43.duckdb}
 
 python3 backend/bin/summarise_groups.py \
+  --db "$DB" \
   vue/src/constants/groupSummaries.json \
   backend/db/metagenome_assembly_acc_list.csv \
   snakemake/data/per_acc_summary.weebill.csv \
