@@ -36,6 +36,14 @@ INCLUDE_METALOG = config.get('INCLUDE_METALOG', True)
 # temporarily disabling this stage.
 INCLUDE_INDICPIPER = config.get('INCLUDE_INDICPIPER', True)
 
+# Whether JGI GOLD metadata is downloaded (fetch_gold) and loaded into the db
+# (add_gold_to_backend_db). The download is slow (GOLD allows ~1 request/s), so
+# it starts as soon as the Kingfisher metadata is gathered and runs alongside
+# the whole database build; only add_gold_to_backend_db, just before the final
+# precompute_api_cache step, waits for it. false: the db is copied forward
+# unchanged, same contract as the other INCLUDE_* switches.
+INCLUDE_GOLD = config.get('INCLUDE_GOLD', True)
+
 # Process this many in the list at a time.
 chunk_size = 10000
 
@@ -89,6 +97,9 @@ rule all:
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION']),
         '{test_or_prod}/{version}/backend_db/export_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        '{test_or_prod}/{version}/backend_db/weebill_only_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION']),
         STATISTICS_DIR + '/groupSummaries.json',
@@ -583,8 +594,9 @@ def _resolve_indicpiper_csv():
             "git submodule update --init indicpiper_custom/IndicPiper".format(submodule_dir))
 
     def version_key(path):
-        m = re.search(r'_v(\d+)\.csv$', path)
-        return int(m.group(1)) if m else -1
+        # Dotted versions, e.g. _v2.1.0.csv, compared numerically part by part.
+        m = re.search(r'_v(\d+(?:\.\d+)*)\.csv$', path)
+        return tuple(int(part) for part in m.group(1).split('.')) if m else (-1,)
 
     return max(candidates, key=version_key)
 
@@ -630,9 +642,136 @@ rule add_indicpiper_scores_to_backend_db:
             'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper'
         )
 
+# Persistent across builds (NOT per-version scratch): later builds only fetch
+# projects not downloaded yet.
+GOLD_DOWNLOAD_DIR = os.path.abspath(config.get('GOLD_DOWNLOAD_DIR', os.path.join(workflow.basedir, '..', 'backend', 'db', 'gold_download')))
+# Stop fetching after this many hours so the rule always finishes inside its walltime.
+GOLD_FETCH_MAX_HOURS = config.get('GOLD_FETCH_MAX_HOURS', 39)
+GOLD_FETCH_DONE = '{test_or_prod}/{version}/backend_db/gold_fetch_done'.format(
+    test_or_prod=config['TEST_OR_PROD'], version=config['SANDPIPER_VERSION'])
+
+if INCLUDE_GOLD:
+    rule fetch_gold:
+        # Downloads everything JGI GOLD holds for the GOLD projects (Gp IDs in
+        # sample_alias) of this build's Kingfisher metadata. Needs
+        # GOLD_OFFLINE_TOKEN in the environment the workflow is launched from.
+        # Resumable, rate limited and incremental (see backend/bin/fetch_gold.py).
+        # A failed or partial fetch must not stop the build: the rule always
+        # completes, logs a WARNING, and the db gets whatever was saved.
+        input:
+            file_list='{test_or_prod}/kingfisher_metadata/{date}/kingfisher_metadata_file_list'.format(
+                date=config['KINGFISHER_METADATA_DATE'],
+                test_or_prod=config['TEST_OR_PROD'])
+        output:
+            touch(GOLD_FETCH_DONE)
+        log:
+            '{test_or_prod}/{version}/backend_db/gold_fetch.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        params:
+            download_dir=GOLD_DOWNLOAD_DIR,
+            max_hours=GOLD_FETCH_MAX_HOURS
+        resources:
+            mem_mb=4000,
+            runtime='42h'
+        shell:
+            'export PYTHONNOUSERSITE=1 && '
+            'mkdir -p {params.download_dir} && '
+            '(pixi run -e sandpiper python ../backend/bin/fetch_gold.py --out-dir {params.download_dir} '
+            '--kingfisher-file-list {input.file_list} --max-hours {params.max_hours} > {log} 2>&1 '
+            '|| echo "WARNING: fetch_gold exited with status $? -- the database will use the GOLD records saved so far" >> {log})'
+
+rule add_gold_to_backend_db:
+    # The only step that waits for GOLD. Loads the downloaded records into
+    # gold_* tables, or copies the db forward unchanged if INCLUDE_GOLD is false.
+    input:
+        indicpiper_done='{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        gold_fetch_done=(GOLD_FETCH_DONE if INCLUDE_GOLD else [])
+    output:
+        touch('{test_or_prod}/{version}/backend_db/gold_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']))
+    log:
+        '{test_or_prod}/{version}/backend_db/gold.log'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    params:
+        download_dir=GOLD_DOWNLOAD_DIR
+    resources:
+        mem_mb=32000,
+        runtime='4h'
+    shell:
+        (
+            'export SNAKE_WORKING_DIR=`pwd` && '
+            'cd ../backend && '
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_gold 2> $SNAKE_WORKING_DIR/{log}'
+            if not INCLUDE_GOLD else
+            'export SNAKE_WORKING_DIR=`pwd` && '
+            'export PYTHONNOUSERSITE=1 && '
+            'cd ../backend && '
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && '
+            'pixi run -e sandpiper ./bin/generate_backend_db --stage gold --gold-download-dir {params.download_dir} -o {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb 2> $SNAKE_WORKING_DIR/{log} && '
+            'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_gold'
+        )
+
+# Runs Weebill introduced: in the Weebill-integrated condensed table but with no SingleM marker-gene
+# hits (absent from SingleM's OTU table). Their GTDB profile is Weebill's k-mer matching alone.
+WEEBILL_ONLY_LIST = '{test_or_prod}/{version}/backend_db/weebill_only_accessions.txt'.format(
+    test_or_prod=config['TEST_OR_PROD'], version=config['SANDPIPER_VERSION'])
+INCLUDE_WEEBILL_ONLY = config.get('INCLUDE_WEEBILL_ONLY', True)
+
+if INCLUDE_WEEBILL_ONLY:
+    rule find_weebill_only:
+        # Reads only the sample column of the two big tables (see backend/bin/find_weebill_only.py).
+        output:
+            WEEBILL_ONLY_LIST
+        log:
+            '{test_or_prod}/{version}/backend_db/find_weebill_only.log'.format(
+                test_or_prod=config['TEST_OR_PROD'],
+                version=config['SANDPIPER_VERSION'])
+        resources:
+            mem_mb=16000,
+            runtime='6h'
+        shell:
+            'export PYTHONNOUSERSITE=1 && '
+            'pixi run -e sandpiper python ../backend/bin/find_weebill_only.py '
+            '{config[CONDENSED_OTU_TABLE]} {config[OTU_TABLE]} {output} > {log} 2>&1'
+
+rule add_weebill_only_to_backend_db:
+    # The last step: adds the weebill_only_runs table to the finished database in place (no copy of
+    # the 140 GB file; it only creates one small table). Does nothing if INCLUDE_WEEBILL_ONLY is false.
+    # The database file must not be open elsewhere (stop any running API first).
+    input:
+        index_done='{test_or_prod}/{version}/backend_db/taxonomies_name_lower_idx_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']),
+        accessions=(WEEBILL_ONLY_LIST if INCLUDE_WEEBILL_ONLY else [])
+    output:
+        touch('{test_or_prod}/{version}/backend_db/weebill_only_done'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION']))
+    log:
+        '{test_or_prod}/{version}/backend_db/weebill_only.log'.format(
+            test_or_prod=config['TEST_OR_PROD'],
+            version=config['SANDPIPER_VERSION'])
+    resources:
+        mem_mb=16000,
+        runtime='1h'
+    shell:
+        (
+            'echo "weebill_only skipped (INCLUDE_WEEBILL_ONLY is false)" > {log}'
+            if not INCLUDE_WEEBILL_ONLY else
+            'export SNAKE_WORKING_DIR=`pwd` && '
+            'export PYTHONNOUSERSITE=1 && '
+            'cd ../backend && '
+            'pixi run -e sandpiper ./bin/generate_backend_db --stage weebill_only --weebill-only-accessions $SNAKE_WORKING_DIR/{input.accessions} -o db/sandpiper_{config[SANDPIPER_VERSION]}.duckdb > $SNAKE_WORKING_DIR/{log} 2>&1'
+        )
+
 rule precompute_api_cache:
     input:
-        '{test_or_prod}/{version}/backend_db/indicpiper_done'.format(
+        '{test_or_prod}/{version}/backend_db/gold_done'.format(
             test_or_prod=config['TEST_OR_PROD'],
             version=config['SANDPIPER_VERSION'])
     output:
@@ -655,7 +794,7 @@ rule precompute_api_cache:
         'export PYTHONNOUSERSITE=1 && ' \
         'cd ../backend && ' \
         # cp to remain idempotent, e.g. if this step fails
-        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_indicpiper {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
+        'cp {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb.after_gold {config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb && ' \
         'pixi run -e sandpiper ./bin/precompute_api_cache.py ' \
         '{config[SCRATCH_DIR]}/sandpiper_{config[SANDPIPER_VERSION]}.duckdb > ' \
         '$SNAKE_WORKING_DIR/{log} 2>&1 && ' \

@@ -41,6 +41,21 @@ INCLUDE_METALOG: true
 # exactly as before indicpiper existed).
 INCLUDE_INDICPIPER: true
 
+# JGI GOLD metadata (see backend/bin/fetch_gold.py). fetch_gold starts once the
+# Kingfisher metadata is gathered and runs alongside the rest of the build; only
+# add_gold_to_backend_db (just before precompute_api_cache) waits for it. Needs
+# GOLD_OFFLINE_TOKEN in the environment snakemake is launched from. The download
+# folder persists across builds so later builds fetch only new projects.
+# INCLUDE_GOLD: false skips it and copies the db forward unchanged.
+INCLUDE_GOLD: true
+
+# Flags the runs Weebill introduced (no SingleM marker-gene hits): bin/find_weebill_only.py compares
+# CONDENSED_OTU_TABLE with OTU_TABLE, then add_weebill_only_to_backend_db sets parsed_sample_attributes.weebill_only.
+# false skips it and copies the db forward unchanged.
+INCLUDE_WEEBILL_ONLY: true
+GOLD_DOWNLOAD_DIR: '/mnt/hpccs01/home/herholdt/sandpiper-next-v2.1.1/backend/db/gold_download'
+GOLD_FETCH_MAX_HOURS: 39
+
 # Whether the final export_indicpiper_and_metalog_csv rule writes each of
 # its two post-build CSVs (see backend/bin/export_indicpiper_and_metalog_csv.py).
 # Independent toggles -- either can be turned off without affecting the
