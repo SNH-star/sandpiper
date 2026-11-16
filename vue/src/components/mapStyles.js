@@ -21,6 +21,17 @@ export const SATELLITE_STYLE = {
 
 export const BASE_STYLES = { map: MAP_STYLE, satellite: SATELLITE_STYLE }
 
+// One world, seen once. The window runs from the Bering Strait eastwards right round to the Bering Strait again,
+// so its edges fall between Alaska and Russia, where they cross almost no land, and not on the date line, which
+// would cut Oceania in two. The east edge stops just short of a full turn: a window of exactly 360° reads as empty.
+const ONE_WORLD_BOUNDS = [[-169, -85.051129], [190.999, 85.051129]]
+
+// Keeps a map to that one world: it cannot be dragged or zoomed out far enough to show a second copy. Call it on
+// a map that already exists; passing the bounds to the map's constructor fails in this version of MapLibre.
+export function showOneWorld (map) {
+  map.setMaxBounds(ONE_WORLD_BOUNDS)
+}
+
 // The red of the markers that show where runs were collected (run page and project page).
 export const SAMPLE_MARKER_COLOUR = '#d32f2f'
 
