@@ -43,6 +43,8 @@
               <g :transform="map_transform">
                 <rect :width="W" :height="H" class="map-sea" />
                 <path :d="land_path" class="map-land" />
+                <!-- The band of latitude the selected hexagon lies in, across the map. -->
+                <rect v-if="selected_band" :x="0" :width="W" :y="selected_band.y" :height="selected_band.h" class="map-band-shade" />
                 <path v-for="hex in view_hexes" :key="hex.key" :d="hex_path" :transform="`translate(${hex.x} ${hex.y})`"
                       class="map-hex" :fill="hex.fill" :stroke="hex.fill"
                       @pointerenter="pick($event, hex)" @click="activate(hex)"><title>{{ hex.title }}</title></path>
@@ -72,7 +74,7 @@
               <g class="map-bands" :transform="strip_transform">
                 <line :x1="W" :x2="W + STRIP" :y1="equator" :y2="equator" class="map-equator" />
                 <rect v-for="band in bands" :key="band.lat" :x="W + STRIP_GAP" :y="band.y" :width="band.width" :height="band.h"
-                      class="band" :class="'band-' + view"><title>{{ band.title }}</title></rect>
+                      class="band" :class="['band-' + view, { 'is-selected': selected_band && selected_band.lat === band.lat }]"><title>{{ band.title }}</title></rect>
               </g>
             </g>
             <!-- Colour scale, under the map. It stays fixed while the map zooms; the marker shows the hexagon under the pointer. -->
@@ -226,7 +228,7 @@ export default {
         const x = ((hex.lon + 180) * W) / 360
         const y = ((90 - hex.lat) * W) / 360
         const count = hex[this.view]
-        return { key: `${hex.lat}:${hex.lon}`, x, y, count, fill: this.colour(count), title: this.describe(hex, count) }
+        return { key: `${hex.lat}:${hex.lon}`, lat: hex.lat, x, y, count, fill: this.colour(count), title: this.describe(hex, count) }
       })
     },
     // The picked hexagons that hold runs of the type on show.
@@ -303,6 +305,15 @@ export default {
     visible_labels () {
       if (this.zoom.k < COUNTRY_LABEL_ZOOM) return []
       return visibleCountryLabels(this.country_labels, this.zoom, W, this.H, LABEL_SIZE, LABEL_CHAR_WIDTH)
+    },
+    // The band of latitude the selected hexagon's centre lies in, as the bars below the map divide the globe.
+    selected_band () {
+      if (!this.selected) return null
+      const size = this.data.cell
+      const lat = Math.floor(this.selected.lat / size) * size
+      const top = this.projection([0, lat + size])[1]
+      const bottom = this.projection([0, lat])[1]
+      return { lat, y: top, h: bottom - top }
     },
     // Runs of the chosen type in each band of latitude.
     bands () {
@@ -461,6 +472,8 @@ export default {
 .map-world-label.is-ocean { fill: hsl(205, 45%, 32%); font-style: italic; }
 .map-equator { vector-effect: non-scaling-stroke; stroke: var(--color-ink-muted); stroke-width: 0.8; stroke-dasharray: 4 5; opacity: 0.55; pointer-events: none; }
 .band { vector-effect: non-scaling-stroke; stroke: var(--color-ink); stroke-width: 0.4; }
+.band.is-selected { stroke-width: 1.6; stroke: var(--color-accent); }
+.map-band-shade { fill: var(--color-accent); opacity: 0.1; pointer-events: none; }
 .band-host_associated { fill: var(--color-sample-host); }
 .band-ecological { fill: var(--color-sample-ecological); }
 .legend-bar { stroke: var(--color-ink-muted); stroke-width: 0.6; }

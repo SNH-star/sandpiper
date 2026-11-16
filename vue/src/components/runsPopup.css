@@ -1,0 +1,10 @@
+/* The list of runs a project map's marker opens, on the flat map and on the globe. The globe builds its
+   list outside Vue's templates, so these styles cannot be scoped. */
+.runs-popup-scroll { max-height: 180px; margin-top: 0.3rem; overflow-y: auto; }
+.runs-popup-title { margin: 0 1rem 0.3rem 0; font-weight: 600; }
+.runs-popup-study { margin: 0 0 0.1rem; color: hsl(0, 0%, 35%); }
+.runs-popup-study.is-sticky { position: sticky; top: 0; padding: 0.3rem 0 0.1rem; background: #fff; }
+.runs-popup-runs { margin: 0; padding-left: 1.1rem; list-style: disc; }
+.runs-popup-note { margin: 0.4rem 0 0; font-size: 0.8rem; color: hsl(0, 0%, 40%); }
+.runs-popup-zoom { margin-top: 0.5rem; padding: 0.25rem 0.6rem; font: inherit; font-size: 0.8rem; color: #363636; background: #fff; border: 1px solid #c8c8c8; border-radius: 2px; cursor: pointer; }
+.runs-popup-zoom:hover { border-color: #00796b; }

@@ -72,3 +72,52 @@ export function boundsOf (places: RunPlace[]): Bounds | null {
   const lons = located.map(place => place.lat_lon[1])
   return [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]]
 }
+
+/** "1 run", "1,204 runs". */
+export function plural (count: number, noun: string): string {
+  return `${count.toLocaleString('en-US')} ${noun}${count === 1 ? '' : 's'}`
+}
+
+/** A place drawn on a flat map: its index, its number of runs, and where it falls on the map. */
+export interface PlacePoint {
+  place: number
+  runs: number
+  x: number
+  y: number
+}
+
+/** One marker: a place on its own, or several places too close together to tell apart. */
+export interface PlaceMarker {
+  key: string
+  x: number
+  y: number
+  runs: number
+  places: number[]
+}
+
+/**
+ * Gathers the places within `radius` of each other under one marker, as the globe does. The places with the
+ * most runs are taken first, each with every place not yet taken within `radius` of it; the marker sits at
+ * the middle of its places, weighted by their runs.
+ */
+export function mergePlaces (points: PlacePoint[], radius: number): PlaceMarker[] {
+  const waiting = [...points].sort((a, b) => b.runs - a.runs || a.place - b.place)
+  const markers: PlaceMarker[] = []
+  while (waiting.length) {
+    const centre = waiting[0]
+    const isNear = (point: PlacePoint) => Math.hypot(point.x - centre.x, point.y - centre.y) <= radius
+    const group = waiting.filter(isNear)
+    waiting.splice(0, waiting.length, ...waiting.filter(point => !isNear(point)))
+    const runs = group.reduce((total, point) => total + point.runs, 0)
+    // A place with no runs still counts towards the middle, so the weights never sum to nothing.
+    const weight = (point: PlacePoint) => (runs > 0 ? point.runs / runs : 1 / group.length)
+    markers.push({
+      key: `${centre.place}:${group.length}`,
+      x: group.reduce((sum, point) => sum + point.x * weight(point), 0),
+      y: group.reduce((sum, point) => sum + point.y * weight(point), 0),
+      runs,
+      places: group.map(point => point.place)
+    })
+  }
+  return markers
+}
