@@ -128,13 +128,14 @@
                     :key="link.study_id"
                     :href="publicationHref(link)"
                     :title="link.title || null"
-                    :class="['run-link-pill', { 'is-gold': link.from_gold }]"
+                    :class="['run-link-pill', { 'is-gold': link.from_gold, 'is-metalog': link.from_metalog }]"
                   >
                     <span class="run-link-pill-badge">{{ publicationBadge(link) }}</span>
                     {{ link.study_id }}
                   </a>
                 </div>
-                <p v-if="publications.some(link => link.from_gold)" class="run-links-note">Gold publications are listed by <a :href="gold.url" target="_blank" rel="noopener">GOLD (JGI)</a>.</p>
+                <p v-if="publications.some(link => link.from_metalog)" class="run-links-note">Highlighted in green are publications recorded by <a href="https://metalog.embl.de/" target="_blank" rel="noopener">Metalog</a>.</p>
+                <p v-if="publications.some(link => link.from_gold)" class="run-links-note">Highlighted in gold are publications recorded by <a :href="gold.url" target="_blank" rel="noopener">GOLD (JGI)</a>.</p>
                 <p class="run-links-note">A <a :href="scholar_search_url">search on Google Scholar</a> may find further publications.</p>
               </template>
             </div>
@@ -431,7 +432,8 @@ export default {
       const own = this.metadata.metadata.study_links.filter(function (link) {
         return (typeof link['database'] !== 'undefined')
       })
-      return own.concat(this.gold_publications(own))
+      const withMetalog = own.concat(this.metalog_publications(own))
+      return withMetalog.concat(this.gold_publications(withMetalog))
     },
     non_publication_study_links: function () {
       return this.metadata.metadata.study_links.filter(function (link) {
@@ -615,6 +617,25 @@ export default {
           /* no GOLD rows is fine */
           if (this.accession === accession) this.gold_loading = false
         })
+    },
+    // Papers Metalog records for this run (its PMID and DOI fields), as the same kind of link,
+    // skipping any the study links already list. A field may hold several ids.
+    metalog_publications (own) {
+      const known = new Set(own.map(link => String(link.study_id).toLowerCase()))
+      const rows = (this.metadata.metadata.metalog_metadata || [])
+      const links = []
+      for (const [label, database] of [['Pmid', 'pubmed'], ['Doi', 'doi']]) {
+        const row = rows.find(r => r.k === label)
+        const ids = String(row ? row.v : '').split(/[;,|\s]+/)
+          .map(id => id.replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:)/i, '').trim())
+          .filter(Boolean)
+        for (const id of ids) {
+          if (known.has(id.toLowerCase())) continue
+          known.add(id.toLowerCase())
+          links.push({ database, study_id: id, from_metalog: true })
+        }
+      }
+      return links
     },
     // GOLD's publications as the same kind of link, skipping any the study links already list.
     gold_publications (own) {
@@ -937,6 +958,7 @@ export default {
 /* A softer, non-fully-rounded chip -- distinct from the header's solid
    status pills (related-runs, QC flags), which signal state. These are
    just references out to other sites, so a quieter outline treatment. */
+.run-link-pill.is-metalog { border-color: #5fa66b; background: #e3f3e6; }
 .run-link-pill.is-gold { border-color: #c9a227; background: #faf1d2; }
 .run-link-pill {
   display: inline-flex;
@@ -947,6 +969,10 @@ export default {
   border-radius: 6px;
   color: hsl(0, 0%, 25%);
   font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 400;
+  line-height: 1.3;
+  white-space: nowrap;
   text-decoration: none;
   transition: border-color 0.15s, background-color 0.15s;
 }
@@ -956,6 +982,7 @@ export default {
   background: hsl(271, 45%, 97%);
 }
 .run-link-pill-badge {
+  line-height: 1.3;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
