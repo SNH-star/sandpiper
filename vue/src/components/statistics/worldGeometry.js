@@ -95,6 +95,55 @@ export function countryAt (topology, lon, lat) {
   return found ? found.properties.name : null
 }
 
+// Spellings of a country that differ from the world-atlas name, written the way geo_loc_name might have them.
+const COUNTRY_ALIASES = {
+  usa: 'United States of America', 'u.s.a.': 'United States of America', us: 'United States of America',
+  'united states': 'United States of America', 'viet nam': 'Vietnam', 'czech republic': 'Czechia',
+  'republic of korea': 'South Korea', 'korea, south': 'South Korea', 'south korea': 'South Korea',
+  'democratic republic of the congo': 'Dem. Rep. Congo', 'republic of the congo': 'Congo',
+  'ivory coast': "Côte d'Ivoire", 'russian federation': 'Russia', burma: 'Myanmar', swaziland: 'eSwatini',
+  'north macedonia': 'Macedonia', 'bosnia and herzegovina': 'Bosnia and Herz.', 'east timor': 'Timor-Leste',
+  turkiye: 'Turkey', uk: 'United Kingdom', england: 'United Kingdom', scotland: 'United Kingdom',
+  wales: 'United Kingdom', 'northern ireland': 'United Kingdom', 'great britain': 'United Kingdom',
+  'the netherlands': 'Netherlands', 'south sudan': 'S. Sudan', 'central african republic': 'Central African Rep.',
+  'dominican republic': 'Dominican Rep.', 'equatorial guinea': 'Eq. Guinea', 'western sahara': 'W. Sahara'
+}
+
+// Where the coordinates may legitimately be in another outline than the one the name matches: a territory
+// of the named country, or a name that is also a US state.
+const ALSO_FINE = { 'United States of America': ['Puerto Rico'], Georgia: ['United States of America'] }
+
+const plainName = name => name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+// How far from a country (km) a point may be and still count as in it, so a coast, an island or a border that
+// the coarse outlines draw a little off does not raise a false alarm.
+const NEAR_KM = [50, 100]
+const EARTH_RADIUS_KM = 6371
+
+// Whether a point is in the country or within NEAR_KM of it, tested on rings of points around it.
+function isNear (country, lon, lat) {
+  if (d3.geoContains(country, [lon, lat])) return true
+  return NEAR_KM.some(km => {
+    const ring = d3.geoCircle().center([lon, lat]).radius((km / EARTH_RADIUS_KM) * (180 / Math.PI)).precision(10)()
+    return ring.coordinates[0].some(point => d3.geoContains(country, point))
+  })
+}
+
+// The country geo_loc_name ("China:NanJing") names, when the coordinates are in a different country: { recorded,
+// found }. Nothing when they agree or are near, at sea, or when the name is not one of the world-atlas countries
+// (oceans, blanks, places too small for the coarse outlines).
+export function locationMismatch (topology, lon, lat, geoLocName) {
+  const written = String(geoLocName || '').split(':')[0].trim()
+  if (!written || !Number.isFinite(lon) || !Number.isFinite(lat)) return null
+  const wanted = plainName(COUNTRY_ALIASES[written.toLowerCase()] || written)
+  const claimed = countriesOf(topology).features.find(c => plainName(c.properties.name) === wanted)
+  if (!claimed || isNear(claimed, lon, lat)) return null
+  // At sea is not a contradiction: coastal waters, and islands the coarse outlines leave out, belong to the country.
+  const found = countryAt(topology, lon, lat)
+  if (!found || (ALSO_FINE[claimed.properties.name] || []).includes(found)) return null
+  return { recorded: written, found }
+}
+
 // The country names to draw for the current view of a map of width `width` and height `height`, at zoom
 // {k, x, y}. A name goes on the middle of the country's largest piece when that is in view. When it is not (a
 // large country such as Russia or Antarctica, zoomed in), it goes on the middle of the part of that piece

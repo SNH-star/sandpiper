@@ -5,7 +5,13 @@
       <run-location-globe v-else ref="shown" :lat="lat" :lon="lon" :base="base" :label="aria(view)" />
     </template>
     <template #caption>
-      <span>Latitude {{ coordinate(lat) }}, longitude {{ coordinate(lon) }}<template v-if="country"> ({{ country }})</template>.</span>
+      <span>
+        {{ coordinate(lat, 'N', 'S') }}, {{ coordinate(lon, 'E', 'W') }}<template v-if="country">, {{ country }}</template>.
+      </span>
+      <span v-if="mismatch" class="location-flag">
+        <b-icon icon="alert-outline" size="is-small" />
+        Does not match the geo loc name
+      </span>
     </template>
   </map-view-frame>
 </template>
@@ -29,7 +35,9 @@ export default {
   },
   props: {
     lat: { type: Number, required: true },
-    lon: { type: Number, required: true }
+    lon: { type: Number, required: true },
+    // True when the recorded geo loc name disagrees with these coordinates (see RunMetadata).
+    mismatch: { type: Boolean, default: false }
   },
   data () {
     return { ACTIONS }
@@ -39,11 +47,12 @@ export default {
     country () { return countryAt(countries110m, this.lon, this.lat) }
   },
   methods: {
-    coordinate (value) {
-      return `${value.toFixed(4)}°`
+    // e.g. "32.0000° N".
+    coordinate (value, positive, negative) {
+      return `${Math.abs(value).toFixed(4)}° ${value < 0 ? negative : positive}`
     },
     aria (view) {
-      return `${view === 'flat' ? 'Map' : 'Globe'} showing where the sample was collected, at latitude ${this.coordinate(this.lat)}, longitude ${this.coordinate(this.lon)}.`
+      return `${view === 'flat' ? 'Map' : 'Globe'} showing where the sample was collected, at ${this.coordinate(this.lat, 'N', 'S')}, ${this.coordinate(this.lon, 'E', 'W')}.`
     },
     // Nothing happens while the globe is still loading.
     zoom (method) {
@@ -56,4 +65,5 @@ export default {
 
 <style scoped>
 .location-map { max-width: 720px; }
+.location-flag { display: block; margin-top: 0.25rem; font-weight: 600; color: #8a5a00; }
 </style>

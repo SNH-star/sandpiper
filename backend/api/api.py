@@ -905,6 +905,8 @@ def fetch_metadata(sample_name):
         'study_title': metadata_dict['study_title'],
         'bioproject': metadata_dict['bioproject'],
         'study_abstract': metadata_dict['study_abstract'],
+        # What the submitter recorded as the place, e.g. "China:NanJing"; the run page checks it against the coordinates.
+        'geo_loc_name': metadata_dict.get('geo_loc_name'),
     }
 
     metadata_parsed['read_length_summary'] = _read_length_summary(

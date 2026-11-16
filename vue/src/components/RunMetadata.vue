@@ -17,6 +17,13 @@
             </button>
           </span>
         </h3>
+        <div v-if="location_mismatch" id="location-notice" class="content metalog-help location-notice" role="note">
+          <p>
+            <b-icon icon="alert-outline" size="is-small" />
+            <b>Proceed with caution.</b> Geo loc name <b>"{{ recorded_location }}"</b> does not match the coordinates
+            {{ location_mismatch.coordinates }} ({{ location_mismatch.found }}). 
+          </p>
+        </div>
         <div v-if="show_sample_help" id="sample-help" class="content metalog-help">
           <p>
             Details about the sample this run was sequenced from, such as where and when it was collected, the host or
@@ -39,7 +46,7 @@
             <router-link to="/about#gold">more on the About page</router-link>).
           </p>
         </div>
-        <RunLocationMap v-if="lat_lon() !== null" :lat="lat_lon()[0]" :lon="lat_lon()[1]" />
+        <RunLocationMap v-if="lat_lon() !== null" :lat="lat_lon()[0]" :lon="lat_lon()[1]" :mismatch="location_mismatch !== null" />
         <RunMetadataTable :table_data="filtered_sample_rows" :empty_text="sample_filters_active ? 'No fields match these filters.' : null">
           <template #after-key>
             <fieldset class="sample-filters">
@@ -243,6 +250,8 @@
 <script>
 
 import RunMetadataTable from '@/components/RunMetadataTable.vue'
+import countries110m from 'world-atlas/countries-110m.json'
+import { locationMismatch } from '@/components/statistics/worldGeometry'
 import RunLocationMap from '@/components/RunLocationMap.vue'
 import IndicPiperHabitatChart from '@/components/IndicPiperHabitatChart.vue'
 import { indicpiperMismatch, indicpiperUncoveredOrganism, formatIndicPiperPercent } from '@/utils/indicpiper'
@@ -300,6 +309,23 @@ export default {
     sample_rows () {
       const own = this.mdata.sample_info_metadata || []
       return own.concat(this.metalog_metadata().map(r => ({ ...r, source: 'metalog' })), this.gold_rows)
+    },
+    // The place the submitter recorded (geo_loc_name), or '' when there is none.
+    recorded_location () {
+      if (this.mdata_parsed.geo_loc_name) return String(this.mdata_parsed.geo_loc_name)
+      // An API that does not send it yet still lists it as a Sample information row.
+      const row = (this.mdata.sample_info_metadata || []).find(r => r.k === 'geo loc name' || r.raw_k === 'geo_loc_name')
+      return row ? String(row.v) : ''
+    },
+    // Set when the recorded geo loc name and the coordinates disagree: { recorded, found, coordinates }.
+    location_mismatch () {
+      const point = this.lat_lon()
+      if (point === null) return null
+      const [lat, lon] = point
+      const mismatch = locationMismatch(countries110m, lon, lat, this.recorded_location)
+      if (!mismatch) return null
+      const coordinates = `${Math.abs(lat)} ${lat < 0 ? 'S' : 'N'} ${Math.abs(lon)} ${lon < 0 ? 'W' : 'E'}`
+      return { ...mismatch, coordinates }
     },
     sample_filters_active () {
       return this.sample_filters.length > 0
@@ -585,6 +611,14 @@ export default {
   margin-bottom: 1rem;
   overflow-wrap: anywhere;
 }
+/* The geo loc name warning: the same panel as the (i) help, but always open, with an amber edge. */
+.location-notice {
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid #c98a00;
+  background: #fdf4dc;
+  color: hsl(0, 0%, 20%);
+}
+.location-notice p { margin: 0; }
 .section-heading {
   display: flex;
   align-items: center;
