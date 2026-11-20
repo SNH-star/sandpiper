@@ -53,5 +53,5 @@ export default {
 <style scoped>
 .sample-marker { pointer-events: none; }
 .sample-marker-halo { opacity: 0.25; }
-.sample-marker-dot { stroke: #fff; stroke-width: 2.5; }
+.sample-marker-dot { stroke: var(--color-white); stroke-width: 2.5; }
 </style>

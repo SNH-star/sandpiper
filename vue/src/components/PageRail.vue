@@ -139,8 +139,8 @@ export default {
     scrollbar-width: thin;
     scrollbar-color: var(--color-rule) transparent;
     padding-bottom: 1rem;
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1rem), transparent);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 1rem), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, var(--color-black) calc(100% - 1rem), transparent);
+    mask-image: linear-gradient(to bottom, var(--color-black) calc(100% - 1rem), transparent);
     background: none;
     border: 0;
   }

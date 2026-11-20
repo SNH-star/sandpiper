@@ -1,6 +1,6 @@
 <template>
   <section id="compare-versions" class="section container stat-figure">
-    <chart-download target="#compare-versions" name="version-comparison" />
+    <chart-download target="#compare-versions" name="version-comparison" :table="allTable" />
     <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#compare-versions">#</a> Comparison between versions</h3>
     <p class="stat-note">
       How the runs in each version’s summary compare, with the month each version was released. Curves show
@@ -38,7 +38,7 @@
     <p class="stat-note version-footnote"><em>Versions before 1.1.9 are not shown.</em></p>
 
     <div v-for="chart in charts" :key="chart.key" :id="'versions-' + chart.key" class="version-chart">
-      <chart-download :target="'#versions-' + chart.key" :name="'versions-' + chart.key" />
+      <chart-download :target="'#versions-' + chart.key" :name="'versions-' + chart.key" :table="() => chartTable(chart.key)" />
       <density-chart :chart="chart" interactive :vertical-lines="chart.key === 'genome_size_mb'" />
     </div>
   </section>
@@ -49,6 +49,7 @@ import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import DensityChart from '@/components/statistics/DensityChart.vue'
 import { buildDensityChart } from '@/components/statistics/density'
 import { releasedLabel } from '@/components/statistics/releases'
+import { densityTable, densityLongTable } from '@/components/statistics/chartTables'
 import SUMMARIES from '@/constants/versionSummaries.json'
 
 const STAR_NOTE = 'Introduction of k-mer profiling (weebill) alongside SingleM’s marker genes (Sandpiper v2.2.*), assigning more of each community to known species.'
@@ -96,6 +97,17 @@ export default {
     }
   },
   methods: {
+    // The versions drawn for a measure, each with its histogram.
+    seriesOf (measure) {
+      return this.versions.filter(version => version[measure.key]).map(version => ({ label: version.label, histogram: version[measure.key] }))
+    },
+    chartTable (key) {
+      const measure = MEASURES.find(item => item.key === key)
+      return densityTable({ xTitle: measure.x_title, series: this.seriesOf(measure) })
+    },
+    allTable () {
+      return densityLongTable(MEASURES.map(measure => ({ title: measure.title, series: this.seriesOf(measure) })), 'Version')
+    },
     fmt (value) {
       return value.toLocaleString('en-US')
     },
@@ -124,7 +136,6 @@ export default {
 .stat-note { font-size: 0.9rem; line-height: 1.5; color: var(--color-ink-muted); }
 .stat-note + .stat-note { margin-top: var(--space-2); }
 .section.container { padding-top: var(--space-8); padding-bottom: var(--space-4); }
-.version-swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); }
 .version-footnote { margin-top: var(--space-2); }
 .version-chart { display: flow-root; }
 .version-table-wrap { max-width: 100%; margin-top: var(--space-6); overflow-x: auto; }

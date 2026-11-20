@@ -63,7 +63,7 @@ export default {
 }
 .info-tooltip-button:hover,
 .info-tooltip-button:focus-visible {
-  color: #555;
+  color: var(--color-grey-dark);
 }
 .info-tooltip-button:focus-visible {
   outline: 2px solid currentColor;

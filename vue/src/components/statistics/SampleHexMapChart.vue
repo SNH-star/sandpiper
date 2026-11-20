@@ -1,6 +1,6 @@
 <template>
   <section :id="compact ? null : 'sample-map'" :class="compact ? 'map-compact hex-map' : 'section container stat-figure hex-map'">
-    <chart-download v-if="!compact" target="#sample-map" name="sample-locations" />
+    <chart-download v-if="!compact" target="#sample-map" name="sample-locations" :table="table" />
     <h3 v-if="!compact" class="subtitle is-3 stat-title"><a class="section-anchor" href="#sample-map">#</a> Where samples were collected</h3>
     <!-- Shown only with the hexagon data, because it quotes the hexagon size. -->
     <p v-if="has_hexes && !compact" class="stat-note">
@@ -102,6 +102,7 @@
 <script>
 import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import { markRaw } from 'vue'
+import { hexMapTable } from '@/components/statistics/chartTables'
 import * as d3 from 'd3'
 import { mesh } from 'topojson-client'
 import { DETAIL_LEVELS, COUNTRY_LABEL_ZOOM, landOf, worldLabels, countryLabelsOf, visibleCountryLabels } from '@/components/statistics/worldGeometry'
@@ -379,6 +380,10 @@ export default {
     }
   },
   methods: {
+    // Runs in every hexagon, host-associated and ecological.
+    table () {
+      return hexMapTable(this.data)
+    },
     // Position along the colour scale of a run count: 1 at the left, the top of the scale at the right.
     legend_x (runs) {
       return (W * Math.log(runs)) / Math.log(this.max_runs)
@@ -460,7 +465,7 @@ export default {
 .map-hex-outline { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-accent); stroke-width: 2.4; stroke-linejoin: round; pointer-events: none; }
 /* A locked hexagon gets a heavier, darker ring than one that is only hovered. */
 .map-hex-outline.is-locked { stroke: var(--color-ink); stroke-width: 3.2; }
-.map-hex-outline.is-chosen-halo { stroke: #fff; stroke-width: 8; }
+.map-hex-outline.is-chosen-halo { stroke: var(--color-white); stroke-width: 8; }
 .map-hex-outline.is-chosen { stroke: var(--color-ink); stroke-width: 5; }
 .map-compact { margin-top: var(--space-3); }
 .map-guide { stroke: var(--color-ink-muted); stroke-width: 0.8; opacity: 0.35; pointer-events: none; }
@@ -487,7 +492,7 @@ export default {
 /* The selected button takes the colour its hexagons and bars have on the map. */
 .map-view-host_associated :deep(.button.is-selected),
 .map-view-host_associated :deep(.button.is-selected:hover),
-.map-view-host_associated :deep(.button.is-selected:focus) { background-color: var(--color-sample-host); border-color: var(--color-sample-host); color: #fff; }
+.map-view-host_associated :deep(.button.is-selected:focus) { background-color: var(--color-sample-host); border-color: var(--color-sample-host); color: var(--color-white); }
 .map-view-ecological :deep(.button.is-selected),
 .map-view-ecological :deep(.button.is-selected:hover),
 .map-view-ecological :deep(.button.is-selected:focus) { background-color: var(--color-sample-ecological); border-color: var(--color-sample-ecological); color: var(--color-ink); }

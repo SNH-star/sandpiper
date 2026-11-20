@@ -198,12 +198,12 @@ export default {
 </script>
 
 <style scoped>
-.flat-map { position: relative; background: #fff; }
+.flat-map { position: relative; background: var(--color-white); }
 .flat-map svg { display: block; width: 100%; height: auto; cursor: grab; }
 .flat-map svg:active { cursor: grabbing; }
 /* The sea and land take the colours of the globe view's street map. */
 .flat-sea { fill: #6fb1e4; }
-.flat-graticule { vector-effect: non-scaling-stroke; fill: none; stroke: #fff; stroke-width: 0.6; opacity: 0.35; pointer-events: none; }
+.flat-graticule { vector-effect: non-scaling-stroke; fill: none; stroke: var(--color-white); stroke-width: 0.6; opacity: 0.35; pointer-events: none; }
 .flat-land { fill: #f8f4f0; }
 .flat-border { vector-effect: non-scaling-stroke; fill: none; stroke: hsl(30, 8%, 62%); stroke-width: 0.7; pointer-events: none; }
 .flat-coast { vector-effect: non-scaling-stroke; fill: none; stroke: hsl(208, 35%, 34%); stroke-width: 0.9; pointer-events: none; }
@@ -213,13 +213,13 @@ export default {
 .flat-world-label.is-continent { fill: #1b2a3a; font-weight: 600; opacity: 0.75; }
 .flat-world-label.is-ocean { fill: hsl(210, 60%, 22%); font-style: italic; opacity: 0.8; }
 /* In the top right corner, which the world's outline leaves empty, where the globe has its own pair. */
-.flat-zoom { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; border-radius: 4px; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1); }
-.flat-zoom-button { width: 29px; height: 29px; padding: 0; font: inherit; font-size: 1.2rem; line-height: 1; color: #333; background: #fff; border: 0; cursor: pointer; }
+.flat-zoom { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; border-radius: 4px; box-shadow: 0 0 0 2px var(--black-10); }
+.flat-zoom-button { width: 29px; height: 29px; padding: 0; font: inherit; font-size: 1.2rem; line-height: 1; color: #333; background: var(--color-white); border: 0; cursor: pointer; }
 .flat-zoom-button:first-child { border-radius: 4px 4px 0 0; }
 .flat-zoom-button:last-child { border-top: 1px solid #ddd; border-radius: 0 0 4px 4px; }
 .flat-zoom-button:hover:not(:disabled) { background: #f2f2f2; }
 .flat-zoom-button:disabled { color: #bbb; cursor: default; }
-.flat-zoom-button:focus-visible { outline: 2px solid #3273dc; outline-offset: 1px; }
+.flat-zoom-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 @media (max-width: 600px) {
   .flat-zoom-button { width: 2.75rem; height: 2.75rem; }
 }

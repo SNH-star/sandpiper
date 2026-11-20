@@ -659,7 +659,7 @@ export default {
   padding: var(--space-1) var(--space-2);
   min-height: 2rem;
   font-size: 0.9rem;
-  color: #3273dc;
+  color: var(--color-focus);
   cursor: pointer;
   border-radius: 4px;
   transition: background-color 0.15s ease;
@@ -671,12 +671,12 @@ export default {
 }
 
 .sunburst-crumb:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 .sunburst-crumb.is-current {
-  color: #363636;
+  color: var(--color-text);
   font-weight: 600;
   cursor: default;
 }
@@ -691,8 +691,8 @@ export default {
   align-items: center;
   gap: 0.35rem;
   flex: none;
-  border: 1px solid #dbdbdb;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
   color: #4a4a4a;
   border-radius: 999px;
   padding: 0.35rem 0.85rem;
@@ -703,13 +703,13 @@ export default {
 }
 
 .sunburst-reset:hover {
-  border-color: #3273dc;
-  color: #3273dc;
+  border-color: var(--color-focus);
+  color: var(--color-focus);
   background-color: rgba(50, 115, 220, 0.06);
 }
 
 .sunburst-reset:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -745,7 +745,7 @@ export default {
 .sunburst-block :deep(.sunburst-donut-label) {
   font-size: 26px;
   font-weight: 700;
-  fill: #363636;
+  fill: var(--color-text);
 }
 
 /* Both SVGs have a square viewBox, so giving them a width and letting the
@@ -776,7 +776,7 @@ export default {
 .sunburst-hint {
   text-align: center;
   font-size: 0.8rem;
-  color: #7a7a7a;
+  color: var(--color-text-light);
   margin-top: var(--space-2);
 }
 
@@ -791,7 +791,7 @@ export default {
   margin: 0 0 var(--space-1);
   font-size: 1.3rem;
   font-weight: 700;
-  color: #363636;
+  color: var(--color-text);
 }
 
 .sunburst-detail {
@@ -827,7 +827,7 @@ export default {
 .sunburst-detail-rank {
   flex: none;
   width: 3.6rem;
-  color: #7a7a7a;
+  color: var(--color-text-light);
 }
 
 .sunburst-detail-stats {
@@ -839,9 +839,7 @@ export default {
 
 .sunburst-detail-stats dt {
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: #7a7a7a;
+  color: var(--color-text-light);
 }
 
 .sunburst-detail-stats dd {
@@ -855,7 +853,7 @@ export default {
   padding: var(--space-3);
   border: 1px solid #ddd;
   border-radius: 6px;
-  background: #fff;
+  background: var(--color-white);
   font-size: 0.8rem;
   line-height: 1.45;
 }
@@ -866,11 +864,11 @@ export default {
 
 .sunburst-detail-empty {
   font-size: 0.85rem;
-  color: #7a7a7a;
+  color: var(--color-text-light);
 }
 
 .sunburst-block :deep(.svg-link) {
-  fill: #3273dc;
+  fill: var(--color-focus);
 }
 
 @media (max-width: 768px) {

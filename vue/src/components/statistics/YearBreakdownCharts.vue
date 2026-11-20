@@ -73,9 +73,5 @@ export default {
 .stack-line polyline { stroke: var(--color-ink); stroke-width: 2; }
 .key { column-width: 16rem; column-gap: var(--space-6); margin-top: var(--space-6); }
 .key > span { display: block; break-inside: avoid; margin-bottom: var(--space-1); }
-.swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); }
 .line-swatch { height: 2px; vertical-align: middle; background: var(--color-ink); }
-.type-host_associated { background: var(--color-sample-host); }
-.type-ecological { background: var(--color-sample-ecological); }
-.type-unclassified { background: var(--color-sample-unclassified); }
 </style>

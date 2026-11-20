@@ -1,6 +1,6 @@
 <template>
   <section v-if="series.length" :id="spec.id" class="section container stat-figure">
-    <chart-download :target="'#' + spec.id" :name="spec.id" />
+    <chart-download :target="'#' + spec.id" :name="spec.id" :table="table" />
     <h3 class="subtitle is-3 stat-title"><a class="section-anchor" :href="'#' + spec.id">#</a> {{ spec.title }}</h3>
     <p class="stat-note is-wide">
       {{ spec.intro }} Counting only species that had a genome available the year before (by the
@@ -9,11 +9,16 @@
       they vary more.
     </p>
     <b-switch v-model="extrapolate" :name="'extrapolate-' + spec.id" class="trend-switch">Extrapolate with simple linear model</b-switch>
-    <p v-if="extrapolate" class="stat-note is-wide trend-extrapolation">
-      Each dashed line continues in a straight line until it reaches 100%, then stops, as if the trend stayed linear, which it
-      will not. The year each selected line is predicted to reach 100% is shown on the chart and in the legend; click a
-      line, or its legend entry, to add or remove it.
-    </p>
+    <template v-if="extrapolate">
+      <p class="stat-note is-wide trend-extrapolation">
+        Each dashed line continues in a straight line until it reaches 100%, then stops, as if the trend stayed linear, which it
+        will not. The year each selected line is predicted to reach 100% is shown on the chart and in the legend; click a
+        line, or its legend entry, to add or remove it.
+      </p>
+      <p class="stat-note is-wide trend-extrapolation">
+        This linear model is only roughly indicative, as it implicitly makes many assumptions about the future.
+      </p>
+    </template>
     <div class="trend-chart">
       <p class="trend-y-title"><span class="trend-y-long">Mean known species fraction (%)</span><span class="trend-y-short">Known species (%)</span></p>
       <div class="trend-plot" role="img" :aria-label="aria" @pointermove="move" @pointerdown="move" @pointerleave="hovered = null">
@@ -76,11 +81,12 @@
 import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import SUMMARIES from '@/constants/groupSummaries.json'
 import { toggleKey, isDimmed } from '@/components/statistics/density'
+import { groupColour } from '@/components/statistics/groupColours'
+import { yearTrendTable } from '@/components/statistics/chartTables'
 
 const MIN_YEAR_RUNS = 10
 const Y_TICKS = [0, 25, 50, 75, 100]
 const DARKEN = colour => `color-mix(in srgb, ${colour} 55%, black)`
-const PASTEL = name => `var(--color-pastel-${name})`
 // A gut series shares its host's hue, darkened, so the pair reads together.
 const withGut = (name, label, colour) => [
   { key: name, label: label + ' (non-gut)', colour },
@@ -113,9 +119,9 @@ const SPECS = {
     always_fit: false,
     extrapolated: ['human_gut', 'bovine'],
     series: [
-      ...withGut('human', 'Human', PASTEL('blue')), ...withGut('mouse', 'Mouse', PASTEL('green')),
-      { key: 'pig', label: 'Pig', colour: PASTEL('red') }, { key: 'bovine', label: 'Bovine', colour: PASTEL('orange') },
-      { key: 'plant', label: 'Plant', colour: PASTEL('purple') }
+      ...withGut('human', 'Human', groupColour('human')), ...withGut('mouse', 'Mouse', groupColour('mouse')),
+      { key: 'pig', label: 'Pig', colour: groupColour('pig') }, { key: 'bovine', label: 'Bovine', colour: groupColour('bovine') },
+      { key: 'plant', label: 'Plant', colour: groupColour('plant') }
     ],
     noun: 'host-associated'
   },
@@ -128,9 +134,9 @@ const SPECS = {
     always_fit: false,
     extrapolated: ['freshwater', 'soil', 'sediment'],
     series: [
-      { key: 'soil', label: 'Soil', colour: PASTEL('green') }, { key: 'sediment', label: 'Sediment', colour: PASTEL('red') },
-      { key: 'marine', label: 'Marine', colour: PASTEL('blue') }, { key: 'freshwater', label: 'Freshwater', colour: PASTEL('orange') },
-      { key: 'aquatic', label: 'Aquatic', colour: PASTEL('purple') }
+      { key: 'soil', label: 'Soil', colour: groupColour('soil') }, { key: 'sediment', label: 'Sediment', colour: groupColour('sediment') },
+      { key: 'marine', label: 'Marine', colour: groupColour('marine') }, { key: 'freshwater', label: 'Freshwater', colour: groupColour('freshwater') },
+      { key: 'aquatic', label: 'Aquatic', colour: groupColour('aquatic') }
     ],
     noun: 'ecological'
   }
@@ -228,6 +234,10 @@ export default {
     }
   },
   methods: {
+    // Every line's mean known species fraction by year (the fitted trend lines are not included).
+    table () {
+      return yearTrendTable(this.series)
+    },
     toggleKey,
     // Selected lines stay bright whatever is hovered, so two of them can be followed to where they cross;
     // hovering another line brightens it as well. With nothing selected, hovering picks out one line.
@@ -332,7 +342,6 @@ export default {
 .trend-key-item:hover, .trend-reset:hover { border-color: var(--color-rule); }
 .trend-key-item:focus-visible, .trend-reset:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .trend-reset { color: var(--color-ink-muted); text-decoration: underline; }
-.trend-swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); }
 .section-anchor:active { color: var(--color-accent-strong); }
 .section-anchor:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 </style>

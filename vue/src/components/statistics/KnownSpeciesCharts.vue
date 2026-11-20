@@ -1,6 +1,6 @@
 <template>
   <section id="known-species" class="section container stat-figure">
-    <chart-download target="#known-species" name="known-species-fraction" />
+    <chart-download target="#known-species" name="known-species-fraction" :table="table" />
     <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#known-species">#</a> Known species fraction</h3>
     <p v-for="note in notes" :key="note" class="stat-note">{{ note }}</p>
     <density-chart :chart="chart" interactive />
@@ -11,6 +11,9 @@
 import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import DensityChart from '@/components/statistics/DensityChart.vue'
 import { buildDensityChart } from '@/components/statistics/density'
+import { densityTable } from '@/components/statistics/chartTables'
+
+const X_TITLE = 'Known species fraction (%)'
 
 const SERIES = [
   { key: 'host_associated', label: 'Host-associated', colour: 'var(--color-sample-host)' },
@@ -34,22 +37,22 @@ export default {
         'Density shows where a group’s runs are concentrated: the higher the line, the more of the group’s runs have that known species fraction. The area under each line is 1, so the two groups can be compared.'
       ]
     },
-    chart () {
+    // Each group's histogram of runs by known species fraction.
+    lines () {
       const { distribution } = this
+      return SERIES.map(item => ({ ...item, histogram: this.histogram(distribution[item.key], distribution.bin_width) }))
+    },
+    chart () {
       return buildDensityChart({
         key: 'known_species',
         title: 'Share of runs at each known species fraction',
         note: '',
-        x_title: 'Known species fraction (%)',
+        x_title: X_TITLE,
         unit: '%',
         point_label: value => `${value}%`,
         x_step: 1,
         x_ticks: PERCENT_TICKS.map(value => ({ value, label: String(value) })),
-        series: SERIES.map(item => ({
-          colour: item.colour,
-          label: item.label,
-          histogram: this.histogram(distribution[item.key], distribution.bin_width)
-        }))
+        series: this.lines.map(item => ({ colour: item.colour, label: item.label, histogram: item.histogram }))
       })
     },
     distribution () {
@@ -57,6 +60,9 @@ export default {
     }
   },
   methods: {
+    table () {
+      return densityTable({ xTitle: X_TITLE, series: this.lines })
+    },
     // The bands as the parallel start / percent lists the density chart takes.
     histogram (bands, width) {
       const percent = bands.map(band => band.percent)

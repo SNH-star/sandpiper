@@ -230,7 +230,7 @@ export default {
 .metadata-detail-toggle:focus-visible,
 .metadata-key-toggle:focus-visible,
 .email-hidden:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 @media (max-width: 600px) {
@@ -288,11 +288,11 @@ export default {
   position: fixed;
   z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
-  color: #fff;
+  color: var(--color-white);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
   width: 280px;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 28px var(--black-50);
   font-size: 0.78rem;
   line-height: 1.5;
   pointer-events: auto;

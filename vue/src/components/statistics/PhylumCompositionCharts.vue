@@ -151,6 +151,6 @@ export default {
 .phylum-key-item:focus-visible, .phylum-reset:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .phylum-reset { color: var(--color-ink-muted); text-decoration: underline; }
 .phylum-segment.is-dim .phylum-percent { color: var(--color-ink-muted); }
-.phylum-swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); box-shadow: inset 0 0 0 1px var(--phylum-outline); }
+.phylum-swatch { box-shadow: inset 0 0 0 1px var(--phylum-outline); }
 .section-anchor:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 </style>

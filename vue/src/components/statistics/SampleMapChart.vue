@@ -337,12 +337,12 @@ export default {
 /* The selected button takes the colour its circles have on the map. */
 .map-view-host_associated :deep(.button.is-selected),
 .map-view-host_associated :deep(.button.is-selected:hover),
-.map-view-host_associated :deep(.button.is-selected:focus) { background-color: var(--color-sample-host); border-color: var(--color-sample-host); color: #fff; }
+.map-view-host_associated :deep(.button.is-selected:focus) { background-color: var(--color-sample-host); border-color: var(--color-sample-host); color: var(--color-white); }
 .map-view-ecological :deep(.button.is-selected),
 .map-view-ecological :deep(.button.is-selected:hover),
 .map-view-ecological :deep(.button.is-selected:focus) { background-color: var(--color-sample-ecological); border-color: var(--color-sample-ecological); color: var(--color-ink); }
 .map-key { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-2); }
-.swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: 50%; border: 1px solid var(--color-ink); }
+.swatch { border-radius: 50%; border: 1px solid var(--color-ink); }
 .swatch-host_associated { background: var(--color-sample-host); }
 .swatch-ecological { background: var(--color-sample-ecological); }
 .map-hover { box-sizing: border-box; min-height: 3.5rem; margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); overflow-y: auto; max-width: none; }

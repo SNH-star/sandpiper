@@ -3,7 +3,7 @@
     <p class="section-note">Habitat totals, genus values, and bar lengths show indicator abundance as a percentage of the sample.</p>
     <p v-if="anyAverage" class="average-legend">
       <span class="average-key" aria-hidden="true"><span class="average-glyph is-down"></span><span class="average-glyph"></span></span>
-      <span>Average for the runs recorded as that habitat that have indicator genera for it. Hover or focus a triangle for the figures.</span>
+      <span>Average for all the runs recorded as that habitat; a run with no indicator genus for it counts as zero. Hover or focus a triangle for the figures.</span>
     </p>
     <div v-for="row in habitats" :key="row.k" class="habitat-row">
       <div class="habitat-row-header">
@@ -17,6 +17,7 @@
         >
           <b-icon icon="information-outline" size="is-small" />
           <span class="habitat-name">{{ row.k }}</span>
+          <span v-if="recordedAs(row.k)" class="habitat-labels" :title="`Runs whose organism is recorded as ${recordedAs(row.k)} (each followed by “metagenome”) are expected to match ${row.k}.`">({{ recordedAs(row.k) }})</span>
         </button>
         <span class="habitat-score">{{ formatPercent(row.score) }}</span>
       </div>
@@ -58,7 +59,7 @@
 
 <script>
 import * as d3 from 'd3'
-import { formatIndicPiperPercent } from '@/utils/indicpiper'
+import { formatIndicPiperPercent, indicpiperHabitatLabels } from '@/utils/indicpiper'
 import SUMMARIES from '@/constants/groupSummaries.json'
 
 export default {
@@ -113,19 +114,22 @@ export default {
     },
   },
   methods: {
+    recordedAs(habitat) {
+      return indicpiperHabitatLabels(habitat).join(', ')
+    },
     toggle(key) {
       this.expanded[key] = !this.expanded[key]
     },
-    // Where the average of the runs recorded as this habitat falls on the bar (the same 0-1 scale), or null
-    // when no run is recorded as it.
+    // Where the average of all the runs recorded as this habitat falls on the bar (the same 0-1 scale), zeros
+    // included as on the Statistics page, or null when no run is recorded as it.
     groupAverage(row) {
       const group = (SUMMARIES.indicpiper_by_habitat || {})[row.k]
-      if (!group || !group.runs || !Number.isFinite(group.mean_abundance_matched)) return null
-      const percent = group.mean_abundance_matched * 100
+      if (!group || !group.runs || !Number.isFinite(group.mean_abundance)) return null
+      const percent = group.mean_abundance * 100
       return {
         position: Math.min(percent, 100),
-        title: `Typical ${row.k} run: across ${group.matched_runs.toLocaleString('en-US')} runs labelled ${row.k} that contain ${row.k} indicator genera, ` +
-          `these genera make up on average ${this.formatPercent(group.mean_abundance_matched)} of the sample (${group.mean_genera_matched.toFixed(1)} genera per run).`,
+        title: `Typical ${row.k} run: across ${group.runs.toLocaleString('en-US')} runs labelled ${row.k} (runs with no ${row.k} indicator genus count as zero), ` +
+          `these genera make up on average ${this.formatPercent(group.mean_abundance)} of the sample (${group.mean_genera.toFixed(1)} genera per run).`,
       }
     },
     detailId(key) {
@@ -177,6 +181,12 @@ export default {
 </script>
 
 <style scoped>
+.habitat-labels {
+  margin-left: var(--space-2);
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-ink-muted);
+}
 .indicpiper-chart {
   display: flex;
   flex-direction: column;
@@ -205,7 +215,7 @@ export default {
 }
 
 .habitat-toggle:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -216,7 +226,7 @@ export default {
 
 .habitat-score {
   font-variant-numeric: tabular-nums;
-  color: hsl(0, 0%, 40%);
+  color: var(--color-ink-muted);
   white-space: nowrap;
 }
 
@@ -250,11 +260,11 @@ export default {
   border-right: 0.32rem solid transparent;
 }
 
-.average-mark.is-above::before { top: 0; border-top: 0.42rem solid hsl(0, 0%, 25%); }
-.average-mark.is-below::before { bottom: 0; border-bottom: 0.42rem solid hsl(0, 0%, 25%); }
+.average-mark.is-above::before { top: 0; border-top: 0.42rem solid var(--color-ink-strong); }
+.average-mark.is-below::before { bottom: 0; border-bottom: 0.42rem solid var(--color-ink-strong); }
 
 .average-mark:focus-visible {
-  outline: 2px solid var(--color-accent, #3273dc);
+  outline: 2px solid var(--color-accent, var(--color-focus));
   outline-offset: 1px;
 }
 
@@ -270,7 +280,7 @@ export default {
   line-height: 1.4;
   text-align: left;
   color: var(--color-ink, hsl(0, 0%, 15%));
-  background: var(--color-surface, hsl(0, 0%, 100%));
+  background: var(--color-surface, var(--color-white));
   border: 1px solid var(--color-rule, hsl(0, 0%, 82%));
   border-radius: 2px;
   pointer-events: none;
@@ -287,7 +297,7 @@ export default {
   align-items: center;
   gap: 0.6rem;
   margin: 0;
-  color: hsl(0, 0%, 40%);
+  color: var(--color-ink-muted);
   font-size: 0.85rem;
   line-height: 1.4;
 }
@@ -306,12 +316,12 @@ export default {
   height: 0;
   border-left: 0.32rem solid transparent;
   border-right: 0.32rem solid transparent;
-  border-bottom: 0.42rem solid hsl(0, 0%, 25%);
+  border-bottom: 0.42rem solid var(--color-ink-strong);
 }
 
 .average-glyph.is-down {
   border-bottom: 0;
-  border-top: 0.42rem solid hsl(0, 0%, 25%);
+  border-top: 0.42rem solid var(--color-ink-strong);
 }
 
 .habitat-bar {
@@ -333,7 +343,7 @@ export default {
 .habitat-bar-segment:hover,
 .habitat-bar-segment:focus-visible {
   filter: brightness(1.15);
-  outline: 1px solid hsl(0, 0%, 100%);
+  outline: 1px solid var(--color-white);
   outline-offset: -1px;
 }
 
@@ -366,7 +376,7 @@ export default {
 .detail-legend {
   margin: 0.6rem 0 0;
   padding-top: 0.4rem;
-  border-top: 1px solid hsl(0, 0%, 88%);
+  border-top: 1px solid var(--color-rule);
   color: hsl(0, 0%, 55%);
   font-size: 0.75rem;
 }
@@ -393,12 +403,12 @@ export default {
 
 .detail-fraction {
   font-variant-numeric: tabular-nums;
-  color: hsl(0, 0%, 40%);
+  color: var(--color-ink-muted);
 }
 
 .detail-indval {
   font-variant-numeric: tabular-nums;
-  color: hsl(0, 0%, 40%);
+  color: var(--color-ink-muted);
   font-size: 0.8em;
 }
 

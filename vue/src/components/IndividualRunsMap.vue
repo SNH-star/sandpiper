@@ -126,12 +126,12 @@ export default {
   border: 0;
   padding: 0.4rem 0;
   background: transparent;
-  color: #3273dc;
+  color: var(--color-focus);
   cursor: pointer;
   font: inherit;
 }
 .map-reset:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 @media (max-width: 768px) {

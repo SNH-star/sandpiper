@@ -214,10 +214,10 @@ export default {
 
 <style scoped>
 .runs-marker { cursor: pointer; outline: none; }
-.runs-marker-disc { stroke: #fff; stroke-width: 2; }
+.runs-marker-disc { stroke: var(--color-white); stroke-width: 2; }
 .runs-marker:hover .runs-marker-disc, .runs-marker:focus-visible .runs-marker-disc { stroke-width: 3; }
 .runs-marker.is-pinned .runs-marker-disc { stroke: #1b2a3a; stroke-width: 3; }
-.runs-marker-count { font-size: 11px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: central; pointer-events: none; user-select: none; }
+.runs-marker-count { font-size: 11px; font-weight: 700; fill: var(--color-white); text-anchor: middle; dominant-baseline: central; pointer-events: none; user-select: none; }
 .runs-flat-popup {
   position: absolute;
   z-index: 3;
@@ -228,13 +228,13 @@ export default {
   font-size: 0.85rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
-  background: #fff;
+  background: var(--color-white);
   border-radius: 3px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 14px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px var(--black-10), 0 4px 14px var(--black-20);
   transform: translate(var(--shift), calc(-100% - var(--gap)));
 }
 .runs-flat-popup.is-below { transform: translate(var(--shift), var(--gap)); }
 .runs-flat-popup-close { position: absolute; top: 0.1rem; right: 0.1rem; width: 1.6rem; height: 1.6rem; padding: 0; font: inherit; font-size: 1.1rem; line-height: 1; color: hsl(0, 0%, 35%); background: none; border: 0; border-radius: 2px; cursor: pointer; }
 .runs-flat-popup-close:hover { background: #f2f2f2; }
-.runs-flat-popup-close:focus-visible { outline: 2px solid #3273dc; }
+.runs-flat-popup-close:focus-visible { outline: 2px solid var(--color-focus); }
 </style>

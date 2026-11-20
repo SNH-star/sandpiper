@@ -477,10 +477,10 @@ export default {
   min-width: 210px;
   max-width: 320px;
   padding: 0.6rem 0.7rem;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--white-97);
   border: 1px solid #dcd7c9;
   border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 4px 14px var(--black-16);
   font-size: 0.8rem;
   line-height: 1.35;
 }
@@ -523,7 +523,7 @@ export default {
   flex: 1 1 auto;
 }
 .map-tip-count {
-  color: #666;
+  color: var(--color-grey-mid);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -531,7 +531,7 @@ export default {
   margin-top: 0.4rem;
   padding-top: 0.35rem;
   border-top: 1px solid #eee7d8;
-  color: #555;
+  color: var(--color-grey-dark);
 }
 .map-tip-study {
   display: flex;
@@ -544,7 +544,7 @@ export default {
 }
 .map-tip-hint {
   margin-top: 0.45rem;
-  color: #3273dc;
+  color: var(--color-focus);
   font-size: 0.72rem;
 }
 .panel {
@@ -611,7 +611,7 @@ export default {
 }
 .poles-toggle:hover,
 .poles-toggle:focus-visible {
-  color: hsl(174, 62%, 22%);
+  color: var(--color-accent-deep);
 }
 .disclosure-chevron {
   display: inline-flex;

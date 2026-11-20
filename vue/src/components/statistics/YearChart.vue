@@ -246,13 +246,6 @@ export default {
   margin-top: var(--space-4);
 }
 .year-key > span { display: block; break-inside: avoid; margin-bottom: var(--space-1); }
-.year-swatch {
-  display: inline-block;
-  width: 0.8rem;
-  height: 0.8rem;
-  margin-right: var(--space-2);
-  border-radius: var(--radius-bar);
-}
 .year-line-swatch {
   height: 2px;
   vertical-align: middle;
@@ -264,9 +257,6 @@ export default {
   outline-offset: -1px;
 }
 .type-all { background: var(--color-accent); }
-.type-host_associated { background: var(--color-sample-host); }
-.type-ecological { background: var(--color-sample-ecological); }
-.type-unclassified { background: var(--color-sample-unclassified); }
 
 @media (max-width: 768px) {
   .year-chart {

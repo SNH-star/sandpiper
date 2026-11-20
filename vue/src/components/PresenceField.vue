@@ -4,7 +4,7 @@
       {{ label }}
       <slot name="label-suffix" />
     </template>
-    <div class="field has-addons presence-field">
+    <div class="field has-addons presence-field" :class="{ 'has-error': !!errorMessage }">
       <div class="control is-expanded search-autocomplete-wrap">
         <b-input
           ref="fieldInput"
@@ -157,6 +157,18 @@ export default {
 .presence-any-btn {
   min-width: 46px;
 }
+/* Bulma gives a .field a right margin unless it is the last child. An error
+   message is a later sibling, so this row lost 12px of width the moment a
+   field turned red. */
+.field.has-addons.presence-field {
+  margin-right: 0;
+}
+/* Bulma tucks the Any button 1px over the input's right edge, which hid that
+   side of a red border. Butt them against each other while invalid instead
+   of lifting the input (which would cover the floating label and the "!"). */
+.field.has-addons.presence-field.has-error > .control {
+  margin-right: 0;
+}
 .search-autocomplete-wrap {
   position: relative;
 }
@@ -184,10 +196,10 @@ export default {
   max-width: min(40rem, calc(100vw - 2rem));
   top: 100%;
   margin-top: 0.25rem;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--black-10);
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px var(--black-12);
   max-height: 240px;
   overflow-y: auto;
   z-index: 30;

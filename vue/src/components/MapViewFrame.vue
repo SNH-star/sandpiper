@@ -59,23 +59,23 @@ export default {
 .view-frame { margin: 0 0 1rem; }
 .view-frame-bar { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; margin-bottom: 0.4rem; }
 .view-frame-group { display: flex; gap: 2px; }
-.view-frame-view { border: 1px solid var(--color-rule, hsl(0, 0%, 88%)); border-radius: 2px; }
-.view-frame-view :deep(.view-frame-message) { margin: 0; padding: 2rem 1rem; font-size: 0.9rem; color: hsl(0, 0%, 40%); text-align: center; }
+.view-frame-view { border: 1px solid var(--color-rule, var(--color-rule)); border-radius: 2px; }
+.view-frame-view :deep(.view-frame-message) { margin: 0; padding: 2rem 1rem; font-size: 0.9rem; color: var(--color-ink-muted); text-align: center; }
 .view-frame-button {
   min-height: 2rem;
   padding: 0 0.7rem;
   font: inherit;
   font-size: 0.85rem;
-  color: #363636;
-  background: #fff;
+  color: var(--color-text);
+  background: var(--color-white);
   border: 1px solid #c8c8c8;
   border-radius: 2px;
   cursor: pointer;
 }
 .view-frame-button:hover { border-color: #00796b; }
-.view-frame-button.is-active { color: #fff; background: #00796b; border-color: #00796b; }
-.view-frame-button:focus-visible { outline: 2px solid #3273dc; outline-offset: 2px; }
-.view-frame-caption { margin-top: 0.4rem; font-size: 0.9rem; color: hsl(0, 0%, 40%); }
+.view-frame-button.is-active { color: var(--color-white); background: #00796b; border-color: #00796b; }
+.view-frame-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.view-frame-caption { margin-top: 0.4rem; font-size: 0.9rem; color: var(--color-ink-muted); }
 .view-frame-hint { display: block; font-size: 0.8rem; }
 @media (max-width: 600px) {
   .view-frame-button { min-height: 2.75rem; }

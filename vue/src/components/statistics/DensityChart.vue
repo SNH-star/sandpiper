@@ -188,5 +188,4 @@ export default {
 .density-legend-item:hover, .density-reset:hover { border-color: var(--color-rule); }
 .density-legend-item:focus-visible, .density-reset:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .density-reset { color: var(--color-ink-muted); text-decoration: underline; }
-.density-swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: var(--space-2); border-radius: var(--radius-bar); }
 </style>

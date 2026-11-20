@@ -207,9 +207,22 @@
         <div v-if="show_indicpiper_help" id="indicpiper-help" class="content metalog-help">
           <p>
             <a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener">IndicPiper</a>
-            identifies genera that are strong and specific indicators of particular habitats using <b>Indicspecies::Multipatt</b> IndVal analysis.
-            Sandpiper uses IndicPiper's curated, published indicator database as provided, rather than regenerating it from Sandpiper's data, and compares the genus composition of each run against this database. 
-            Each habitat percentage represents the summed relative abundance of its indicator genera in this sample. IndicPiper’s reference database covers 13 habitats. Samples may exhibit microbial signals associated with multiple habitats; these associations do not establish the sample’s environment of origin. Percentages describe abundance, not confidence in a habitat assignment.
+            identifies GTDB genera that are strong indicators of particular habitats. It uses established ecological methods of indicator “species” analysis
+            (<b>Indicspecies::Multipatt</b> IndVal), but the indicators are genera rather than species. In the current version of IndicPiper ({{ INDICPIPER_VERSION }}), {{ INDICATOR_GENUS_COUNT }} genera
+            were flagged as indicators of one of {{ HABITAT_COUNT }} habitats. Sandpiper uses this curated, published set as provided, and each habitat percentage is the summed
+            relative abundance of its indicator genera in this sample. Each habitat corresponds to one or more BioSample “organism” values, shown in brackets
+            beside its name without the “ metagenome” suffix.
+          </p>
+          <p>
+            The total relative abundance of indicator genera differs between habitats. For instance, human vaginal samples are mostly made up of indicator genera,
+            while indicator genera are the minority in soil samples. A low indicator fraction does not by itself mean a sample is misannotated. Samples may show
+            signals of several habitats, and these do not establish the sample’s environment of origin. Percentages describe abundance, not confidence in a habitat assignment.
+          </p>
+          <p>
+            Indicator genera were defined from Sandpiper {{ INDICATORS_DEFINED_FROM }} community profiles. This site applies that fixed set of genera to the current Sandpiper profiles,
+            which use an updated profiling algorithm. The <router-link to="/statistics#indicpiper-by-group">Statistics page</router-link> gives an overview of IndicPiper on Sandpiper,
+            and the IndicPiper <a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener">bioRxiv preprint</a> describes the method in full,
+            including how likely misannotated metagenomes are excluded.
           </p>
           <p>
             Runs with an IndicPiper score of zero either contain no genus-level classifications or contain classified genera that are not included in IndicPiper's curated indicator database.  
@@ -221,7 +234,7 @@
         <div v-if="indicpiper_uncovered_organism" class="notification is-warning" role="status">
           <strong>Environment not covered by IndicPiper</strong>
           <p>
-            This run is labelled "{{ indicpiper_uncovered_organism }}", which is not one of the 13 habitats IndicPiper was built from, so the habitat percentages below should be interpreted with caution.
+            This run is labelled "{{ indicpiper_uncovered_organism }}", which is not one of the {{ HABITAT_COUNT }} habitats IndicPiper was built from, so the habitat percentages below should be interpreted with caution.
           </p>
         </div>
         <div v-if="indicpiper_mismatch" class="notification is-warning" role="status">
@@ -231,7 +244,7 @@
             {{ indicpiper_mismatch.expectedHabitat }}, whereas the strongest IndicPiper signal is
             {{ indicpiper_mismatch.top.k }} ({{ formatIndicPiperPercent(indicpiper_mismatch.top.score) }}
             indicator abundance).
-            IndicPiper’s reference database is limited to 13 habitats (Per the <a href="https://github.com/cliffbueno/IndicPiper">Setup</a>). Microbial signals associated
+            IndicPiper’s reference database is limited to {{ HABITAT_COUNT }} habitats (Per the <a href="https://github.com/cliffbueno/IndicPiper">Setup</a>). Microbial signals associated
             with a habitat may occur in samples from other environments and do not establish the
             sample’s environment of origin. This discrepancy should be interpreted alongside the
             recorded sample metadata; it does not by itself demonstrate a potential metadata error.
@@ -254,6 +267,7 @@ import countries110m from 'world-atlas/countries-110m.json'
 import { locationMismatch } from '@/components/statistics/worldGeometry'
 import RunLocationMap from '@/components/RunLocationMap.vue'
 import IndicPiperHabitatChart from '@/components/IndicPiperHabitatChart.vue'
+import { INDICPIPER_VERSION, INDICATORS_DEFINED_FROM, HABITAT_COUNT, INDICATOR_GENUS_COUNT } from '@/utils/indicpiperFacts'
 import { indicpiperMismatch, indicpiperUncoveredOrganism, formatIndicPiperPercent } from '@/utils/indicpiper'
 // Same Metalog release the About page quotes: the API value when the database
 // carries one, else the recorded fallback -- so the two pages cannot disagree.
@@ -297,7 +311,11 @@ export default {
       SAMPLE_FILTERS,
       NO_METADATA_TOOLTIP,
       sample_filters: [],
-      show_indicpiper_help: false
+      show_indicpiper_help: false,
+      INDICPIPER_VERSION,
+      INDICATORS_DEFINED_FROM,
+      HABITAT_COUNT,
+      INDICATOR_GENUS_COUNT
     }
   },
   computed: {
@@ -564,7 +582,7 @@ export default {
   align-items: center;
   gap: 0.4rem;
   font-size: 0.85rem;
-  color: hsl(0, 0%, 25%);
+  color: var(--color-ink-strong);
   cursor: pointer;
 }
 .sample-filter input {
@@ -598,13 +616,13 @@ export default {
   background: transparent;
   cursor: pointer;
   vertical-align: middle;
-  color: #7a7a7a;
+  color: var(--color-text-light);
 }
 .metalog-info:hover {
-  color: #363636;
+  color: var(--color-text);
 }
 .metalog-info:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .metalog-help {
@@ -630,12 +648,12 @@ export default {
    (app.scss's global .title rule) otherwise inherits straight down into
    the button -- fine for the heading text, wrong for a UI action label. */
 .section-heading :deep(.button) {
-  font-family: system-ui, -apple-system, "Segoe UI", "Ubuntu", "Cantarell", sans-serif;
+  font-family: var(--font-system);
 }
 .section-note {
   margin: 0.15rem 0 0.75rem;
   font-size: 0.85rem;
-  color: hsl(0, 0%, 40%);
+  color: var(--color-ink-muted);
 }
 /* Replaces the blank lines that used to separate the sections. */
 .metadata-section {
@@ -647,7 +665,7 @@ export default {
   .metadata-block {
     margin-top: 1.5rem;
     padding: 1.5rem 0 0.5rem;
-    border-top: 2px solid hsl(0, 0%, 88%);
+    border-top: 2px solid var(--color-rule);
   }
   .metalog-info {
     min-width: 44px;

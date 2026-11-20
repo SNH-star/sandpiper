@@ -2,7 +2,7 @@
   <div ref="root" class="chart-download" @keydown.esc="closeMenu">
     <div class="download-split">
       <button type="button" class="download-main" :disabled="busy" @click="download">
-        {{ busy ? 'Preparing...' : `Download ${FORMATS[format].label}` }}
+        {{ busy ? 'Preparing...' : `Download ${label(format)}` }}
       </button>
       <button
         type="button"
@@ -17,11 +17,11 @@
       </button>
     </div>
     <ul v-if="open" class="download-menu" role="menu" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)">
-      <li v-for="(item, key) in CHOICES" :key="key" role="none">
+      <li v-for="(item, key) in choices" :key="key" role="none">
         <button type="button" class="download-choice" role="menuitemradio" :aria-checked="String(format === key)" @click="choose(key)">
           <span class="download-check" aria-hidden="true">{{ format === key ? '✓' : '' }}</span>
           <span class="download-choice-text">
-            <strong>Download {{ FORMATS[key].label }}</strong>
+            <strong>Download {{ label(key) }}</strong>
             <span>{{ item }}</span>
           </span>
         </button>
@@ -33,11 +33,15 @@
 
 <script>
 import { exportFigure, FORMATS } from '@/components/statistics/chartExport'
+import { downloadCsv } from '@/components/statistics/tableExport'
 
 const CHOICES = {
   svg: 'One scalable file, for documents and slides',
   png: 'A picture, for anywhere that takes images'
 }
+// Offered only by a figure that has a table.
+const TABLE_CHOICE = { csv: 'The figure’s numbers as a table, for spreadsheets and your own analysis' }
+const CSV_LABEL = 'CSV'
 
 // A GitHub style split button: the left part downloads the figure it belongs to in the chosen format
 // (SVG to begin with), the arrow chooses the format. The file is the figure as it is on screen.
@@ -47,10 +51,17 @@ export default {
     // Selector of the figure to save, e.g. '#release-year'.
     target: { type: String, required: true },
     // Used in the file name.
-    name: { type: String, required: true }
+    name: { type: String, required: true },
+    // Gives the figure's data as { columns, rows } as it is on screen now. A figure with one can also be saved as a CSV.
+    table: { type: Function, default: null }
   },
   data () {
-    return { FORMATS, CHOICES, format: 'svg', open: false, busy: false, error: '' }
+    return { format: 'svg', open: false, busy: false, error: '' }
+  },
+  computed: {
+    choices () {
+      return this.table ? { ...CHOICES, ...TABLE_CHOICE } : CHOICES
+    }
   },
   mounted () {
     document.addEventListener('pointerdown', this.closeOnOutside)
@@ -81,9 +92,24 @@ export default {
       this.open = false
       this.$refs.root.querySelector('.download-main').focus()
     },
+    label (key) {
+      return key === 'csv' ? CSV_LABEL : FORMATS[key].label
+    },
+    downloadTable () {
+      try {
+        downloadCsv(this.table(), this.name)
+      } catch (error) {
+        console.error('Table download failed', error)
+        this.error = `The ${CSV_LABEL} could not be made. Please try again.`
+      }
+    },
     async download () {
-      const figure = document.querySelector(this.target)
       this.error = ''
+      if (this.format === 'csv') {
+        this.downloadTable()
+        return
+      }
+      const figure = document.querySelector(this.target)
       if (!figure) {
         this.error = 'This figure could not be found on the page.'
         return
@@ -93,7 +119,7 @@ export default {
         await exportFigure(figure, { format: this.format, name: this.name })
       } catch (error) {
         console.error('Figure download failed', error)
-        this.error = `The ${FORMATS[this.format].label} could not be made. Please try again.`
+        this.error = `The ${this.label(this.format)} could not be made. Please try again.`
       } finally {
         this.busy = false
       }
@@ -108,21 +134,21 @@ export default {
 @media (max-width: 640px) {
   .chart-download { float: none; display: flex; justify-content: flex-end; margin: 0 0 var(--space-2); }
 }
-.download-split { display: inline-flex; border-radius: var(--radius-bar); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1); }
+.download-split { display: inline-flex; border-radius: var(--radius-bar); box-shadow: 0 1px 0 var(--black-10); }
 .download-main, .download-arrow {
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
   line-height: 1.2;
-  color: #fff;
+  color: var(--color-white);
   background: var(--color-accent);
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--black-20);
   cursor: pointer;
   touch-action: manipulation;
 }
 .download-main { padding: 0.35rem 0.8rem; border-radius: var(--radius-bar) 0 0 var(--radius-bar); }
 /* The divider between the two parts, as on GitHub's merge button. */
-.download-arrow { display: inline-flex; align-items: center; padding: 0 0.4rem; border-left-color: rgba(255, 255, 255, 0.4); border-radius: 0 var(--radius-bar) var(--radius-bar) 0; }
+.download-arrow { display: inline-flex; align-items: center; padding: 0 0.4rem; border-left-color: var(--white-40); border-radius: 0 var(--radius-bar) var(--radius-bar) 0; }
 .download-main:hover:not(:disabled), .download-arrow:hover:not(:disabled), .download-arrow[aria-expanded="true"] { filter: brightness(0.92); }
 .download-main:focus-visible, .download-arrow:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 .download-main:disabled, .download-arrow:disabled { opacity: 0.7; cursor: progress; }
@@ -137,7 +163,7 @@ export default {
   background: var(--color-surface);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-bar);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 24px var(--black-18);
 }
 .download-choice { display: flex; align-items: flex-start; gap: var(--space-2); width: 100%; padding: var(--space-2) var(--space-3); font: inherit; text-align: left; color: var(--color-ink); background: none; border: 0; cursor: pointer; }
 .download-choice:hover, .download-choice:focus-visible { background: var(--color-track); outline: none; }
