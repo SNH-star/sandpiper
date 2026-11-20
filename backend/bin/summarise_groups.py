@@ -512,6 +512,8 @@ def taxa_group_breakdown(db_path: str) -> dict:
         connection.close()
 
 
+# Organism label -> IndicPiper habitat, from Table S4 of the IndicPiper paper (the exact strings its habitat search
+# uses). Next release: read IndicPiper's own mapping instead.
 HABITAT_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'vue', 'src', 'constants',
                                 'indicpiperHabitats.json')
 

@@ -506,6 +506,7 @@ def sandpiper_statistics():
         statistics_cache['known_species'] = known_species
         statistics_cache['year_breakdown'] = figures.query_year_breakdown(db.session)
         statistics_cache['map'] = {**figures.query_map_cells(db.session), **figures.query_map_hexes(db.session)}
+        statistics_cache['taxa_by_sample_type'] = figures.query_taxa_by_sample_type(db.session)
     generate_cache()
     return jsonify({**statistics_cache, 'version': __version__, 'gtdb_version': __gtdb_version__,
                     'scrape_date': __scrape_date__,
@@ -2333,6 +2334,23 @@ def _apply_numeric_filter_int(column, value, scale=1.0, approx_delta=None):
 HABITAT_SCORE_RE = re.compile(r'^(?P<name>.*?)\s*(?P<expr>(?:>=|<=|>|<)\s*-?\d+(?:\.\d+)?)$')
 
 
+def indicpiper_score_expr(expr):
+    """Turn a typed IndicPiper comparison into one on the stored 0-1 score.
+
+    Users may write a fraction (0-1) or a percentage (1-100); 1 means 1%, not
+    100%, and 100% is written 100. ">=10" -> ">=0.1", ">0.5" -> ">0.5".
+    Returns None for a number outside 0-100, which can match nothing sensible.
+    """
+    m = re.match(r'^(>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)$', expr.strip())
+    if not m:
+        return None
+    number = float(m.group(2))
+    if number < 0 or number > 100:
+        return None
+    fraction = number / 100 if number >= 1 else number
+    return f'{m.group(1)}{fraction:g}'
+
+
 # Columns the `keywords` key searches: a term matches if any one contains it.
 KEYWORD_COLUMNS = (
     NcbiMetadata.study_title, NcbiMetadata.study_abstract, NcbiMetadata.geo_loc_name,
@@ -2649,12 +2667,14 @@ def _parse_search_condition(key, value):
     elif key in ('habitat', 'indicpiper'):
         if not value.strip():
             subq = select(IndicatorHabitatScore.run_id).distinct()
-            return N.id.in_(subq), 'habitat: (any)', False, False
+            return N.id.in_(subq), 'indicpiper: (any)', False, False
         score_match = HABITAT_SCORE_RE.match(value.strip())
         habitat_name = score_match.group('name').strip() if score_match else None
         if score_match:
-            score_filter = _apply_numeric_filter(
-                IndicatorHabitatScore.score, score_match.group('expr').replace(' ', ''))
+            score_expr = indicpiper_score_expr(score_match.group('expr'))
+            if score_expr is None:
+                return None, f'indicpiper: {value} (score must be 0-1 or 1-100)', False, False
+            score_filter = _apply_numeric_filter(IndicatorHabitatScore.score, score_expr)
         else:
             score_filter = None
         if score_filter is not None:
@@ -2666,7 +2686,7 @@ def _parse_search_condition(key, value):
             subq = select(IndicatorHabitatScore.run_id).where(
                 IndicatorHabitatScore.habitat.ilike(f'%{value}%')
             ).distinct()
-        return N.id.in_(subq), f'habitat: {value}', False, False
+        return N.id.in_(subq), f'indicpiper: {value}', False, False
 
     return None, None, False, False
 

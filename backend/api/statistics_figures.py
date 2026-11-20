@@ -9,7 +9,7 @@ from collections.abc import Iterable
 from sqlalchemy import Integer, select
 from sqlalchemy.sql import func
 
-from .models import NcbiMetadata, ParsedSampleAttribute
+from .models import NcbiMetadata, ParsedSampleAttribute, Taxonomy
 
 MAP_CELL_DEGREES = 5
 # Width of a map hexagon, flat side to flat side, in degrees of longitude.
@@ -18,6 +18,8 @@ HEX_ROW_RATIO = math.sqrt(3) / 2
 COORDINATE_DECIMALS = 3
 CALL_KEYS = {'host': 'host_associated', 'ecological': 'ecological'}
 UNCLASSIFIED = 'unclassified'
+TAXONOMY_LEVELS = ('domain', 'phylum', 'class', 'order', 'family', 'genus', 'species')
+SAMPLE_TYPE_LEVELS = TAXONOMY_LEVELS[1:]
 
 
 def year_breakdown_payload(call_rows):
@@ -142,3 +144,29 @@ def query_map_hexes(session):
         func.count().filter(parsed.host_or_not_mature == 'ecological')).where(
         parsed.latitude.between(-90, 90), parsed.longitude.between(-180, 180)).group_by(
         parsed.latitude, parsed.longitude)).all())
+
+
+def taxa_by_sample_type_payload(rows: Iterable[tuple[str, bool, bool, int]]) -> dict:
+    """How many GTDB taxa are found in host-associated runs only, in ecological runs only, and in both, per level.
+
+    Each row is (level, found in host-associated runs, found in ecological runs, number of taxa). Taxa found in
+    neither are left out, and so is the domain level (there are only two domains).
+    """
+    counts: dict[str, dict[str, int]] = {}
+    for level, host, ecological, taxa in rows:
+        if level not in SAMPLE_TYPE_LEVELS or not (host or ecological):
+            continue
+        cell = counts.setdefault(level, {'host_only': 0, 'ecological_only': 0, 'both': 0})
+        cell['both' if host and ecological else 'host_only' if host else 'ecological_only'] += taxa
+    levels = [level for level in SAMPLE_TYPE_LEVELS if level in counts]
+    return {'levels': levels, 'counts': {level: counts[level] for level in levels}}
+
+
+def query_taxa_by_sample_type(session):
+    """GTDB taxa by the kind of run they are found in, counted by the database: one row per level and pattern."""
+    host = func.coalesce(Taxonomy.host_sample_count, 0) > 0
+    ecological = func.coalesce(Taxonomy.ecological_sample_count, 0) > 0
+    return taxa_by_sample_type_payload(session.execute(select(
+        Taxonomy.taxonomy_level, host, ecological, func.count()).where(
+        Taxonomy.taxonomy_type == 'gtdb', Taxonomy.taxonomy_level.in_(SAMPLE_TYPE_LEVELS)).group_by(
+        Taxonomy.taxonomy_level, host, ecological)).all())

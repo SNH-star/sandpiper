@@ -2,30 +2,54 @@
 
 Mirrors the two warnings a run page shows (vue/src/utils/indicpiper.js): the
 organism names no habitat IndicPiper was built from, or the strongest habitat
-signal disagrees with the habitat the organism label names. Keep the habitat
-table below in step with that file.
+signal disagrees with the habitat the organism label names.
 """
 import re
 from typing import Dict, Optional, Tuple
 
-# Only explicit habitat labels are compared; ambiguous organism names are omitted.
+# Organism label -> IndicPiper habitat, from Table S4 of the IndicPiper paper (the exact strings its habitat search
+# uses). The API image holds only backend/, so it cannot read the website's copy, vue/src/constants/
+# indicpiperHabitats.json; tests/test_indicpiper_warnings.py fails if the two differ.
+# Next release: read IndicPiper's own mapping instead.
 RECORDED_HABITATS: Dict[str, str] = {
-    'soil metagenome': 'soil',
-    'wastewater metagenome': 'wastewater',
+    # freshwater sediment
+    'freshwater sediment metagenome': 'freshwater sediment',
+    # freshwater water
+    'aquatic metagenome': 'freshwater water',
+    'freshwater metagenome': 'freshwater water',
+    'lake water metagenome': 'freshwater water',
+    'pond metagenome': 'freshwater water',
+    'riverine metagenome': 'freshwater water',
+    # glacier
+    'glacier metagenome': 'glacier',
+    'ice metagenome': 'glacier',
+    # human oral
     'human oral metagenome': 'human oral',
     'human saliva metagenome': 'human oral',
+    # human skin
     'human skin metagenome': 'human skin',
+    # human vaginal
     'human vaginal metagenome': 'human vaginal',
-    'marine sediment metagenome': 'marine sediment',
-    'glacier metagenome': 'glacier',
+    # hydrothermal vent
     'hydrothermal vent metagenome': 'hydrothermal vent',
-    'freshwater sediment metagenome': 'freshwater sediment',
-    'freshwater metagenome': 'freshwater water',
-    'freshwater water metagenome': 'freshwater water',
+    # mammalian gut
+    'human gut metagenome': 'mammalian gut',
+    'pig gut metagenome': 'mammalian gut',
+    'bovine gut metagenome': 'mammalian gut',
+    'sheep gut metagenome': 'mammalian gut',
+    'goat gut metagenome': 'mammalian gut',
+    # marine sediment
+    'marine sediment metagenome': 'marine sediment',
+    # marine water
+    'marine metagenome': 'marine water',
+    'seawater metagenome': 'marine water',
+    # phyllosphere
     'phyllosphere metagenome': 'phyllosphere',
+    # soil
+    'soil metagenome': 'soil',
     'rhizosphere metagenome': 'soil',
-    **{f'{host} gut metagenome': 'mammalian gut'
-       for host in ('human', 'pig', 'bovine', 'sheep', 'canine', 'goat', 'mammalian')},
+    # wastewater
+    'wastewater metagenome': 'wastewater',
 }
 
 NONE, UNCOVERED, EXPECTED = 'none', 'uncovered', 'expected'
