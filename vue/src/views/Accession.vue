@@ -54,7 +54,7 @@ export default {
             } else if (result_type === 'project') {
               this.$router.push({ name: 'Project', query: { model_bioproject: acc } })
             } else {
-              console.log("Failed result_type: " + result_type)
+              this.error_message = `The server returned an unknown result type (${result_type}) for this accession.`
             }
           }
         })

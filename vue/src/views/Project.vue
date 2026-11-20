@@ -89,7 +89,7 @@ export default {
   name: 'Project',
   components: { ProjectRunsMap },
   title () {
-    return `Project overview - Sandpiper` // FIXME
+    return 'Project overview - Sandpiper'
   },
   data: function () {
     return {

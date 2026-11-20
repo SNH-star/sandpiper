@@ -9,7 +9,7 @@
           <div>
             <dt>Metagenomes</dt>
             <dd class="stat-total-value">{{ stats.totals.runs.toLocaleString('en-US') }}</dd>
-            <dd class="stat-total-gloss">sequencing runs scanned with SingleM + Weebill</dd>
+            <dd class="stat-total-gloss">sequencing runs scanned with SingleM</dd>
           </div>
           <div>
             <dt>BioProjects</dt>
@@ -32,7 +32,7 @@
       </section>
 
       <section id="release-year" class="section container stat-figure">
-        <chart-download target="#release-year" name="runs-by-release-year" />
+        <chart-download target="#release-year" name="runs-by-release-year" :table="releaseYearsCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#release-year">#</a> Runs by release year</h3>
         <p class="stat-note">
           How many runs were released in the NCBI SRA each year. The latest year is partial: it only includes runs
@@ -60,7 +60,7 @@
       </section>
 
       <section id="sequencing-depth" class="section container stat-figure">
-        <chart-download target="#sequencing-depth" name="sequencing-depth-by-release-year" />
+        <chart-download target="#sequencing-depth" name="sequencing-depth-by-release-year" :table="depthCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#sequencing-depth">#</a> Sequencing depth by release year</h3>
         <p class="stat-note">
           The total bases sequenced per run, on a square-root scale, for the runs released in each year (newest version,
@@ -70,7 +70,7 @@
       </section>
 
       <section id="sample-types" class="section container stat-figure">
-        <chart-download target="#sample-types" name="types-of-sample" />
+        <chart-download target="#sample-types" name="types-of-sample" :table="sampleTypesCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#sample-types">#</a> Types of sample</h3>
         <p class="stat-note">
           Sandpiper predicts whether each run’s sample is associated with a eukaryotic host. The bar shows each
@@ -96,13 +96,13 @@
       <sample-hex-map-chart :data="stats.map" />
 
       <section id="collection-to-release" class="section container stat-figure">
-        <chart-download target="#collection-to-release" name="collection-to-release" />
+        <chart-download target="#collection-to-release" name="collection-to-release" :table="lagCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#collection-to-release">#</a> Time from collection to release</h3>
         <collection-lag-chart />
       </section>
 
       <section id="coverage" class="section container stat-figure">
-        <chart-download target="#coverage" name="information-coverage" />
+        <chart-download target="#coverage" name="information-coverage" :table="coverageCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#coverage">#</a> Information coverage</h3>
         <p class="stat-note">
           The share of all runs that have each kind of information. A short bar means fewer runs have it, not that
@@ -146,7 +146,7 @@
       <known-species-charts :data="stats.known_species" :gtdb-version="GTDB_VERSION" :version="stats.version" />
 
       <section id="known-by-group" class="section container stat-figure">
-        <chart-download target="#known-by-group" name="known-species-fraction-by-group" />
+        <chart-download target="#known-by-group" name="known-species-fraction-by-group" :table="() => groupDensityCsv('known')" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#known-by-group">#</a> Known species fraction by group</h3>
         <p class="stat-note is-wide">
           The share of a run’s community that belongs to species already named in GTDB, for host-associated runs
@@ -162,7 +162,7 @@
       </section>
 
       <section id="spf-by-group" class="section container stat-figure">
-        <chart-download target="#spf-by-group" name="prokaryotic-fraction-by-group" />
+        <chart-download target="#spf-by-group" name="prokaryotic-fraction-by-group" :table="() => groupDensityCsv('spf')" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#spf-by-group">#</a> Prokaryotic read fraction</h3>
         <p class="stat-note is-wide">
           The share of a run’s reads that SingleM estimates are bacterial or archaeal (SPF), for host-associated runs
@@ -178,7 +178,7 @@
       </section>
 
       <section id="phyla" class="section container stat-figure">
-        <chart-download target="#phyla" name="phylum-composition" />
+        <chart-download target="#phyla" name="phylum-composition" :table="phylumCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#phyla">#</a> Phylum composition by group</h3>
         <p class="stat-note">
           The mean relative abundance of each phylum across a group’s runs, so each bar sums to 100%. The ten phyla
@@ -193,7 +193,7 @@
       </section>
 
       <section id="top-taxa" class="section container stat-figure">
-        <chart-download target="#top-taxa" name="most-widely-detected-taxa" />
+        <chart-download target="#top-taxa" name="most-widely-detected-taxa" :table="topTaxaCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#top-taxa">#</a> Most widely detected taxa</h3>
         <p class="stat-note">
           The ten taxa found in the most runs. Detected means SingleM found the taxon in a run, not that it was
@@ -230,7 +230,7 @@
             <span
               class="taxa-track"
               role="img"
-              :style="{ width: taxaWidth(row.runs) + '%' }"
+              :style="{ width: taxaWidth(row.percent) + '%' }"
               :aria-label="taxaLabel(row)">
               <template v-if="row.segments">
                 <span
@@ -255,12 +255,42 @@
             <span v-if="taxa_call !== 'ecological'"><span class="type-swatch type-host_associated" aria-hidden="true"></span>Host-associated runs</span>
             <span v-if="taxa_call !== 'host'"><span class="type-swatch type-ecological" aria-hidden="true"></span>Ecological runs</span>
           </template>
-          <span>Percentages are of {{ taxa_total_text }}. Bars use one scale in every view: a full bar is {{ taxa_scale_max.toLocaleString('en-US') }} runs.</span>
+          <span>Percentages are of {{ taxa_total_text }}. A full-width bar is 100% of those runs.</span>
+        </p>
+      </section>
+
+      <section v-if="sample_type_rows.length" id="taxa-by-sample-type" class="section container stat-figure">
+        <chart-download target="#taxa-by-sample-type" name="gtdb-taxa-by-sample-type" :table="sampleTypeTaxaCsv" />
+        <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#taxa-by-sample-type">#</a> GTDB taxa by type of sample</h3>
+        <p class="stat-note">
+          Of the GTDB ({{ GTDB_VERSION }}) taxa detected in at least one run, how many are found only in host-associated
+          runs, only in ecological runs, or in both. Each bar is all the detected taxa at that level; the domain level is left out.
+        </p>
+        <ol class="taxa-rows">
+          <li v-for="row in sample_type_rows" :key="row.level" class="taxa-row overlap-row">
+            <span class="taxa-name">{{ row.label }}</span>
+            <span class="taxa-track" role="img" :aria-label="row.description">
+              <span class="overlap-host" :style="{ width: row.host_width + '%' }" :title="`Host-associated only: ${row.host_only.toLocaleString('en-US')}`"></span>
+              <span class="overlap-both" :style="{ width: row.both_width + '%' }" :title="`In both: ${row.both.toLocaleString('en-US')}`"></span>
+              <span class="overlap-ecological" :style="{ width: row.ecological_width + '%' }" :title="`Ecological only: ${row.ecological_only.toLocaleString('en-US')}`"></span>
+            </span>
+            <span class="taxa-count overlap-count">
+              <span>{{ row.host_only.toLocaleString('en-US') }} host-associated only</span>
+              <span>{{ row.both.toLocaleString('en-US') }} in both ({{ pct(row.both_width) }}%)</span>
+              <span>{{ row.ecological_only.toLocaleString('en-US') }} ecological only</span>
+            </span>
+          </li>
+        </ol>
+        <p class="taxa-key stat-note">
+          <span><span class="type-swatch overlap-host" aria-hidden="true"></span>Host-associated only</span>
+          <span><span class="type-swatch overlap-both" aria-hidden="true"></span>In both</span>
+          <span><span class="type-swatch overlap-ecological" aria-hidden="true"></span>Ecological only</span>
+          <span>These count taxa, not runs: a taxon is counted once however many runs it is found in. Taxa found in no run are left out.</span>
         </p>
       </section>
 
       <section id="genome-size-by-group" class="section container stat-figure">
-        <chart-download target="#genome-size-by-group" name="average-genome-size-by-group" />
+        <chart-download target="#genome-size-by-group" name="average-genome-size-by-group" :table="() => groupDensityCsv('genome')" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#genome-size-by-group">#</a> Average genome size</h3>
         <p class="stat-note is-wide">
           The average genome size of the bacteria and archaea in each run, for host-associated runs by host and
@@ -282,14 +312,13 @@
       </section>
 
       <section id="indicpiper-by-group" class="section container stat-figure">
-        <chart-download target="#indicpiper-by-group" name="indicpiper-indicator-genera-by-habitat" />
+        <chart-download target="#indicpiper-by-group" name="indicpiper-indicator-genera-by-habitat" :table="indicpiperCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#indicpiper-by-group">#</a> IndicPiper indicator genera by habitat</h3>
         <p class="stat-note is-wide">
           For each of IndicPiper’s habitats, the average indicator abundance (the summed abundance of the genera
           IndicPiper names as indicators of that habitat, as a percentage of the sample) and the average number of those
           genera per run. A habitat’s runs are those whose organism is recorded as that habitat, and runs with no indicator
-          genus count as zero, so these averages are lower than the ones marked on each run page, which include only runs
-          that have at least one indicator genus.
+          genus count as zero. The averages marked on each Run page are the same figures.
         </p>
         <indic-piper-group-chart />
       </section>
@@ -306,7 +335,7 @@
       <version-comparison />
 
       <section id="taxonomy-databases" class="section container stat-table">
-        <chart-download target="#taxonomy-databases" name="database-by-version" />
+        <chart-download target="#taxonomy-databases" name="database-by-version" :table="databaseCsv" />
         <h3 class="subtitle is-3 stat-title"><a class="section-anchor" href="#taxonomy-databases">#</a> Sandpiper database by version</h3>
         <p class="stat-note">
           The month each version was released, the GTDB and GlobDB release it used, the date the GOLD (JGI) data was retrieved and the date the
@@ -370,11 +399,18 @@ import {
   GroupDensityCharts, YearTrendChart, PhylumCompositionCharts, CollectionLagChart, IndicPiperGroupChart
 } from '@/components/statistics'
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
+import { HOST_GROUPS, ECOLOGICAL_GROUPS } from '@/components/statistics/groupColours'
 import { CHANGELOG } from '@/views/About.vue'
 import { monthYear } from '@/components/statistics/releases'
 import ChartDownload from '@/components/statistics/ChartDownload.vue'
 import PageRail from '@/components/PageRail.vue'
 import SUMMARIES from '@/constants/groupSummaries.json'
+import VERSION_SUMMARIES from '@/constants/versionSummaries.json'
+import { MEASURES, FIGURES } from '@/components/statistics/groupDensitySpec'
+import {
+  releaseYearsTable, depthTable, sampleTypesTable, coverageTable, groupDensityTable, lagTable, phylumTable, topTaxaTable,
+  sampleTypeTaxaTable, indicpiperTable, databaseVersionsTable
+} from '@/components/statistics/chartTables'
 import { stopPageLoading, currentLoadingToken } from '@/store/pageLoading'
 
 const SAMPLE_TYPE_TEXT = {
@@ -428,27 +464,17 @@ const TAXA_BY_GROUP = SUMMARIES.top_taxa_by_group || {}
 // The side's most widely detected taxa split by group, for stacked bars (same source; none without a database).
 const TAXA_GROUP_BREAKDOWN = SUMMARIES.taxa_group_breakdown || {}
 // The groups of each side in the order they are stacked, with the colours the other group charts give them.
-const GROUP_SEGMENTS = {
-  host: [
-    { key: 'plant', label: 'Plant', colour: 'var(--color-pastel-purple)' },
-    { key: 'bovine', label: 'Bovine', colour: 'var(--color-pastel-orange)' },
-    { key: 'pig', label: 'Pig', colour: 'var(--color-pastel-red)' },
-    { key: 'human', label: 'Human', colour: 'var(--color-pastel-blue)' },
-    { key: 'mouse', label: 'Mouse', colour: 'var(--color-pastel-green)' }
-  ],
-  ecological: [
-    { key: 'soil', label: 'Soil', colour: 'var(--color-pastel-green)' },
-    { key: 'sediment', label: 'Sediment', colour: 'var(--color-pastel-red)' },
-    { key: 'marine', label: 'Marine', colour: 'var(--color-pastel-blue)' },
-    { key: 'freshwater', label: 'Freshwater', colour: 'var(--color-pastel-orange)' },
-    { key: 'aquatic', label: 'Aquatic', colour: 'var(--color-pastel-purple)' }
-  ]
-}
+const GROUP_SEGMENTS = { host: HOST_GROUPS, ecological: ECOLOGICAL_GROUPS }
 // Runs of a side that are in none of its named groups.
 const OTHER_SEGMENTS = {
   host: { key: 'other', label: 'Other host-associated runs', colour: 'var(--color-phylum-other)' },
   ecological: { key: 'other', label: 'Other ecological runs', colour: 'var(--color-phylum-other)' }
 }
+
+// The sample calls the collection-to-release figure draws, and the sides the group figures pair up.
+const LAG_CALLS = [{ call: 'host', label: 'Host-associated' }, { call: 'ecological', label: 'Ecological' }]
+const GROUP_KINDS = [['host', 'Host-associated'], ['ecological', 'Ecological']]
+const PHYLUM_SIDES = [['host_associated', 'Host-associated'], ['ecological', 'Ecological']]
 
 const TAXA_LEVELS = [
   { id: 'phylum', label: 'Phylum' },
@@ -472,6 +498,7 @@ const CONTENTS = [
     { id: 'spf-by-group', label: 'Prokaryotic read fraction' },
     { id: 'phyla', label: 'Phylum composition by group' },
     { id: 'top-taxa', label: 'Most widely detected taxa' },
+    { id: 'taxa-by-sample-type', label: 'GTDB taxa by type of sample' },
     { id: 'genome-size-by-group', label: 'Average genome size' },
     { id: 'indicpiper-by-group', label: 'IndicPiper indicator genera' },
     { id: 'known-by-year', label: 'Known species fraction by release year' },
@@ -537,12 +564,27 @@ export default {
       if (this.taxa_call === 'all') return `all ${runs} runs`
       return `the ${runs} ${this.taxa_call === 'host' ? 'host-associated' : 'ecological'} runs`
     },
-    // One scale for every bar in every view (All, Host, Ecological and each group), both databases and this
-    // level, so a bar of 7,000 runs is short beside one of 460,000 wherever they are shown.
-    taxa_scale_max () {
-      const counts = ['all', 'host', 'ecological'].flatMap(call => ['gtdb', 'globdb'].flatMap(
-        database => this.taxaRows(database, call, false).map(row => row.runs)))
-      return Math.max(...counts, 1)
+    // One row per level: GTDB taxa found only in host-associated runs, in both, and only in ecological runs.
+    sample_type_rows () {
+      const split = this.stats && this.stats.taxa_by_sample_type
+      if (!split) return []
+      return split.levels.map(level => {
+        const { host_only: hostOnly, ecological_only: ecologicalOnly, both } = split.counts[level]
+        const total = hostOnly + ecologicalOnly + both
+        const share = count => (total ? (100 * count) / total : 0)
+        const label = level.charAt(0).toUpperCase() + level.slice(1)
+        return {
+          level,
+          label,
+          host_only: hostOnly,
+          both,
+          ecological_only: ecologicalOnly,
+          host_width: share(hostOnly),
+          both_width: share(both),
+          ecological_width: share(ecologicalOnly),
+          description: `${label}: ${hostOnly.toLocaleString('en-US')} taxa only in host-associated runs, ${both.toLocaleString('en-US')} in both, ${ecologicalOnly.toLocaleString('en-US')} only in ecological runs.`
+        }
+      })
     },
     // The legend of a stacked view: the groups that have runs in the rows shown, then the rest of the side.
     taxa_segment_key () {
@@ -643,6 +685,50 @@ export default {
         this.endObserver.observe(end)
       }
     },
+    // The figures' data as tables for the CSV downloads; each follows what its figure shows now.
+    releaseYearsCsv () {
+      return releaseYearsTable({
+        years: this.stats.release_years,
+        breakdown: this.separate_by_sample ? this.stats.year_breakdown : null,
+        cumulative: this.cumulative_years
+      })
+    },
+    depthCsv () {
+      return depthTable(SUMMARIES.yearly_depth || [])
+    },
+    sampleTypesCsv () {
+      return sampleTypesTable(this.stats.sample_types, SAMPLE_TYPE_TEXT)
+    },
+    lagCsv () {
+      return lagTable(SUMMARIES.collection_to_release, LAG_CALLS)
+    },
+    coverageCsv () {
+      return coverageTable(this.stats.coverage, COVERAGE_TEXT, INDICPIPER_PARTS)
+    },
+    // The newest version's histograms of one measure, for host-associated and then ecological groups.
+    groupDensityCsv (measure) {
+      const spec = MEASURES[measure]
+      const kinds = GROUP_KINDS.map(([kind, type]) => (
+        { type, key: spec.prefix + FIGURES[kind].key, groups: FIGURES[kind].groups }))
+      return groupDensityTable(VERSION_SUMMARIES.versions[0], kinds, { xTitle: spec.x_title })
+    },
+    phylumCsv () {
+      return phylumTable(SUMMARIES.composition, PHYLUM_SIDES)
+    },
+    topTaxaCsv () {
+      const level = TAXA_LEVELS.find(item => item.id === this.taxa_level).label
+      const database = this.taxa_database === 'gtdb' ? `GTDB ${GTDB_VERSION}` : `GlobDB ${GLOBDB_VERSION}`
+      return topTaxaTable(this.top_taxa, { database, level, runs: this.taxa_total_text })
+    },
+    sampleTypeTaxaCsv () {
+      return sampleTypeTaxaTable(this.sample_type_rows, `GTDB ${GTDB_VERSION}`)
+    },
+    indicpiperCsv () {
+      return indicpiperTable(SUMMARIES.indicpiper_by_habitat || {})
+    },
+    databaseCsv () {
+      return databaseVersionsTable(this.taxonomy_rows)
+    },
     // A percentage with one decimal, so 54 reads 54.0 and the figures line up.
     pct (value) {
       return Number(value).toFixed(1)
@@ -707,9 +793,9 @@ export default {
       if (row.ecological) parts.push(`${row.ecological.toLocaleString('en-US')} ecological`)
       return `${parts.join(' and ')} runs`
     },
-    // Bars share one scale across every view, so their length is their number of runs.
-    taxaWidth (runs) {
-      return Math.max((100 * runs) / this.taxa_scale_max, 0.5)
+    // A bar's length is its percentage: 54.06% fills just over half of the full width.
+    taxaWidth (percent) {
+      return Math.max(percent, 0.5)
     },
     fetchData () {
       // Captured now, not read lazily inside .finally() -- see
@@ -770,9 +856,6 @@ export default {
   display: block;
   height: 100%;
 }
-.type-host_associated { background: var(--color-sample-host); }
-.type-ecological { background: var(--color-sample-ecological); }
-.type-unclassified { background: var(--color-sample-unclassified); }
 .type-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -781,13 +864,6 @@ export default {
 .type-list dt {
   font-weight: 600;
   color: var(--color-ink);
-}
-.type-swatch {
-  display: inline-block;
-  width: 0.8rem;
-  height: 0.8rem;
-  margin-right: var(--space-2);
-  border-radius: var(--radius-bar);
 }
 .type-figures {
   font-variant-numeric: tabular-nums;
@@ -836,6 +912,33 @@ export default {
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--color-ink);
+}
+/* GTDB taxa by type of sample: the same rows as above, with a three-part bar and three counts. */
+.overlap-row {
+  grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+.overlap-row .taxa-name {
+  grid-row: 1 / 3;
+  align-self: start;
+  font-weight: 600;
+}
+.overlap-row .taxa-track {
+  height: 1.5rem;
+  background: var(--color-rule);
+}
+.overlap-host { background: var(--color-taxa-host); }
+.overlap-both { background: var(--color-taxa-both); }
+.overlap-ecological { background: var(--color-taxa-ecological); }
+.overlap-count {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-6);
+  margin-top: var(--space-2);
+  font-size: 0.85rem;
+  text-align: left;
 }
 .taxa-key {
   column-width: 16rem;
@@ -1024,6 +1127,13 @@ export default {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding-bottom: var(--space-2);
+  }
+  .overlap-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overlap-row .taxa-name {
+    grid-row: auto;
+    min-height: 0;
   }
   .taxa-count {
     margin-top: var(--space-1);

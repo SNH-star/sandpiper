@@ -3,6 +3,18 @@ import sandpiperLogo from "@/assets/sandpiper_logo.png";
 import algorithmDiagram from "@/assets/singlem_weebill_integration_v4.png";
 import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import PageRail from '@/components/PageRail.vue'
+import habitatLabels from '@/constants/indicpiperHabitats.json'
+import {
+  INDICATOR_GENERA_BY_HABITAT as indicatorGenera, INDICPIPER_VERSION, INDICATORS_DEFINED_FROM, HABITAT_COUNT, INDICATOR_GENUS_COUNT
+} from '@/utils/indicpiperFacts'
+
+// Each IndicPiper habitat with the BioSample organism values recorded as it, without the " metagenome" suffix,
+// the one with the most indicator genera first.
+const INDICPIPER_HABITATS = Object.entries(habitatLabels).reduce((rows, [label, habitat]) => {
+  const row = rows.find(item => item.habitat === habitat) || rows[rows.push({ habitat, organisms: [] }) - 1]
+  row.organisms.push(label.replace(/ metagenome$/, ''))
+  return rows
+}, []).sort((a, b) => (indicatorGenera[b.habitat] || []).length - (indicatorGenera[a.habitat] || []).length || a.habitat.localeCompare(b.habitat))
 </script>
 
 <template>
@@ -14,8 +26,7 @@ import PageRail from '@/components/PageRail.vue'
         class="about-logo"
         alt="Sandpiper Logo"
         />
-      <h1 class="title about-title">About Sandpiper</h1>
-      <p class="about-lede">Sandpiper is a searchable database of the microbial communities in public metagenomes, profiled with SingleM and Weebill.</p>
+      <p class="about-lede">A searchable database of the microbial communities in public metagenomes, profiled with SingleM.</p>
       </div>
     </header>
 
@@ -131,7 +142,7 @@ import PageRail from '@/components/PageRail.vue'
             <i>Nature Biotechnology</i> (2024), <a href="https://doi.org/10.1038/s41587-024-02412-y">https://doi.org/10.1038/s41587-024-02412-y</a>.
           </p>
           <p><strong>What it changes.</strong> More of each community is assigned to named species, which raises the known species fraction.</p>
-          <p><strong>Weebill only runs.</strong> For some runs SingleM found no marker genes, so the whole GTDB profile comes from Weebill's k-mer matching; these runs are in Sandpiper only because of Weebill. They carry a "Weebill only" pill on the run page and can be found with <span class="query-box">weebill_only: yes</span>. GlobDB profiles use SingleM alone, so these runs have no GlobDB profile.</p>
+          <p><strong>Weebill only runs.</strong> For some runs SingleM found no marker genes, so the whole GTDB profile comes from Weebill's k-mer matching; these runs are in Sandpiper only because of Weebill. They carry a "Weebill only" pill on the Run page and can be found with <span class="query-box">weebill_only: yes</span>. GlobDB profiles use SingleM alone, so these runs have no GlobDB profile.</p>
           <p><strong>How it is used here.</strong> Each run was profiled with Weebill against the genomes of GTDB R232, using the genome database bundled with the SingleM metapackage. Weebill was first used in Sandpiper v2.2.*; <a href="#how-built" @click.prevent="jumpTo('how-built')">how its results are merged</a> is described above.</p>
           <p><strong>Version.</strong> Weebill 0.4.0.</p>
         </div>
@@ -169,7 +180,7 @@ import PageRail from '@/components/PageRail.vue'
             <i>Metalog: curated and harmonised contextual data for global metagenomics samples</i>,
             <i>Nucleic Acids Research</i> (2025),
             <a href="https://doi.org/10.1093/nar/gkaf1118">https://doi.org/10.1093/nar/gkaf1118</a>.
-            Information is presented under Metalog additional information within each Run Page. Pages that do not contain any information will report back "No Metalog metadata recorded for this run". We downloaded Metalog's four "Extended wide" files (Human, animal, ocean and environment), because Metalog has no per-sample API. The extended wide allows one row per sample, allowing it to be an easy lookup and allocate.
+            Information is presented under Metalog additional information within each Run page. Pages that do not contain any information will report back "No Metalog metadata recorded for this run". We downloaded Metalog's four "Extended wide" files (Human, animal, ocean and environment), because Metalog has no per-sample API. The extended wide allows one row per sample, allowing it to be an easy lookup and allocate.
           </p>
           <p class="about-tiles-title"><a href="https://metalog.embl.de/">Last metadata update: {{ metalog_last_update }}</a></p>
           <dl class="metalog-tiles">
@@ -193,7 +204,7 @@ import PageRail from '@/components/PageRail.vue'
             study descriptions are often more complete than what the submitter gave NCBI.
           </p>
           <p>
-            Information is presented within Sample information on each Run Page, in gold rows next to the green Metalog rows, and
+            Information is presented within Sample information on each Run page, in gold rows next to the green Metalog rows, and
             only for runs with a GOLD project ID; other pages show nothing. Each row's information button describes the field.
             The rows cover GOLD's habitat path (ecosystem, category, type, subtype and specific ecosystem), collection site,
             location, date, depth, pH, salinity, temperature and other measurements, host details, ENVO terms, the sequencing
@@ -238,35 +249,54 @@ import PageRail from '@/components/PageRail.vue'
         <summary><h3 class="title is-5">IndicPiper habitat indicators</h3></summary>
         <div class="about-detail-body">
           <p>
-            <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> by <i>Cliff Bueno de Mesquita</i>, identifies genera that
-            are strong, specific indicators of particular habitats, using indicator species analysis
-            (indicspecies:multipatt, IndVal) run against each genus's presence and
-            abundance across many habitat categories. Sandpiper does not run this analysis itself: it uses
-            IndicPiper's own curated, published indicator database as-is, pulled directly from the
-            <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> project rather than
-            regenerated from Sandpiper's own data.
+            <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a>, by <i>Cliff Bueno de Mesquita</i>, identifies GTDB genera
+            that are strong indicators of particular habitats. It uses established ecological methods of indicator “species” analysis
+            (indicspecies:multipatt, IndVal), but the indicators are genera rather than species. Sandpiper does not run this analysis itself:
+            it uses IndicPiper's own curated, published indicator database as-is. In the current version of IndicPiper ({{ INDICPIPER_VERSION }}), {{ INDICATOR_GENUS_COUNT }} genera
+            were flagged as indicators of one of {{ HABITAT_COUNT }} habitats, each with a resampling-stability score from 100 runs of the analysis.
+            Each habitat corresponds to one or more BioSample “organism” values (shown without the “ metagenome” suffix):
+          </p>
+          <table class="table is-narrow indicpiper-habitat-table">
+            <thead><tr><th>IndicPiper habitat</th><th>“organism” BioSample values</th><th>Indicator genera</th></tr></thead>
+            <tbody>
+              <tr v-for="row in INDICPIPER_HABITATS" :key="row.habitat">
+                <td>{{ row.habitat }}</td>
+                <td class="organism-values">{{ row.organisms.join(', ') }}</td>
+                <td>{{ (indicatorGenera[row.habitat] || []).length }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            The full list of indicator genera for each habitat, with their IndVal and stability statistics, is in the
+            <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper GitHub repository </a>
+            <b>(genus_habitat_indicators_v{{ INDICPIPER_VERSION }}.csv)</b>.
           </p>
           <p>
-            Using IndicPiper v2.1.0, the result is 767 genera flagged as indicators of one of 13 habitats, each with a resampling-stability
-            score from 100 runs of the analysis. For every run in this database, we then compute how
-            strongly its own genus composition matches each of those 13 habitat signatures, as the
-            summed relative abundance of that habitat's indicator genera present in the sample.
+            Importantly, the total relative abundance of indicator genera differs between habitats. For instance, human vaginal samples are
+            mostly made up of indicator genera, while indicator genera are the minority in soil samples. A low indicator fraction does not by
+            itself mean a sample is misannotated. Organism labels outside the table, such as “canine gut metagenome”, are not matched to a habitat.
           </p>
           <p>
-            These scores are shown under "IndicPiper habitat indicators" within each Run Page, and can
-            be searched directly via the habitat key in
+            Indicator genera were defined from Sandpiper {{ INDICATORS_DEFINED_FROM }} community profiles. This site applies that fixed set of genera to the current
+            Sandpiper profiles, which use an updated profiling algorithm. For every run in this database, we compute how strongly its own genus
+            composition matches each of the {{ HABITAT_COUNT }} habitat signatures, as the summed relative abundance of that habitat's indicator genera present in the sample.
+          </p>
+          <p>
+            These scores are shown under "IndicPiper habitat indicators" within each Run page, and can
+            be searched directly via the indicpiper key in
             <router-link :to="{ name: 'Search' }">advanced search</router-link>. Only habitats with a
             real, non-zero match are shown for a given run most runs match a handful of habitats.
-            Triangles above and below each habitat's bar mark the average for the runs recorded as that habitat
-            (among those that have it), and the Statistics page charts these averages for every habitat.
+            Triangles above and below each habitat's bar mark the average for all the runs recorded as that habitat
+            (runs with no indicator genus for it count as zero), and the Statistics page charts these same averages for every habitat.
             Add a comparison after the habitat name (e.g. soil>=0.1) to threshold on
             that habitat's score itself, rather than only matching runs where it's present at all. A
             comparison with no habitat name, e.g. >0.5, matches runs whose single
             strongest habitat match exceeds that value, whichever habitat it turns out to be.
           </p>
           <p>
-            Marine water is one of IndicPiper's 13 habitats, but no runs are labelled with it, so there is no average to show
-            for it on the Statistics page, and run pages have no average markers for it.
+            The <router-link :to="{ name: 'Statistics' }">Statistics page</router-link> provides an overview of IndicPiper on Sandpiper.
+            The IndicPiper <a href="https://github.com/cliffbueno/IndicPiper">bioRxiv preprint</a> describes the method in full, including how likely
+            misannotated metagenomes are excluded.
           </p>
         </div>
       </details>
@@ -279,7 +309,7 @@ import PageRail from '@/components/PageRail.vue'
       <div class="about-body">
         <p>Note that point releases (e.g. v2.0.x, v2.1.x) may not be listed here, and are only for minor bug/deployment fixes.</p>
       </div>
-      <details v-for="(entry, index) in CHANGELOG" :key="entry.heading + (entry.version || '')" class="log-entry" :open="index < 2">
+      <details v-for="(entry, index) in CHANGELOG" :key="entry.heading + (entry.version || '')" class="log-entry" :open="index < 1">
         <summary>
           <h3 class="title is-5 log-heading">{{ entry.heading }}</h3>
           <span v-if="index === 0 && !entry.released" class="log-badge">Current</span>
@@ -304,6 +334,11 @@ import PageRail from '@/components/PageRail.vue'
 </template>
 
 <style scoped>
+.indicpiper-habitat-table { margin-bottom: var(--space-4); table-layout: fixed; width: 100%; max-width: 42rem; }
+.indicpiper-habitat-table th:first-child { width: 28%; }
+.indicpiper-habitat-table th:last-child { width: 6.5rem; }
+.indicpiper-habitat-table td { overflow-wrap: anywhere; vertical-align: top; }
+.organism-values { white-space: normal; }
 .about-header { padding-bottom: var(--space-4); }
 .about-header .container { text-align: center; }
 .about-logo {
@@ -435,7 +470,7 @@ export const CHANGELOG = [
     html: `<ul>
         <li><strong>Profiling</strong>
           <ul>
-            <li>Addition of Weebill profiles to each run. Weebill matches reads against whole reference genomes, so more of each community is assigned to named species, which raises the known species fraction (see the Statistics page). This increase total metagenomes screened within Sandpiper from 913,071 -> 926,082</li>
+            <li>Addition of Weebill profiles to each run. Weebill matches reads against whole reference genomes, so more of each community is assigned to named species, which raises the known species fraction (see the Statistics page). This increases the total number of metagenomes screened within Sandpiper from 913,071 -> 926,082</li>
             <li>Addition of <a href="https://github.com/cliffbueno/IndicPiper">IndicPiper</a> habitat indicators within each Run page, showing how strongly a sample's genus composition matches known habitat signatures (a caution message is shown if the environment signatures do not match the documented environment).</li>
             <li>Addition to the Sunburst model. Users can search for specific taxa, which are then highlighted. In a breadcrumb fashion the Sunburst can be collapsed with a reset view and a 'go back a step' option in the centre.</li>
             <li>Addition of a new sample abundance graph with zoom and filter functionality.</li>
@@ -444,14 +479,17 @@ export const CHANGELOG = [
         <li><strong>Run pages</strong>
           <ul>
             <li>Run pages now display pills that highlight important information about the run, including a "Weebill only" pill for runs where SingleM found no marker genes and the profile comes from Weebill alone.</li>
-            <li>The sample location map on run pages and the Statistics map of where samples were collected now use a flat web map with a clear blue sea and place names (countries, oceans and, as you zoom in, cities), with a Map and Satellite view. Both maps use free, keyless map data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> <a href="https://openfreemap.org/">(OpenFreeMap)</a> and <a href="https://s2maps.eu">Sentinel-2 cloudless</a> imagery by <a href="https://eox.at">EOX IT Services GmbH</a> (contains modified Copernicus Sentinel data 2021).</li>
+            <li>The sample location map on Run pages now opens as a flat map that draws every country at its true relative size (Equal Earth projection), so areas can be compared fairly, with countries and oceans named. A Globe option shows the same place on a globe with a Map or Satellite picture, which uses free, keyless map data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> <a href="https://openfreemap.org/">(OpenFreeMap)</a> and <a href="https://s2maps.eu">Sentinel-2 cloudless</a> imagery by <a href="https://eox.at">EOX IT Services GmbH</a> (contains modified Copernicus Sentinel data 2021). Both views have + and − buttons, Sample and World buttons, and zoom with Ctrl (⌘ on a Mac) and scroll or pinch.</li>
+            <li>The map on Project pages matches: a flat true-size map by default and a Globe option, with numbered markers that merge nearby places, a list of the runs at a place when hovered or clicked, and an All runs button that fits every run on screen.</li>
+            <li>Publications at the top of each Run page now also include papers recorded by <a href="https://metalog.embl.de/">Metalog</a> (shown as green pills), alongside NCBI's and GOLD's. A paper already listed is not repeated.</li>
             <li>The Taxonomic profile section states which methods built the selected profile: GTDB combines SingleM and Weebill, GlobDB uses SingleM only (so Weebill-only runs have no GlobDB profile).</li>
             <li>Addition of <a href="https://metalog.embl.de/">Metalog</a> within each Run page. Contains additional metadata that is not present within NCBI. Metalog rows within the Sample Information section are green.</li>
-            <li>Addition of <a href="https://gold.jgi.doe.gov/">GOLD (JGI)</a> metadata and publications within each Run page for samples sequenced by JGI. GOLD rows within the Sample Information section are gold, publications linked by GOLD appear as gold pills, and an information button explains the source. GOLD's records are downloaded once and stored in the database, so run pages show them without waiting for JGI. The About page has a new GOLD (JGI) section, including how many runs and projects have GOLD data.</li>
+            <li>Addition of <a href="https://gold.jgi.doe.gov/">GOLD (JGI)</a> metadata and publications within each Run page for samples sequenced by JGI. GOLD rows within the Sample Information section are gold, publications linked by GOLD appear as gold pills, and an information button explains the source. GOLD's records are downloaded once and stored in the database, so Run pages show them without waiting for JGI. The About page has a new GOLD (JGI) section, including how many runs and projects have GOLD data.</li>
             <li>The Metalog and GOLD details for a run can be downloaded together as the Additional Run Metadata CSV.</li>
-            <li>Metadata on each run page has a coloured stripe beside the field name showing whether it differs from other runs: green = different value, grey = different but expected (IDs, sizes etc.), yellow = only this run has the entry. NCBI fields are compared with the other runs of the BioProject, and GOLD fields with the related runs of the same study.</li>
+            <li>Metadata on each Run page has a coloured stripe beside the field name showing whether it differs from other runs: green = different value, grey = different but expected (IDs, sizes etc.), yellow = only this run has the entry. NCBI fields are compared with the other runs of the BioProject, and GOLD fields with the related runs of the same study.</li>
             <li>Filter fields within the Sample Information section by source (Metalog, GOLD, NCBI-defined or custom attributes) or by how they differ from other runs.</li>
-            <li>On each run page, users can continue searching without returning to the search page, via a dropdown search bar.</li>
+            <li>On each Run page, users can continue searching without returning to the search page, via a dropdown search bar.</li>
+            <li>A check compares a run's recorded Geo loc name with its latitude and longitude. When the coordinates fall in a different country, a caution panel opens at the top of Sample information and the map is flagged, because the coordinates may be wrong. Samples at sea or on small islands are not flagged.</li>
           </ul>
         </li>
         <li><strong>Advanced search</strong>
@@ -471,7 +509,7 @@ export const CHANGELOG = [
             <li>Runs by release year, and sequencing depth by release year, shown on a square-root scale so both shallow and very deep runs are readable.</li>
             <li>Time from collection to release, in years, for host-associated and ecological samples, drawn from the runs whose collection date is recorded to the day.</li>
             <li>Types of sample (host-associated, ecological and unclassified).</li>
-            <li>Where samples were collected, on a map.</li>
+            <li>Where samples were collected, on a map of hexagons whose colour shows how many runs fall in each. Hovering a hexagon also highlights its latitude band.</li>
             <li>Most widely detected taxa, which can be shown for all runs, host-associated runs or ecological runs, or for one group such as pig, human, soil or marine.</li>
             <li>Information coverage: location, Metalog, GOLD (JGI), IndicPiper and low complexity. The IndicPiper bar is split into runs with and without a warning.</li>
             <li>Known species fraction by release year, for all runs and separately for host-associated samples (human and mouse split into gut and non-gut) and ecological samples. A simple linear model fitted to the trend is extended forward to estimate when the fraction would reach 100%.</li>
@@ -500,7 +538,7 @@ export const CHANGELOG = [
         <li>Taxonomy page now has a Shuffle button, letting users randomise the order of sample results.</li>
         <li>Total metagenomes screened -> 913,071. Down 94 due to redacted SRA data from NCBI (Error 404).</li>
         <li>NPM update</li>
-        <li>New information present within each run page, under *Derived information*:</li>
+        <li>New information present within each Run page, under *Derived information*:</li>
         <ul>
           <li>Non-metagenome organism (Strict/Loose): Samples flagged true when the organism name recorded in NCBI names a specific species rather than a metagenome or a community (for example 'Homo sapiens' or 'Escherichia coli'). The sample may be an isolate or a single genome, or a community deposited under its host's name; the flag is judged from the recorded name only, not from the reads. Loose additionally includes vague placeholder names like 'bacterium', 'unidentified', etc.</li>
           <li>Synthetic: Samples flagged true when the organism name contains 'synthetic' or 'simulat' (simulated/simulation), or the BioSample library source is recorded as SYNTHETIC.</li>

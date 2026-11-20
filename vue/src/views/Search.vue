@@ -38,7 +38,7 @@
         <p class="title is-4">Advanced search</p>
         <b-button type="is-text" size="is-small" icon-left="shuffle-variant" class="random-search-button" @click="search_by_random">Random Search</b-button>
       </div>
-      <b-field label="Search query" label-for="advanced-search-query">
+      <b-field label="Search query" label-for="advanced-search-query" :type="universal_error_messages.length ? 'is-danger' : ''" :message="universal_error_messages">
         <div class="search-bar-row">
         <div class="search-autocomplete-wrap">
           <b-input id="advanced-search-query" :compat-fallthrough="false" v-model="universal_query" placeholder="e.g. country: Australia, year: 2010-2015" icon="magnify" :loading="universal_loading" expanded
@@ -102,7 +102,7 @@
                 <span class="keys-example">e.g. 25 or 20-30</span>
               </div>
               <div class="keys-item">
-                <code class="keys-item-label">habitat <InfoTooltipButton controls="advanced-search-popover" label="Show IndicPiper habitat values" :expanded="active_tooltip === 'habitat_info'" @open="showTooltip('habitat_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></code>
+                <code class="keys-item-label">indicpiper <InfoTooltipButton controls="advanced-search-popover" label="Show IndicPiper habitat values" :expanded="active_tooltip === 'habitat_info'" @open="showTooltip('habitat_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" /></code>
                 <span class="keys-example">e.g. soil or soil&gt;=0.1</span>
               </div>
             </div>
@@ -317,7 +317,7 @@
                         <b-button size="is-small" :type="adv_present.low_complexity ? 'is-primary' : ''" :aria-pressed="adv_present.low_complexity" title="Match any run with a low-complexity classification" @click="toggle_low_complexity_present">Any</b-button>
                       </div>
                     </div>
-                    <PresenceField class="adv-field" label="IndicPiper habitat" v-model="adv.habitat" v-model:present="adv_present.habitat" placeholder="e.g. soil or soil>=0.1" search-field="habitat">
+                    <PresenceField class="adv-field" label="IndicPiper habitat" v-model="adv.indicpiper" v-model:present="adv_present.indicpiper" placeholder="e.g. soil or soil>=0.1" search-field="indicpiper" :error-message="adv_errors.indicpiper" @input="on_adv_field_input('indicpiper')">
                       <template #label-suffix>
                         <InfoTooltipButton controls="advanced-search-popover" label="Show IndicPiper habitat values" :expanded="active_tooltip === 'habitat_info'" @open="showTooltip('habitat_info', $event)" @close-delayed="hideTooltipDelayed" @close="hideTooltip" />
                       </template>
@@ -384,7 +384,7 @@
             <div v-if="active_tooltip" id="advanced-search-popover" class="info-tooltip-box" :class="{ 'is-scroll-list': active_tooltip === 'metalog_info' || active_tooltip === 'gold_info' }" :style="{ left: tooltip_x + 'px', top: tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltipDelayed" @focusin="keepTooltipOpen" @focusout="hideTooltipDelayed" @keydown.esc="hideTooltip">
               <template v-if="active_tooltip === 'organism_info'">
                 <p class="info-tooltip-title">Organism</p>
-                <p style="color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="color: var(--white-85); font-size: 0.78rem;">
                   Searches the NCBI taxon assigned to the run. Covers both single-organism identifications
                   (e.g. <em>Homo sapiens</em>, <em>Vibrio cholerae</em>) and NCBI's metagenome pseudo-taxa
                   (e.g. <em>soil metagenome</em>, <em>human gut metagenome</em>) — use this field for
@@ -393,13 +393,13 @@
               </template>
               <template v-if="active_tooltip === 'taxonomy_info'">
                 <p class="info-tooltip-title">Taxonomy — detected presence only</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-                  Filters runs where a taxon was <strong style="color:#fff">detected</strong> by SingleM — not that the sample is primarily composed of it.
+                <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+                  Filters runs where a taxon was <strong style="color:var(--color-white)">detected</strong> by SingleM — not that the sample is primarily composed of it.
                 </p>
-                <p style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-bottom: 0.4rem;">
-                  SingleM analyses reads aligning to conserved single-copy marker genes, so a run labelled "marine metagenome" can still match <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">taxonomy: s__Prochlorococcus</code> if that organism was present in the community.
+                <p style="color: var(--white-65); font-size: 0.78rem; margin-bottom: 0.4rem;">
+                  SingleM analyses reads aligning to conserved single-copy marker genes, so a run labelled "marine metagenome" can still match <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">taxonomy: s__Prochlorococcus</code> if that organism was present in the community.
                 </p>
-                <p style="color: rgba(255,255,255,0.45); font-size: 0.72rem;">Use GTDB taxonomy strings, e.g. d__, p__, c__, o__, f__, g__, s__</p>
+                <p style="color: var(--white-45); font-size: 0.72rem;">Use GTDB taxonomy strings, e.g. d__, p__, c__, o__, f__, g__, s__</p>
               </template>
               <template v-if="active_tooltip === 'platform_info'">
                 <p class="info-tooltip-title">Platform — all values <span class="tooltip-hint">(click to use)</span></p>
@@ -482,11 +482,11 @@
               </template>
               <template v-if="active_tooltip === 'habitat_info'">
                 <p class="info-tooltip-title">IndicPiper habitat — all values <span class="tooltip-hint">(click to use)</span></p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
                   Matches runs whose genus composition includes indicator genera for this habitat
                   (<a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener" style="color:#8ecbff;">IndicPiper</a>
-                  analysis). See the run page's "IndicPiper habitat indicators" section for per-run scores.
-                  Add <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;=</code>, <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;</code>, <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;=</code> or <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;</code> plus a number to threshold on that habitat's score, e.g. <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">soil&gt;=0.1</code>. Leave the name off and just give a comparison, e.g. <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;0.5</code>, to match runs whose strongest habitat match (whichever habitat that is) exceeds it.
+                  analysis). See the Run page's "IndicPiper habitat indicators" section for per-run scores.
+                  Add <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;=</code>, <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;</code>, <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;=</code> or <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;</code> plus a number to threshold on that habitat's score, e.g. <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">soil&gt;=0.1</code>. Leave the name off and just give a comparison, e.g. <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;0.5</code>, to match runs whose strongest habitat match (whichever habitat that is) exceeds it.
                 </p>
                 <div class="info-tooltip-grid">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('human oral')">human oral</button>
@@ -506,15 +506,15 @@
               </template>
               <template v-if="active_tooltip === 'grid_info'">
                 <p class="info-tooltip-title">Graph — pick places on a map</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
                   An interactive world map of the runs that have coordinates, the same map as on the Statistics page. It is divided into
                   hexagons 2° across, each shaded by how many runs were collected inside it: the darker the hexagon, the more runs. Hover a hexagon to see its count.
                 </p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
                   The switch above the map chooses which runs are drawn: <strong style="color: var(--color-sample-host);">host-associated</strong> (purple, e.g. gut or skin samples)
                   or <strong style="color: var(--color-sample-ecological);">ecological</strong> (green, e.g. soil or ocean). Both types share one colour scale, so the two views can be compared.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Click a hexagon to pick it under the sample type shown; you can pick as many as you like, mixing host-associated and
                   ecological hexagons, and click again to drop one. The search uses only the picked hexagons and leaves Latitude and
                   Longitude alone. Clear all drops every hexagon. To zoom, hold Ctrl (⌘ on a Mac) and scroll, or pinch.
@@ -522,74 +522,74 @@
               </template>
               <template v-if="active_tooltip === 'age_info'">
                 <p class="info-tooltip-title">Age</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-                  Searches <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">age</code> and <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">host_age</code> BioSample attributes by their numeric value.
+                <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+                  Searches <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">age</code> and <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">host_age</code> BioSample attributes by their numeric value.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Age is reported at face value — the relevant scale depends on the organism and study. Could be years for a human cohort, weeks for neonates, or centuries for a tree.
                 </p>
               </template>
               <template v-if="active_tooltip === 'low_complexity_info'">
                 <p class="info-tooltip-title">Low complexity</p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.4rem; color: var(--white-85); font-size: 0.78rem;">
                   Flags samples where ≥95% of the community is assigned to a single taxonomic order — usually a sign of a heavily dominated or degraded community rather than a typical diverse metagenome.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Yes = sample primarily dominated by 1 order (&gt;95%)<br />
                   No = community spread across multiple orders
                 </p>
               </template>
               <template v-if="active_tooltip === 'synthetic_info'">
                 <p class="info-tooltip-title">Synthetic</p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.4rem; color: var(--white-85); font-size: 0.78rem;">
                   Flags samples whose reads appear synthetic — e.g. simulated data or a mock community — rather than a real environmental sample.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Yes = simulated reads or a mock/synthetic community standard<br />
                   No = a real environmental or host-associated sample
                 </p>
               </template>
               <template v-if="active_tooltip === 'non_metagenome_organism_info'">
                 <p class="info-tooltip-title">Non-metagenome organism</p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.4rem; color: var(--white-85); font-size: 0.78rem;">
                   Flags samples whose recorded organism names a specific species rather than a metagenome or community. Judged from the recorded name only, not from the reads.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Yes = organism named as a specific species (an isolate, a single genome, or a community deposited under its host’s name)<br />
                   No = a metagenome or community name, a vague name such as “bacterium”, or no name recorded
                 </p>
               </template>
               <template v-if="active_tooltip === 'rna_or_non_dna_info'">
                 <p class="info-tooltip-title">RNA/non-DNA</p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.4rem; color: var(--white-85); font-size: 0.78rem;">
                   Flags samples whose reads appear to be RNA (e.g. metatranscriptomic) or otherwise non-DNA sequencing, rather than standard DNA sequencing.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Yes = RNA (e.g. metatranscriptomic) or other non-DNA sequencing<br />
                   No = standard DNA sequencing
                 </p>
               </template>
               <template v-if="active_tooltip === 'weebill_only_info'">
                 <p class="info-tooltip-title">Weebill only</p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.4rem; color: var(--white-85); font-size: 0.78rem;">
                   Flags runs where SingleM found no marker genes, so the whole GTDB profile comes from Weebill's k-mer matching. These runs are in Sandpiper only because of Weebill. GlobDB profiles use SingleM alone, so they have no GlobDB profile.
                 </p>
-                <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+                <p style="color: var(--white-55); font-size: 0.75rem;">
                   Yes = profile made by Weebill alone (no SingleM marker genes)<br />
                   No = SingleM found marker genes
                 </p>
               </template>
               <template v-if="active_tooltip === 'metadata_info'">
                 <p class="info-tooltip-title">Metadata <span class="tooltip-hint">(click to use)</span></p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
                   Searches all free-form BioSample attributes submitted to NCBI — any extra metadata not covered by the structured fields above.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('metadata: Sus scrofa')">metadata: Sus scrofa — matches any attribute containing this value</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('metadata: host=Sus scrofa')">metadata: host=Sus scrofa — matches only the "host" attribute</button>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Example attributes</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Example attributes</p>
                 <div class="info-tooltip-grid">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('host')">host</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('tissue')">tissue</button>
@@ -607,46 +607,46 @@
               </template>
               <template v-if="active_tooltip === 'gold_info'">
                 <p class="info-tooltip-title">GOLD (JGI) <span class="tooltip-hint">(click to use)</span></p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
                   Finds runs that have details from the Joint Genome Institute's Genomes OnLine Database (GOLD).
                   Only samples submitted through JGI carry a GOLD project ID (Gp followed by digits), so this
-                  is a small share of runs. Their run pages show GOLD's habitat classification, collection
+                  is a small share of runs. Their Run pages show GOLD's habitat classification, collection
                   details, sequencing details, study description and publications in gold, within Sample
                   information. Like Metalog, this sits beside the raw BioSample "Metadata" above, not in it.
                   Every field GOLD records can be searched.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Four formats</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Four formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>gold: (empty, or tick Any) — every run with GOLD data</span>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('Gp0119859')">gold: Gp0119859 — one GOLD project; the start of an ID also works</button>
                   <span>gold: eye — matches any field containing this value, so it also finds IDs, lists and publication details</span>
                   <span>gold: habitat=marine — matches only the "habitat" field</span>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">All fields<template v-if="gold_fields.length"> ({{ gold_fields.length }})</template> — click a field to select; capitals, spaces and underscores do not matter</p>
-                <p v-if="gold_fields_failed" style="margin-bottom: 0; color: rgba(255,255,255,0.7); font-size: 0.72rem;">The list of fields could not be loaded. Type the field name followed by =, e.g. gold: habitat=marine.</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">All fields<template v-if="gold_fields.length"> ({{ gold_fields.length }})</template> — click a field to select; capitals, spaces and underscores do not matter</p>
+                <p v-if="gold_fields_failed" style="margin-bottom: 0; color: var(--white-70); font-size: 0.72rem;">The list of fields could not be loaded. Type the field name followed by =, e.g. gold: habitat=marine.</p>
                 <div v-else class="info-tooltip-grid metalog-fields-scroll">
                   <button v-for="field in gold_fields" :key="field" type="button" class="tt-clickable" @click="selectTooltipValue(field)">{{ field }}</button>
                 </div>
-                <p style="margin: 0.5rem 0 0; color: rgba(255,255,255,0.6); font-size: 0.72rem;">
+                <p style="margin: 0.5rem 0 0; color: var(--white-60); font-size: 0.72rem;">
                   A field is looked up in GOLD's project, biosample, study and analysis project records, and a study's
                   fields find all of its projects.
                 </p>
               </template>
               <template v-if="active_tooltip === 'metalog_info'">
                 <p class="info-tooltip-title">Metalog metadata — click a field to select</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
                   Searches Metalog's curated/harmonised fields for this run (host, sex, age, diet,
                   environment, chemistry measurements, and more) -- distinct from "Metadata" above,
                   which searches the raw BioSample attributes as originally submitted to NCBI. Not
                   every run has a Metalog match; only a handful of these fields are populated for
                   any given sample.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>metalog: diabetes — matches any field containing this value</span>
                   <span>metalog: host=Sus scrofa — matches only the "host" field</span>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">All fields (200)</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">All fields (200)</p>
                 <div class="info-tooltip-grid metalog-fields-scroll">
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('acetate_um')">acetate_um</button>
                   <button type="button" class="tt-clickable" @click="selectTooltipValue('added_matter')">added_matter</button>
@@ -891,15 +891,15 @@
               </template>
               <template v-if="active_tooltip === 'metadata'">
                 <p class="info-tooltip-title">Metadata</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+                <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
                   Searches all free-form BioSample attributes submitted to NCBI — any extra metadata not covered by the structured fields above.
                 </p>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Two formats</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Two formats</p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>metadata: Sus scrofa — matches any attribute containing this value</span>
                   <span>metadata: host=Sus scrofa — matches only the "host" attribute</span>
                 </div>
-                <p style="margin-bottom: 0.4rem; color: rgba(255,255,255,0.5); font-size: 0.72rem;">Example attributes</p>
+                <p style="margin-bottom: 0.4rem; color: var(--white-50); font-size: 0.72rem;">Example attributes</p>
                 <div class="info-tooltip-grid">
                   <span>host</span><span>tissue</span><span>disease</span><span>treatment</span>
                   <span>isolation_source</span><span>env_biome</span><span>body_site</span><span>age</span>
@@ -908,8 +908,8 @@
               </template>
               <template v-if="active_tooltip === 'keys_info'">
                 <p class="info-tooltip-title">Search syntax</p>
-                <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-                  Filter runs using <strong style="color:#fff">key: value</strong> pairs, separated by commas.
+                <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+                  Filter runs using <strong style="color:var(--color-white)">key: value</strong> pairs, separated by commas.
                 </p>
                 <div class="info-tooltip-grid" style="margin-bottom: 0.5rem;">
                   <span>country: Australia</span>
@@ -919,7 +919,7 @@
                   <span>taxonomy: s__Prochlorococcus</span>
                   <span>metadata: host=Sus scrofa</span>
                 </div>
-                <p style="color: rgba(255,255,255,0.45); font-size: 0.72rem;">Click "List of Keys" to expand all available keys.</p>
+                <p style="color: var(--white-45); font-size: 0.72rem;">Click "List of Keys" to expand all available keys.</p>
               </template>
               <template v-if="active_tooltip === 'library'">
                 <p class="info-tooltip-title">Library strategy values — click to select</p>
@@ -1087,7 +1087,7 @@
         </div>
       </div>
 
-      <div v-if="universal_result" ref="universalResult" tabindex="-1" class="mt-4" aria-live="polite" aria-atomic="true">
+      <div v-if="universal_result && !universal_problems.length" ref="universalResult" tabindex="-1" class="mt-4" aria-live="polite" aria-atomic="true">
         <b-message v-if="universal_result.count === 0" type="is-warning" has-icon>
           No samples found matching {{ universal_result.match_description }}.
         </b-message>
@@ -1125,6 +1125,7 @@ import { GTDB_VERSION, GLOBDB_VERSION } from '@/versions'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import { ADVANCED_KEY_MAP, ADVANCED_GROUP_FIELDS, SEARCH_FIELDS } from '@/constants/searchFields'
 import { useSearchAutocomplete, splitActiveSegment, splitQueryParts, quoteQueryValue, unquoteQueryValue } from '@/composables/useSearchAutocomplete'
+import { validateField, validateQueryParts, NUMERIC_LIMITS } from '@/utils/searchValidation'
 import { stopPageLoading } from '@/store/pageLoading'
 import debounce from 'lodash/debounce'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
@@ -1134,6 +1135,8 @@ import SearchGridField from '@/components/SearchGridField.vue'
 // Blurbs for the Keywords group. Plain prose: the search syntax itself lives in the List of keys.
 const KEYWORDS_NOTE = 'Search a study\'s title, abstract, location, organism and accessions at once. Separate terms with commas: each term is matched as an exact phrase and every term must be found. A sample that matches in several places still counts once.'
 
+// How long typing must pause before a bad value turns its field red.
+const ADV_ERROR_DELAY_MS = 800
 const ADVANCED_KEY_RE = new RegExp(`^(${Object.keys(ADVANCED_KEY_MAP).join('|')})\\s*:`, 'i')
 
 function queryParamToString (value) {
@@ -1183,6 +1186,8 @@ export default {
       preview_abort: null,
       universal_request_id: 0,
       debounced_universal_preview: null,
+      problems_visible: false,
+      show_problems_soon: null,
       syncing_query_to_advanced: false,
       query_generated_from_advanced: false,
       advanced_passthrough_parts: [],
@@ -1239,7 +1244,7 @@ export default {
         // JGI GOLD project ID
         gold: '',
         // IndicPiper habitat indicator
-        habitat: '',
+        indicpiper: '',
       },
       // Per-field "present, any value" toggle -- mirrors the keys of `adv`
       // that support it. When true for a field, build_query() sends "key: "
@@ -1259,7 +1264,7 @@ export default {
         sra_study: false, experiment: false, sample_acc: false, biosample: false,
         organisation: false,
         attr: false, metalog: false, gold: false,
-        habitat: false,
+        indicpiper: false,
       },
       adv_errors: {},
       adv_error_timers: {},
@@ -1292,6 +1297,9 @@ export default {
     // Vue binds functions declared in `methods`, which drops Lodash's custom
     // `.cancel()` property. Keep the debouncer as per-instance state instead.
     this.debounced_universal_preview = debounce(this.fetch_universal_preview, 450)
+    // Typing "year: 20" on the way to 2015 is not a mistake yet: the red message
+    // shows once typing pauses. Submitting shows it at once.
+    this.show_problems_soon = debounce(() => { this.problems_visible = true }, ADV_ERROR_DELAY_MS)
     if (this.$route.query.q) {
       // e.g. "Edit search" on the search results page: keep the query in the
       // search bar and show its match count (and buttons) again.
@@ -1314,6 +1322,7 @@ export default {
   beforeUnmount () {
     this.universal_request_id += 1
     this.debounced_universal_preview.cancel()
+    this.show_problems_soon.cancel()
     for (const timer of Object.values(this.adv_error_timers)) clearTimeout(timer)
     clearTimeout(this.tooltip_close_timer)
   },
@@ -1348,6 +1357,17 @@ export default {
   },
 
   computed: {
+    // What to say under the bar, once typing has paused (or a submit was tried).
+    universal_error_messages () {
+      if (!this.problems_visible) return []
+      return this.universal_problems.map(p => `${p.key}: ${p.message}`)
+    },
+    // Problems in the search bar's own text (what is actually submitted),
+    // however it was written: by hand, from the fields, or from a link.
+    universal_problems () {
+      return validateQueryParts(splitQueryParts(this.universal_query))
+    },
+
     // Only rendered when the active suggestion's underlying value actually
     // starts with what's typed (case-insensitive) -- the dropdown itself
     // allows substring matches (e.g. typing "seq" can suggest "Illumina
@@ -1563,7 +1583,7 @@ export default {
         platform_info: 'platform',
         instrument_info: 'instrument',
         library_info: 'library_strategy',
-        habitat_info: 'habitat',
+        habitat_info: 'indicpiper',
         metadata_info: 'metadata',
       }[this.active_tooltip]
       if (keysListField) {
@@ -1651,7 +1671,7 @@ export default {
         ['metadata', this.adv.attr, 'attr'],
         ['metalog', this.adv.metalog],
         ['gold', this.adv.gold],
-        ['habitat', this.adv.habitat],
+        ['indicpiper', this.adv.indicpiper],
       ]
       for (const [key, val, stateKey = key] of text_fields) {
         // A "present" toggle always wins over the input's value -- pushing
@@ -1682,16 +1702,12 @@ export default {
       if (this.adv_error_timers[field]) {
         clearTimeout(this.adv_error_timers[field])
       }
-      // Show error after 3 seconds of inactivity if still invalid
-      const range_re = /^-?\d+(\.\d+)?(-(-?\d+(\.\d+)?))?$/
-      const op_re = /^[<>]=?-?\d+(\.\d+)?$/
+      // Show the error once typing pauses, if the value is still invalid.
       this.adv_error_timers[field] = setTimeout(() => {
         if (this.adv_present[field]) return
-        const val = (this.adv[field] || '').trim()
-        if (val && !range_re.test(val) && !op_re.test(val)) {
-          this.adv_errors = { ...this.adv_errors, [field]: 'Use a number, range e.g. 10-20, or operator e.g. >10' }
-        }
-      }, 3000)
+        const message = validateField(field, this.adv[field])
+        if (message) this.adv_errors = { ...this.adv_errors, [field]: message }
+      }, ADV_ERROR_DELAY_MS)
     },
 
     validate_advanced () {
@@ -1701,14 +1717,10 @@ export default {
 
     advanced_validation_errors () {
       const errors = {}
-      const range_re = /^-?\d+(\.\d+)?(-(-?\d+(\.\d+)?))?$/
-      const op_re = /^[<>]=?-?\d+(\.\d+)?$/
-      for (const field of ['year', 'release_year', 'temperature', 'depth', 'latitude', 'longitude', 'spf', 'ksf', 'gbp', 'reads', 'read_length', 'age']) {
+      for (const field of [...Object.keys(NUMERIC_LIMITS), 'indicpiper']) {
         if (this.adv_present[field]) continue
-        const val = (this.adv[field] || '').trim()
-        if (val && !range_re.test(val) && !op_re.test(val)) {
-          errors[field] = 'Use a number, range e.g. 10-20, or operator e.g. >10'
-        }
+        const message = validateField(field, this.adv[field])
+        if (message) errors[field] = message
       }
       return errors
     },
@@ -1793,6 +1805,12 @@ export default {
       if (!this.universal_query.trim()) {
         this.debounced_universal_preview.cancel()
         this.universal_result = null
+        return
+      }
+      this.problems_visible = false
+      this.show_problems_soon()
+      if (this.universal_problems.length > 0) {
+        this.debounced_universal_preview.cancel()
         return
       }
       this.debounced_universal_preview(requestId)
@@ -1919,7 +1937,7 @@ export default {
         this.universal_result = null
         return
       }
-      if (Object.keys(this.advanced_validation_errors()).length > 0) {
+      if (Object.keys(this.advanced_validation_errors()).length > 0 || this.universal_problems.length > 0) {
         this.debounced_universal_preview.cancel()
         this.universal_result = null
         return
@@ -2017,6 +2035,12 @@ export default {
       if (this.query_generated_from_advanced && !this.validate_advanced()) {
         this.advanced_open = true
         this.expand_adv_groups(Object.keys(this.adv_errors))
+        return
+      }
+      if (this.universal_problems.length > 0) {
+        this.problems_visible = true
+        this.universal_result = null
+        this.debounced_universal_preview.cancel()
         return
       }
       const query = this.universal_query.trim()
@@ -2155,14 +2179,14 @@ export default {
   position: fixed;
   z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
-  color: #fff;
+  color: var(--color-white);
   border-radius: 8px;
   padding: 0.8rem 1rem;
   min-width: 280px;
   max-width: 420px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 28px var(--black-50);
   font-size: 0.78rem;
   line-height: 1.5;
   pointer-events: auto;
@@ -2186,7 +2210,7 @@ export default {
 .tt-clickable {
   appearance: none;
   border: 0;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--white-12);
   color: inherit;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
@@ -2199,11 +2223,11 @@ export default {
 }
 .tt-clickable:hover,
 .tt-clickable:focus-visible {
-  background: rgba(255, 255, 255, 0.28) !important;
-  color: #fff;
+  background: var(--white-28) !important;
+  color: var(--color-white);
 }
 .tt-clickable:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--color-white);
   outline-offset: 1px;
 }
 /* Buefy's <b-field grouped group-multiline> renders the actual flex-wrap
@@ -2227,8 +2251,10 @@ export default {
    using a bare `.advanced-panel :deep(.field-body > .field.is-grouped-
    multiline)` selector matched more than intended and broke spacing that
    was already correct elsewhere. */
+/* The gap always has room for a one-line validation message under a field
+   (see .adv-field > .help), so showing one never moves anything. */
 .adv-group-row > .field-body > .field.is-grouped-multiline {
-  row-gap: 0.75rem;
+  row-gap: 1.5rem;
 }
 /* Bulma puts margin-bottom: 0.75rem on a multiline group's `.control`
    children and cancels the last row's with margin-bottom: -0.75rem on the
@@ -2311,10 +2337,10 @@ export default {
   max-width: min(40rem, calc(100vw - 2rem));
   top: 100%;
   margin-top: 0.25rem;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--color-white);
+  border: 1px solid var(--black-10);
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px var(--black-12);
   max-height: 280px;
   overflow-y: auto;
   z-index: 30;
@@ -2363,7 +2389,7 @@ export default {
 }
 .keys-syntax-item {
   font-size: 0.72rem;
-  color: #666;
+  color: var(--color-grey-mid);
   white-space: nowrap;
 }
 .keys-syntax-item code {
@@ -2382,7 +2408,7 @@ export default {
 }
 .keys-example-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-grey-mid);
   white-space: nowrap;
 }
 .keys-example-query {
@@ -2601,7 +2627,7 @@ export default {
 .adv-group-row {
   /* Headroom for the `on-border` floating labels, which straddle each input's
      top edge, and for focus rings while the group is clipped mid-animation. */
-  padding: 0.55rem 3px 0.25rem;
+  padding: 0.55rem 3px 0.9rem; /* bottom room for a message hanging under the last row */
 }
 .info-icon-btn {
   cursor: help;
@@ -2612,17 +2638,17 @@ export default {
   user-select: none;
 }
 .info-icon-btn:hover {
-  color: #555;
+  color: var(--color-grey-dark);
 }
 .info-tooltip-title {
   font-weight: 700;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--white-50);
   margin-bottom: 0.5rem;
 }
 .tooltip-hint {
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--white-35);
 }
 .info-tooltip-grid {
   display: flex;
@@ -2631,7 +2657,7 @@ export default {
 }
 .info-tooltip-grid span,
 .info-tooltip-grid .tt-clickable {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--white-12);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -2742,6 +2768,22 @@ export default {
   flex: 0 0 260px;
   min-width: 260px;
   max-width: 260px;
+  position: relative;
+}
+/* A validation message must never change the grid: it is taken out of the
+   flow and hangs in the gap under its field, one line, so the field keeps its
+   260px width and the rows below do not move. */
+.advanced-panel :deep(.adv-field > .help) {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 1px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (max-width: 600px) {
   .advanced-panel :deep(.adv-field) {

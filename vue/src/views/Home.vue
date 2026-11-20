@@ -113,20 +113,20 @@ export default {
   background: radial-gradient(ellipse 70% 65% at 32% 45%, rgba(250, 249, 246, 0.55) 0%, rgba(250, 249, 246, 0.28) 55%, rgba(250, 249, 246, 0) 80%);
 }
 .home-headline {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.25rem, 1.6rem + 3vw, 3.75rem);
   line-height: 1.05;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-3);
-  text-shadow: 0 1px 24px rgba(250, 249, 246, 0.9), 0 1px 3px rgba(250, 249, 246, 0.9), 0 2px 4px rgba(0, 0, 0, 0.15);
+  text-shadow: 0 1px 24px rgba(250, 249, 246, 0.9), 0 1px 3px rgba(250, 249, 246, 0.9), 0 2px 4px var(--black-15);
 }
 .home-subheadline {
   font-size: 1.1rem;
   font-weight: 600;
   color: hsl(0, 0%, 18%);
   margin-bottom: var(--space-8);
-  text-shadow: 0 1px 16px rgba(250, 249, 246, 0.9), 0 1px 3px rgba(0, 0, 0, 0.12);
+  text-shadow: 0 1px 16px rgba(250, 249, 246, 0.9), 0 1px 3px var(--black-12);
 }
 .home-lede {
   font-size: 1rem;
@@ -134,7 +134,7 @@ export default {
   line-height: 1.65;
   max-width: 45ch;
   margin-bottom: var(--space-4);
-  text-shadow: 0 1px 16px rgba(250, 249, 246, 0.85), 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1px 16px rgba(250, 249, 246, 0.85), 0 1px 2px var(--black-10);
 }
 .home-lede-muted {
   color: hsl(0, 0%, 32%);
@@ -149,15 +149,15 @@ export default {
   align-items: center;
   gap: var(--space-2);
   font-weight: 500;
-  color: hsl(174, 62%, 22%);
+  color: var(--color-accent-deep);
   background: rgba(250, 249, 246, 0.6);
-  border: 1px solid hsl(174, 62%, 22%);
+  border: 1px solid var(--color-accent-deep);
   transition: background-color 180ms ease;
 }
 .home-cta:hover,
 .home-cta:focus-visible {
-  color: hsl(174, 62%, 22%);
-  border-color: hsl(174, 62%, 22%);
+  color: var(--color-accent-deep);
+  border-color: var(--color-accent-deep);
   background: hsla(174, 62%, 22%, 0.1);
 }
 .home-cta-icon {

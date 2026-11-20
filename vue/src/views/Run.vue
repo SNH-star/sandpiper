@@ -398,7 +398,7 @@ export default {
       if (parsed.instrument) {
         parts.push(parsed.instrument)
       }
-      return parts.join(' · ')
+      return parts.join(', ')
     },
     sunburst_tree: function () {
       return this.condensed_tree.condensed
@@ -734,7 +734,7 @@ export default {
   /* Overrides app.scss's global .subtitle rule, which puts every subtitle
      in the serif display font -- the sample id is an identifier, not a
      headline, so it reads better in the body sans stack. */
-  font-family: system-ui, -apple-system, "Segoe UI", "Ubuntu", "Cantarell", sans-serif;
+  font-family: var(--font-system);
 }
 /* Same purple hue as the site's $purple token (hsl(271, 100%, 71%) --
    see .keys-columns code in Search.vue), darkened for legible white text
@@ -745,7 +745,7 @@ export default {
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
   background: var(--color-accent);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
   font-size: 0.85rem;
   white-space: nowrap;
   transition: background-color 0.15s;
@@ -854,7 +854,7 @@ export default {
   white-space: nowrap;
 }
 .run-qc-flag:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 /* Low complexity is the one genuine pass/fail QC judgment among the flag
@@ -862,25 +862,25 @@ export default {
    .run-qc-meter-fill.is-danger above). */
 .run-qc-flag-active {
   background: hsl(348, 75%, 42%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 /* The other flags are categorical facts, not verdicts (e.g. RNA vs. DNA isn't
    "bad" -- some users want RNA specifically), so each has its own colour. */
 .run-qc-flag-organism-single {
   background: hsl(235, 45%, 50%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 .run-qc-flag-synthetic {
   background: hsl(45, 70%, 38%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 .run-qc-flag-rna {
   background: hsl(290, 45%, 48%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 .run-qc-flag-weebill {
   background: hsl(185, 60%, 28%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 /* Which methods built the profile of the selected taxonomy database. */
 .taxonomy-note {
@@ -893,11 +893,11 @@ export default {
    darkened so the white text stays readable. */
 .run-qc-flag-env-host {
   background: hsl(277, 29%, 40%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 .run-qc-flag-env-eco {
   background: hsl(100, 30%, 30%);
-  color: hsl(0, 0%, 100%);
+  color: var(--color-white);
 }
 .run-qc-flag-icon-img {
   width: 1em;
@@ -911,11 +911,11 @@ export default {
   position: fixed;
   z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
-  color: #fff;
+  color: var(--color-white);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
   max-width: 260px;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 28px var(--black-50);
   font-size: 0.78rem;
   line-height: 1.5;
   pointer-events: auto;
@@ -923,9 +923,9 @@ export default {
 .run-qc-tooltip-search {
   display: block;
   margin-top: 0.4rem;
-  font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--white-60);
 }
 
 /* Bookends the header card (title/facts/QC strip) with a matching top rule,
@@ -967,7 +967,7 @@ export default {
   padding: 0.3rem 0.7rem;
   border: 1px solid hsl(0, 0%, 87%);
   border-radius: 6px;
-  color: hsl(0, 0%, 25%);
+  color: var(--color-ink-strong);
   font-size: 0.85rem;
   font-family: inherit;
   font-weight: 400;
@@ -985,8 +985,6 @@ export default {
   line-height: 1.3;
   font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: hsl(174, 55%, 30%);
 }
 .run-links-note {
