@@ -1,0 +1,3867 @@
+{
+ "version": "2.1.0",
+ "defined_from": "2.1.1",
+ "habitats": {
+  "freshwater sediment": [
+   {
+    "genus": "Bathycorpusculum",
+    "phylum": "Thermoproteota",
+    "indval": 0.758
+   },
+   {
+    "genus": "LD21",
+    "phylum": "Bacteroidota",
+    "indval": 0.754
+   },
+   {
+    "genus": "CAIXSE01",
+    "phylum": "Actinomycetota",
+    "indval": 0.744
+   },
+   {
+    "genus": "CTSoil-043",
+    "phylum": "Chloroflexota",
+    "indval": 0.735
+   },
+   {
+    "genus": "Methanoregula",
+    "phylum": "Halobacteriota",
+    "indval": 0.725
+   },
+   {
+    "genus": "DATBSL01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.721
+   },
+   {
+    "genus": "RPQJ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.713
+   },
+   {
+    "genus": "UBA877",
+    "phylum": "Chloroflexota",
+    "indval": 0.691
+   },
+   {
+    "genus": "SpSt-501",
+    "phylum": "Desulfobacterota",
+    "indval": 0.668
+   },
+   {
+    "genus": "UBA5072",
+    "phylum": "Bacteroidota",
+    "indval": 0.662
+   },
+   {
+    "genus": "CAIXZV01",
+    "phylum": "Chloroflexota",
+    "indval": 0.659
+   },
+   {
+    "genus": "0-14-0-80-60-11",
+    "phylum": "Desulfobacterota",
+    "indval": 0.657
+   },
+   {
+    "genus": "UBA8941",
+    "phylum": "Thermoproteota",
+    "indval": 0.652
+   },
+   {
+    "genus": "Methyloceanibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.651
+   },
+   {
+    "genus": "JAKQTR01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.644
+   },
+   {
+    "genus": "CAIWHR01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.641
+   },
+   {
+    "genus": "CAIQPS01",
+    "phylum": "Actinomycetota",
+    "indval": 0.637
+   },
+   {
+    "genus": "UBA1163",
+    "phylum": "Desulfobacterota",
+    "indval": 0.636
+   },
+   {
+    "genus": "Villigracilis",
+    "phylum": "Chloroflexota",
+    "indval": 0.628
+   },
+   {
+    "genus": "RBG-16-66-30",
+    "phylum": "Acidobacteriota",
+    "indval": 0.621
+   },
+   {
+    "genus": "CAWJEL01",
+    "phylum": "Chloroflexota",
+    "indval": 0.619
+   },
+   {
+    "genus": "FEN-299",
+    "phylum": "Acidobacteriota",
+    "indval": 0.615
+   },
+   {
+    "genus": "2-02-FULL-66-22",
+    "phylum": "Methylomirabilota",
+    "indval": 0.611
+   },
+   {
+    "genus": "RBG-16-64-13",
+    "phylum": "Actinomycetota",
+    "indval": 0.611
+   },
+   {
+    "genus": "JAKAFS01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.61
+   },
+   {
+    "genus": "UBA6911",
+    "phylum": "Acidobacteriota",
+    "indval": 0.604
+   },
+   {
+    "genus": "Fen-1364",
+    "phylum": "Spirochaetota",
+    "indval": 0.595
+   },
+   {
+    "genus": "JADGNF01",
+    "phylum": "Thermoproteota",
+    "indval": 0.592
+   },
+   {
+    "genus": "PALSA-1440",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.585
+   },
+   {
+    "genus": "FEB-25",
+    "phylum": "Chloroflexota",
+    "indval": 0.584
+   },
+   {
+    "genus": "Palsa-1315",
+    "phylum": "Nitrospirota",
+    "indval": 0.573
+   },
+   {
+    "genus": "Fen-1038",
+    "phylum": "Chloroflexota",
+    "indval": 0.571
+   },
+   {
+    "genus": "JAGVSR01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.57
+   },
+   {
+    "genus": "UBA2192",
+    "phylum": "Desulfobacterota",
+    "indval": 0.57
+   },
+   {
+    "genus": "JAFMJV01",
+    "phylum": "Chloroflexota",
+    "indval": 0.562
+   },
+   {
+    "genus": "PALSA-1355",
+    "phylum": "Planctomycetota",
+    "indval": 0.562
+   },
+   {
+    "genus": "Prado023",
+    "phylum": "Actinomycetota",
+    "indval": 0.561
+   },
+   {
+    "genus": "JALORV01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.553
+   },
+   {
+    "genus": "CAIOAK01",
+    "phylum": "Myxococcota",
+    "indval": 0.549
+   },
+   {
+    "genus": "UBA2199",
+    "phylum": "Acidobacteriota",
+    "indval": 0.544
+   },
+   {
+    "genus": "G963675935",
+    "phylum": "Planctomycetota",
+    "indval": 0.542
+   },
+   {
+    "genus": "PLanc-01",
+    "phylum": "Planctomycetota",
+    "indval": 0.538
+   },
+   {
+    "genus": "Aestuariivirga",
+    "phylum": "Pseudomonadota",
+    "indval": 0.536
+   },
+   {
+    "genus": "JALOOE01",
+    "phylum": "Chloroflexota",
+    "indval": 0.536
+   },
+   {
+    "genus": "Deferrimicrobium",
+    "phylum": "Desulfobacterota",
+    "indval": 0.535
+   },
+   {
+    "genus": "JALHVH01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.535
+   },
+   {
+    "genus": "CAVQSS01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.534
+   },
+   {
+    "genus": "Fen-1058",
+    "phylum": "Chloroflexota",
+    "indval": 0.533
+   },
+   {
+    "genus": "UBA2241",
+    "phylum": "Actinomycetota",
+    "indval": 0.532
+   },
+   {
+    "genus": "Syntrophorhabdus",
+    "phylum": "Desulfobacterota",
+    "indval": 0.53
+   },
+   {
+    "genus": "RBG-16-57-11",
+    "phylum": "Chloroflexota",
+    "indval": 0.529
+   },
+   {
+    "genus": "Gallionella",
+    "phylum": "Pseudomonadota",
+    "indval": 0.527
+   },
+   {
+    "genus": "CAVVEQ01",
+    "phylum": "Chloroflexota",
+    "indval": 0.525
+   },
+   {
+    "genus": "JAAYDI01",
+    "phylum": "Planctomycetota",
+    "indval": 0.525
+   },
+   {
+    "genus": "UBA5195",
+    "phylum": "Chloroflexota",
+    "indval": 0.525
+   },
+   {
+    "genus": "JBAXEO01",
+    "phylum": "Actinomycetota",
+    "indval": 0.515
+   },
+   {
+    "genus": "Fen-1362",
+    "phylum": "Planctomycetota",
+    "indval": 0.513
+   },
+   {
+    "genus": "JADKCZ01",
+    "phylum": "Myxococcota",
+    "indval": 0.509
+   },
+   {
+    "genus": "CAVZNY01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.503
+   },
+   {
+    "genus": "Methanosarcina",
+    "phylum": "Halobacteriota",
+    "indval": 0.501
+   },
+   {
+    "genus": "CADEEN01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.5
+   }
+  ],
+  "freshwater water": [
+   {
+    "genus": "Polynucleobacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.782
+   },
+   {
+    "genus": "Planktophila",
+    "phylum": "Actinomycetota",
+    "indval": 0.76
+   },
+   {
+    "genus": "Limnohabitans_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.756
+   },
+   {
+    "genus": "Limnohabitans",
+    "phylum": "Pseudomonadota",
+    "indval": 0.749
+   },
+   {
+    "genus": "Sediminibacterium",
+    "phylum": "Bacteroidota",
+    "indval": 0.713
+   },
+   {
+    "genus": "Nanopelagicus",
+    "phylum": "Actinomycetota",
+    "indval": 0.704
+   },
+   {
+    "genus": "Rhodoluna",
+    "phylum": "Actinomycetota",
+    "indval": 0.688
+   },
+   {
+    "genus": "Pernthalerella",
+    "phylum": "Pseudomonadota",
+    "indval": 0.676
+   },
+   {
+    "genus": "Methylopumilus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.674
+   },
+   {
+    "genus": "Fontibacterium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.666
+   },
+   {
+    "genus": "UBA2093",
+    "phylum": "Actinomycetota",
+    "indval": 0.663
+   },
+   {
+    "genus": "UBA953",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.662
+   },
+   {
+    "genus": "UBA3006",
+    "phylum": "Actinomycetota",
+    "indval": 0.642
+   },
+   {
+    "genus": "Limnocylindrus",
+    "phylum": "Chloroflexota",
+    "indval": 0.638
+   },
+   {
+    "genus": "MAG-120802",
+    "phylum": "Actinomycetota",
+    "indval": 0.626
+   },
+   {
+    "genus": "UBA952",
+    "phylum": "Bacteroidota",
+    "indval": 0.625
+   },
+   {
+    "genus": "ATZT02",
+    "phylum": "Actinomycetota",
+    "indval": 0.621
+   },
+   {
+    "genus": "UBA955",
+    "phylum": "Bacteroidota",
+    "indval": 0.614
+   },
+   {
+    "genus": "Pollutibacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.607
+   },
+   {
+    "genus": "Aquirufa",
+    "phylum": "Bacteroidota",
+    "indval": 0.602
+   },
+   {
+    "genus": "Casp-actino8",
+    "phylum": "Actinomycetota",
+    "indval": 0.602
+   },
+   {
+    "genus": "UBA5976",
+    "phylum": "Actinomycetota",
+    "indval": 0.592
+   },
+   {
+    "genus": "SXXZ01",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.583
+   },
+   {
+    "genus": "UBA964",
+    "phylum": "Pseudomonadota",
+    "indval": 0.577
+   },
+   {
+    "genus": "Neoroseomonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.576
+   },
+   {
+    "genus": "M0103",
+    "phylum": "Bacteroidota",
+    "indval": 0.574
+   },
+   {
+    "genus": "Cyanobium",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.573
+   },
+   {
+    "genus": "QWPN01",
+    "phylum": "Planctomycetota",
+    "indval": 0.571
+   },
+   {
+    "genus": "Verrucolacustris",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.567
+   },
+   {
+    "genus": "Zwartia",
+    "phylum": "Pseudomonadota",
+    "indval": 0.567
+   },
+   {
+    "genus": "F1-20-MAGs119",
+    "phylum": "Actinomycetota",
+    "indval": 0.56
+   },
+   {
+    "genus": "UBA966",
+    "phylum": "Planctomycetota",
+    "indval": 0.556
+   },
+   {
+    "genus": "AAA044-D11",
+    "phylum": "Actinomycetota",
+    "indval": 0.555
+   },
+   {
+    "genus": "UBA967",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.552
+   },
+   {
+    "genus": "JBKCUI01",
+    "phylum": "Planctomycetota",
+    "indval": 0.54
+   },
+   {
+    "genus": "BACL27",
+    "phylum": "Actinomycetota",
+    "indval": 0.534
+   },
+   {
+    "genus": "Methylopumilus_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.531
+   },
+   {
+    "genus": "UBA965",
+    "phylum": "Chloroflexota",
+    "indval": 0.531
+   },
+   {
+    "genus": "Allorhodoferax",
+    "phylum": "Pseudomonadota",
+    "indval": 0.53
+   },
+   {
+    "genus": "Acidimicrobilacustris",
+    "phylum": "Actinomycetota",
+    "indval": 0.529
+   },
+   {
+    "genus": "Prosthecobacter",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.529
+   },
+   {
+    "genus": "BJGN01",
+    "phylum": "Bacteroidota",
+    "indval": 0.528
+   },
+   {
+    "genus": "F1-60-MAGs027",
+    "phylum": "Actinomycetota",
+    "indval": 0.523
+   },
+   {
+    "genus": "QWPT01",
+    "phylum": "Planctomycetota",
+    "indval": 0.519
+   },
+   {
+    "genus": "Lacustribacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.511
+   },
+   {
+    "genus": "Algoriphagus",
+    "phylum": "Bacteroidota",
+    "indval": 0.507
+   },
+   {
+    "genus": "Sphingorhabdus_B",
+    "phylum": "Pseudomonadota",
+    "indval": 0.503
+   }
+  ],
+  "glacier": [
+   {
+    "genus": "Polaromonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.876
+   },
+   {
+    "genus": "Lacisediminihabitans",
+    "phylum": "Actinomycetota",
+    "indval": 0.752
+   },
+   {
+    "genus": "Ferruginibacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.745
+   },
+   {
+    "genus": "Rhodoglobus",
+    "phylum": "Actinomycetota",
+    "indval": 0.693
+   },
+   {
+    "genus": "Sphingomonas_O",
+    "phylum": "Pseudomonadota",
+    "indval": 0.681
+   },
+   {
+    "genus": "Cryobacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.645
+   },
+   {
+    "genus": "Arcicella",
+    "phylum": "Bacteroidota",
+    "indval": 0.643
+   },
+   {
+    "genus": "Phormidesmis_A",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.636
+   },
+   {
+    "genus": "Polymorphobacter_B",
+    "phylum": "Pseudomonadota",
+    "indval": 0.619
+   },
+   {
+    "genus": "Microsaccharimonas",
+    "phylum": "Patescibacteriota",
+    "indval": 0.612
+   },
+   {
+    "genus": "JANXMY01",
+    "phylum": "Armatimonadota",
+    "indval": 0.608
+   },
+   {
+    "genus": "Chamaesiphon",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.598
+   },
+   {
+    "genus": "LMDS01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.595
+   },
+   {
+    "genus": "UKL13-2",
+    "phylum": "Pseudomonadota",
+    "indval": 0.595
+   },
+   {
+    "genus": "JAAFJT01",
+    "phylum": "Bacteroidota",
+    "indval": 0.59
+   },
+   {
+    "genus": "Flavobacterium",
+    "phylum": "Bacteroidota",
+    "indval": 0.577
+   },
+   {
+    "genus": "JANPPS01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.577
+   },
+   {
+    "genus": "JANLVJ01",
+    "phylum": "Bacteroidota",
+    "indval": 0.572
+   },
+   {
+    "genus": "Schlegelella_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.572
+   },
+   {
+    "genus": "PALSA-747",
+    "phylum": "Actinomycetota",
+    "indval": 0.57
+   },
+   {
+    "genus": "JAAFJU01",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.567
+   },
+   {
+    "genus": "Pseudopedobacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.562
+   },
+   {
+    "genus": "JANLVI01",
+    "phylum": "Vulcanimicrobiota",
+    "indval": 0.561
+   },
+   {
+    "genus": "Actimicrobium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.558
+   },
+   {
+    "genus": "RYN-111",
+    "phylum": "Actinomycetota",
+    "indval": 0.552
+   },
+   {
+    "genus": "UBA4729",
+    "phylum": "Patescibacteriota",
+    "indval": 0.546
+   },
+   {
+    "genus": "CAHJXG01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.534
+   },
+   {
+    "genus": "JALYXI01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.532
+   },
+   {
+    "genus": "JACMQW01",
+    "phylum": "Bdellovibrionota",
+    "indval": 0.525
+   },
+   {
+    "genus": "CAIQQQ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.524
+   },
+   {
+    "genus": "Lysinimonas",
+    "phylum": "Actinomycetota",
+    "indval": 0.52
+   },
+   {
+    "genus": "Pseudanabaena",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.514
+   },
+   {
+    "genus": "PALSA-911",
+    "phylum": "Pseudomonadota",
+    "indval": 0.511
+   },
+   {
+    "genus": "CAIMNF01",
+    "phylum": "Bdellovibrionota",
+    "indval": 0.508
+   },
+   {
+    "genus": "JANYGA01",
+    "phylum": "Vulcanimicrobiota",
+    "indval": 0.508
+   },
+   {
+    "genus": "JANXLO01",
+    "phylum": "Armatimonadota",
+    "indval": 0.506
+   }
+  ],
+  "human oral": [
+   {
+    "genus": "Actinomyces",
+    "phylum": "Actinomycetota",
+    "indval": 0.911
+   },
+   {
+    "genus": "Rothia",
+    "phylum": "Actinomycetota",
+    "indval": 0.899
+   },
+   {
+    "genus": "Pauljensenia",
+    "phylum": "Actinomycetota",
+    "indval": 0.888
+   },
+   {
+    "genus": "Streptococcus",
+    "phylum": "Bacillota",
+    "indval": 0.865
+   },
+   {
+    "genus": "Granulicatella",
+    "phylum": "Bacillota",
+    "indval": 0.848
+   },
+   {
+    "genus": "Veillonella",
+    "phylum": "Bacillota",
+    "indval": 0.845
+   },
+   {
+    "genus": "Neisseria",
+    "phylum": "Pseudomonadota",
+    "indval": 0.83
+   },
+   {
+    "genus": "Haemophilus_D",
+    "phylum": "Pseudomonadota",
+    "indval": 0.818
+   },
+   {
+    "genus": "Gemella",
+    "phylum": "Bacillota",
+    "indval": 0.815
+   },
+   {
+    "genus": "Capnocytophaga",
+    "phylum": "Bacteroidota",
+    "indval": 0.81
+   },
+   {
+    "genus": "Fusobacterium",
+    "phylum": "Fusobacteriota",
+    "indval": 0.777
+   },
+   {
+    "genus": "Campylobacter_A",
+    "phylum": "Campylobacterota",
+    "indval": 0.764
+   },
+   {
+    "genus": "Nanosynbacter",
+    "phylum": "Patescibacteriota",
+    "indval": 0.76
+   },
+   {
+    "genus": "Leptotrichia",
+    "phylum": "Fusobacteriota",
+    "indval": 0.726
+   },
+   {
+    "genus": "Centipeda",
+    "phylum": "Bacillota",
+    "indval": 0.719
+   },
+   {
+    "genus": "Lachnoanaerobaculum",
+    "phylum": "Bacillota",
+    "indval": 0.71
+   },
+   {
+    "genus": "Lautropia",
+    "phylum": "Pseudomonadota",
+    "indval": 0.708
+   },
+   {
+    "genus": "Lancefieldella",
+    "phylum": "Actinomycetota",
+    "indval": 0.705
+   },
+   {
+    "genus": "Porphyromonas",
+    "phylum": "Bacteroidota",
+    "indval": 0.695
+   },
+   {
+    "genus": "Alloprevotella",
+    "phylum": "Bacteroidota",
+    "indval": 0.661
+   },
+   {
+    "genus": "Leptotrichia_A",
+    "phylum": "Fusobacteriota",
+    "indval": 0.655
+   },
+   {
+    "genus": "Aggregatibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.648
+   },
+   {
+    "genus": "Tannerella",
+    "phylum": "Bacteroidota",
+    "indval": 0.647
+   },
+   {
+    "genus": "Oribacterium",
+    "phylum": "Bacillota",
+    "indval": 0.642
+   },
+   {
+    "genus": "Saccharimonas",
+    "phylum": "Patescibacteriota",
+    "indval": 0.629
+   },
+   {
+    "genus": "JABCPE02",
+    "phylum": "Bacteroidota",
+    "indval": 0.624
+   },
+   {
+    "genus": "Mogibacterium",
+    "phylum": "Bacillota",
+    "indval": 0.614
+   },
+   {
+    "genus": "Haemophilus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.609
+   },
+   {
+    "genus": "Cardiobacterium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.604
+   },
+   {
+    "genus": "Peptidiphaga",
+    "phylum": "Actinomycetota",
+    "indval": 0.586
+   },
+   {
+    "genus": "Nanosyncoccus",
+    "phylum": "Patescibacteriota",
+    "indval": 0.571
+   },
+   {
+    "genus": "Eubacterium_B",
+    "phylum": "Bacillota",
+    "indval": 0.569
+   },
+   {
+    "genus": "Abiotrophia",
+    "phylum": "Bacillota",
+    "indval": 0.567
+   },
+   {
+    "genus": "Arachnia",
+    "phylum": "Actinomycetota",
+    "indval": 0.554
+   },
+   {
+    "genus": "Bulleidia",
+    "phylum": "Bacillota_I",
+    "indval": 0.553
+   },
+   {
+    "genus": "Kingella_B",
+    "phylum": "Pseudomonadota",
+    "indval": 0.528
+   },
+   {
+    "genus": "HOT-345",
+    "phylum": "Patescibacteriota",
+    "indval": 0.523
+   },
+   {
+    "genus": "Selenomonas",
+    "phylum": "Bacillota",
+    "indval": 0.518
+   },
+   {
+    "genus": "Haemophilus_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.514
+   }
+  ],
+  "human skin": [
+   {
+    "genus": "Cutibacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.936
+   },
+   {
+    "genus": "Staphylococcus",
+    "phylum": "Bacillota",
+    "indval": 0.917
+   },
+   {
+    "genus": "Corynebacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.845
+   },
+   {
+    "genus": "Lawsonella",
+    "phylum": "Actinomycetota",
+    "indval": 0.72
+   },
+   {
+    "genus": "Micrococcus",
+    "phylum": "Actinomycetota",
+    "indval": 0.683
+   }
+  ],
+  "human vaginal": [
+   {
+    "genus": "Bifidobacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.88
+   },
+   {
+    "genus": "Lactobacillus",
+    "phylum": "Bacillota",
+    "indval": 0.876
+   },
+   {
+    "genus": "Fannyhessea",
+    "phylum": "Actinomycetota",
+    "indval": 0.869
+   },
+   {
+    "genus": "Berryella",
+    "phylum": "Actinomycetota",
+    "indval": 0.766
+   },
+   {
+    "genus": "Megasphaera",
+    "phylum": "Bacillota",
+    "indval": 0.693
+   },
+   {
+    "genus": "Amygdalobacter",
+    "phylum": "Bacillota",
+    "indval": 0.683
+   },
+   {
+    "genus": "Sneathia",
+    "phylum": "Fusobacteriota",
+    "indval": 0.672
+   },
+   {
+    "genus": "Aerococcus",
+    "phylum": "Bacillota",
+    "indval": 0.618
+   },
+   {
+    "genus": "Dialister",
+    "phylum": "Bacillota",
+    "indval": 0.582
+   },
+   {
+    "genus": "Gemelliphila",
+    "phylum": "Bacillota",
+    "indval": 0.519
+   },
+   {
+    "genus": "Lachnocurva",
+    "phylum": "Bacillota",
+    "indval": 0.502
+   }
+  ],
+  "hydrothermal vent": [
+   {
+    "genus": "Sulfurimonas",
+    "phylum": "Campylobacterota",
+    "indval": 0.779
+   },
+   {
+    "genus": "Sulfurovum",
+    "phylum": "Campylobacterota",
+    "indval": 0.714
+   },
+   {
+    "genus": "UBA1140",
+    "phylum": "Campylobacterota",
+    "indval": 0.694
+   },
+   {
+    "genus": "Sulfidibacterium",
+    "phylum": "Bacteroidota",
+    "indval": 0.58
+   },
+   {
+    "genus": "Thermococcus",
+    "phylum": "Methanobacteriota_B",
+    "indval": 0.58
+   },
+   {
+    "genus": "Hydrogenimonas",
+    "phylum": "Campylobacterota",
+    "indval": 0.57
+   },
+   {
+    "genus": "S010-17",
+    "phylum": "Bacteroidota",
+    "indval": 0.562
+   },
+   {
+    "genus": "Cocleimonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.552
+   },
+   {
+    "genus": "CALLPO01",
+    "phylum": "Patescibacteriota",
+    "indval": 0.539
+   },
+   {
+    "genus": "DRLX01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.536
+   },
+   {
+    "genus": "Caminibacter",
+    "phylum": "Campylobacterota",
+    "indval": 0.535
+   },
+   {
+    "genus": "JAADEQ01",
+    "phylum": "Campylobacterota",
+    "indval": 0.532
+   },
+   {
+    "genus": "UBA6164",
+    "phylum": "Patescibacteriota",
+    "indval": 0.531
+   },
+   {
+    "genus": "JALTBU01",
+    "phylum": "Campylobacterota",
+    "indval": 0.526
+   },
+   {
+    "genus": "Caldithrix",
+    "phylum": "Calditrichota",
+    "indval": 0.517
+   },
+   {
+    "genus": "Nitratifractor",
+    "phylum": "Campylobacterota",
+    "indval": 0.511
+   },
+   {
+    "genus": "GCA-2747955",
+    "phylum": "Patescibacteriota",
+    "indval": 0.507
+   },
+   {
+    "genus": "Profundibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.503
+   },
+   {
+    "genus": "QNZT01",
+    "phylum": "Campylobacterota",
+    "indval": 0.502
+   },
+   {
+    "genus": "Sulfurospirillum_A",
+    "phylum": "Campylobacterota",
+    "indval": 0.501
+   },
+   {
+    "genus": "SZUA-451",
+    "phylum": "Campylobacterota",
+    "indval": 0.5
+   }
+  ],
+  "mammalian gut": [
+   {
+    "genus": "Blautia_A",
+    "phylum": "Bacillota",
+    "indval": 0.874
+   },
+   {
+    "genus": "Mediterraneibacter",
+    "phylum": "Bacillota",
+    "indval": 0.849
+   },
+   {
+    "genus": "Roseburia",
+    "phylum": "Bacillota",
+    "indval": 0.832
+   },
+   {
+    "genus": "Phocaeicola",
+    "phylum": "Bacteroidota",
+    "indval": 0.828
+   },
+   {
+    "genus": "Faecalibacterium",
+    "phylum": "Bacillota",
+    "indval": 0.82
+   },
+   {
+    "genus": "Bacteroides",
+    "phylum": "Bacteroidota",
+    "indval": 0.819
+   },
+   {
+    "genus": "Enterocloster",
+    "phylum": "Bacillota",
+    "indval": 0.798
+   },
+   {
+    "genus": "Parabacteroides",
+    "phylum": "Bacteroidota",
+    "indval": 0.792
+   },
+   {
+    "genus": "Oscillibacter",
+    "phylum": "Bacillota",
+    "indval": 0.786
+   },
+   {
+    "genus": "Lachnospira",
+    "phylum": "Bacillota",
+    "indval": 0.784
+   },
+   {
+    "genus": "Anaerostipes",
+    "phylum": "Bacillota",
+    "indval": 0.78
+   },
+   {
+    "genus": "Alistipes",
+    "phylum": "Bacteroidota",
+    "indval": 0.775
+   },
+   {
+    "genus": "Fusicatenibacter",
+    "phylum": "Bacillota",
+    "indval": 0.77
+   },
+   {
+    "genus": "Lawsonibacter",
+    "phylum": "Bacillota",
+    "indval": 0.762
+   },
+   {
+    "genus": "Dorea_A",
+    "phylum": "Bacillota",
+    "indval": 0.761
+   },
+   {
+    "genus": "Anaerobutyricum",
+    "phylum": "Bacillota",
+    "indval": 0.76
+   },
+   {
+    "genus": "Collinsella",
+    "phylum": "Actinomycetota",
+    "indval": 0.76
+   },
+   {
+    "genus": "Agathobaculum",
+    "phylum": "Bacillota",
+    "indval": 0.759
+   },
+   {
+    "genus": "Gemmiger",
+    "phylum": "Bacillota",
+    "indval": 0.757
+   },
+   {
+    "genus": "Acetatifactor",
+    "phylum": "Bacillota",
+    "indval": 0.731
+   },
+   {
+    "genus": "Otoolea",
+    "phylum": "Bacillota",
+    "indval": 0.729
+   },
+   {
+    "genus": "Vescimonas",
+    "phylum": "Bacillota",
+    "indval": 0.715
+   },
+   {
+    "genus": "Ruminococcoides",
+    "phylum": "Bacillota",
+    "indval": 0.695
+   },
+   {
+    "genus": "Evtepia",
+    "phylum": "Bacillota",
+    "indval": 0.693
+   },
+   {
+    "genus": "Dorea",
+    "phylum": "Bacillota",
+    "indval": 0.686
+   },
+   {
+    "genus": "Allocoprococcus",
+    "phylum": "Bacillota",
+    "indval": 0.678
+   },
+   {
+    "genus": "Hominilimicola",
+    "phylum": "Bacillota",
+    "indval": 0.671
+   },
+   {
+    "genus": "Hominicoprocola",
+    "phylum": "Bacillota",
+    "indval": 0.67
+   },
+   {
+    "genus": "Anthropogastromicrobium",
+    "phylum": "Bacillota",
+    "indval": 0.664
+   },
+   {
+    "genus": "Pilosibacter",
+    "phylum": "Bacillota",
+    "indval": 0.662
+   },
+   {
+    "genus": "Flavonifractor",
+    "phylum": "Bacillota",
+    "indval": 0.654
+   },
+   {
+    "genus": "Hominenteromicrobium",
+    "phylum": "Bacillota",
+    "indval": 0.649
+   },
+   {
+    "genus": "Oliverpabstia",
+    "phylum": "Bacillota",
+    "indval": 0.636
+   },
+   {
+    "genus": "Bilophila",
+    "phylum": "Desulfobacterota",
+    "indval": 0.633
+   },
+   {
+    "genus": "CAG-103",
+    "phylum": "Bacillota",
+    "indval": 0.631
+   },
+   {
+    "genus": "Odoribacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.629
+   },
+   {
+    "genus": "Brotaphodocola",
+    "phylum": "Bacillota",
+    "indval": 0.627
+   },
+   {
+    "genus": "Ruthenibacterium",
+    "phylum": "Bacillota",
+    "indval": 0.625
+   },
+   {
+    "genus": "Eubacterium_G",
+    "phylum": "Bacillota",
+    "indval": 0.624
+   },
+   {
+    "genus": "Hominiventricola",
+    "phylum": "Bacillota",
+    "indval": 0.624
+   },
+   {
+    "genus": "Coprococcus_A",
+    "phylum": "Bacillota",
+    "indval": 0.622
+   },
+   {
+    "genus": "Faecalibacillus",
+    "phylum": "Bacillota_I",
+    "indval": 0.608
+   },
+   {
+    "genus": "CAG-170",
+    "phylum": "Bacillota",
+    "indval": 0.607
+   },
+   {
+    "genus": "Eubacterium_I",
+    "phylum": "Bacillota",
+    "indval": 0.606
+   },
+   {
+    "genus": "Hominimerdicola",
+    "phylum": "Bacillota",
+    "indval": 0.595
+   },
+   {
+    "genus": "Choladousia",
+    "phylum": "Bacillota",
+    "indval": 0.588
+   },
+   {
+    "genus": "Butyribacter",
+    "phylum": "Bacillota",
+    "indval": 0.586
+   },
+   {
+    "genus": "Eubacterium_F",
+    "phylum": "Bacillota",
+    "indval": 0.585
+   },
+   {
+    "genus": "Ventricola",
+    "phylum": "Bacillota",
+    "indval": 0.584
+   },
+   {
+    "genus": "JAZOXB01",
+    "phylum": "Bacillota",
+    "indval": 0.577
+   },
+   {
+    "genus": "Ruminococcus_C",
+    "phylum": "Bacillota",
+    "indval": 0.574
+   },
+   {
+    "genus": "Limivivens",
+    "phylum": "Bacillota",
+    "indval": 0.573
+   },
+   {
+    "genus": "Sutterella",
+    "phylum": "Pseudomonadota",
+    "indval": 0.569
+   },
+   {
+    "genus": "Akkermansia",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.561
+   },
+   {
+    "genus": "Alistipes_A",
+    "phylum": "Bacteroidota",
+    "indval": 0.557
+   },
+   {
+    "genus": "Hominisplanchenecus",
+    "phylum": "Bacillota",
+    "indval": 0.554
+   },
+   {
+    "genus": "Barnesiella",
+    "phylum": "Bacteroidota",
+    "indval": 0.551
+   },
+   {
+    "genus": "Anaerotardibacter",
+    "phylum": "Actinomycetota",
+    "indval": 0.55
+   },
+   {
+    "genus": "Adlercreutzia",
+    "phylum": "Actinomycetota",
+    "indval": 0.546
+   },
+   {
+    "genus": "Gallintestinimicrobium",
+    "phylum": "Bacillota",
+    "indval": 0.545
+   },
+   {
+    "genus": "Blautia",
+    "phylum": "Bacillota",
+    "indval": 0.543
+   },
+   {
+    "genus": "Faecousia",
+    "phylum": "Bacillota",
+    "indval": 0.542
+   },
+   {
+    "genus": "Eubacterium_R",
+    "phylum": "Bacillota",
+    "indval": 0.534
+   },
+   {
+    "genus": "Butyricimonas",
+    "phylum": "Bacteroidota",
+    "indval": 0.531
+   },
+   {
+    "genus": "Claveliimonas",
+    "phylum": "Bacillota",
+    "indval": 0.531
+   },
+   {
+    "genus": "Ruminiclostridium_E",
+    "phylum": "Bacillota",
+    "indval": 0.52
+   },
+   {
+    "genus": "UMGS1071",
+    "phylum": "Bacillota",
+    "indval": 0.518
+   },
+   {
+    "genus": "Coprococcus",
+    "phylum": "Bacillota",
+    "indval": 0.516
+   },
+   {
+    "genus": "Eggerthella",
+    "phylum": "Actinomycetota",
+    "indval": 0.513
+   },
+   {
+    "genus": "CAG-269",
+    "phylum": "Bacillota",
+    "indval": 0.511
+   },
+   {
+    "genus": "Maccoyibacter",
+    "phylum": "Bacillota",
+    "indval": 0.509
+   },
+   {
+    "genus": "Romboutsia",
+    "phylum": "Bacillota",
+    "indval": 0.505
+   },
+   {
+    "genus": "Phascolarctobacterium",
+    "phylum": "Bacillota",
+    "indval": 0.502
+   }
+  ],
+  "marine sediment": [
+   {
+    "genus": "UBA1847",
+    "phylum": "Pseudomonadota",
+    "indval": 0.833
+   },
+   {
+    "genus": "JACZVU01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.743
+   },
+   {
+    "genus": "SG8-38",
+    "phylum": "Myxococcota_A",
+    "indval": 0.737
+   },
+   {
+    "genus": "Nitrosomaritimum",
+    "phylum": "Thermoproteota",
+    "indval": 0.733
+   },
+   {
+    "genus": "SZUA-117",
+    "phylum": "Pseudomonadota",
+    "indval": 0.73
+   },
+   {
+    "genus": "JAFDCJ01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.726
+   },
+   {
+    "genus": "JAHEIW01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.723
+   },
+   {
+    "genus": "Sulfomarinibacter",
+    "phylum": "Acidobacteriota",
+    "indval": 0.71
+   },
+   {
+    "genus": "JAJDNS01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.706
+   },
+   {
+    "genus": "PFL25",
+    "phylum": "Chloroflexota",
+    "indval": 0.706
+   },
+   {
+    "genus": "UBA11865",
+    "phylum": "Chloroflexota",
+    "indval": 0.706
+   },
+   {
+    "genus": "BM002",
+    "phylum": "Desulfobacterota",
+    "indval": 0.701
+   },
+   {
+    "genus": "JAHEFT01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.701
+   },
+   {
+    "genus": "GCA-001735895",
+    "phylum": "Pseudomonadota",
+    "indval": 0.699
+   },
+   {
+    "genus": "CAVXZE01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.698
+   },
+   {
+    "genus": "SZUA-36",
+    "phylum": "Pseudomonadota",
+    "indval": 0.696
+   },
+   {
+    "genus": "SZUA-309",
+    "phylum": "Pseudomonadota",
+    "indval": 0.695
+   },
+   {
+    "genus": "JAFDEI01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.683
+   },
+   {
+    "genus": "UBA9214",
+    "phylum": "Pseudomonadota",
+    "indval": 0.681
+   },
+   {
+    "genus": "4572-13",
+    "phylum": "Planctomycetota",
+    "indval": 0.676
+   },
+   {
+    "genus": "NIOZ-UU13",
+    "phylum": "Planctomycetota",
+    "indval": 0.667
+   },
+   {
+    "genus": "Polarisedimenticola",
+    "phylum": "Acidobacteriota",
+    "indval": 0.666
+   },
+   {
+    "genus": "GCA-2748055",
+    "phylum": "Bacteroidota",
+    "indval": 0.662
+   },
+   {
+    "genus": "GCA-2729495",
+    "phylum": "Pseudomonadota",
+    "indval": 0.659
+   },
+   {
+    "genus": "SM23-62",
+    "phylum": "Bacteroidota",
+    "indval": 0.659
+   },
+   {
+    "genus": "UBA4427",
+    "phylum": "Myxococcota_A",
+    "indval": 0.656
+   },
+   {
+    "genus": "JAAELQ01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.652
+   },
+   {
+    "genus": "WVWW01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.652
+   },
+   {
+    "genus": "JAHEIK01",
+    "phylum": "Planctomycetota",
+    "indval": 0.651
+   },
+   {
+    "genus": "J054",
+    "phylum": "Pseudomonadota",
+    "indval": 0.646
+   },
+   {
+    "genus": "C00003060",
+    "phylum": "Desulfobacterota",
+    "indval": 0.645
+   },
+   {
+    "genus": "Benthicola",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.643
+   },
+   {
+    "genus": "GCA-2729515",
+    "phylum": "Myxococcota_A",
+    "indval": 0.643
+   },
+   {
+    "genus": "JAACFF01",
+    "phylum": "Chloroflexota",
+    "indval": 0.636
+   },
+   {
+    "genus": "JABDNZ01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.635
+   },
+   {
+    "genus": "Nitrospira_E",
+    "phylum": "Nitrospirota",
+    "indval": 0.635
+   },
+   {
+    "genus": "SG8-40",
+    "phylum": "Pseudomonadota",
+    "indval": 0.633
+   },
+   {
+    "genus": "BM004",
+    "phylum": "Desulfobacterota",
+    "indval": 0.632
+   },
+   {
+    "genus": "JAJDAN01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.63
+   },
+   {
+    "genus": "2-02-FULL-52-10",
+    "phylum": "Omnitrophota",
+    "indval": 0.628
+   },
+   {
+    "genus": "RBG-16-57-9",
+    "phylum": "Thermoproteota",
+    "indval": 0.628
+   },
+   {
+    "genus": "CALJXB01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.627
+   },
+   {
+    "genus": "CAXMQZ01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.623
+   },
+   {
+    "genus": "Rubripirellula",
+    "phylum": "Planctomycetota",
+    "indval": 0.622
+   },
+   {
+    "genus": "Thermohalobaculum",
+    "phylum": "Pseudomonadota",
+    "indval": 0.622
+   },
+   {
+    "genus": "JACZXC01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.616
+   },
+   {
+    "genus": "M0040",
+    "phylum": "Desulfobacterota",
+    "indval": 0.612
+   },
+   {
+    "genus": "JAHEEL01",
+    "phylum": "Actinomycetota",
+    "indval": 0.61
+   },
+   {
+    "genus": "Pontiella",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.609
+   },
+   {
+    "genus": "JAAETI01",
+    "phylum": "Actinomycetota",
+    "indval": 0.608
+   },
+   {
+    "genus": "CALDCK01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.606
+   },
+   {
+    "genus": "JAHEKE01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.606
+   },
+   {
+    "genus": "JAFDET01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.602
+   },
+   {
+    "genus": "JAHEJV01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.602
+   },
+   {
+    "genus": "JAFGPJ01",
+    "phylum": "Planctomycetota",
+    "indval": 0.601
+   },
+   {
+    "genus": "SZUA-226",
+    "phylum": "Nitrospinota",
+    "indval": 0.601
+   },
+   {
+    "genus": "SOKP01",
+    "phylum": "Asgardarchaeota",
+    "indval": 0.6
+   },
+   {
+    "genus": "JAABYT01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.599
+   },
+   {
+    "genus": "SMTZ1-45",
+    "phylum": "Asgardarchaeota",
+    "indval": 0.596
+   },
+   {
+    "genus": "UBA11574",
+    "phylum": "Desulfobacterota",
+    "indval": 0.595
+   },
+   {
+    "genus": "BMS3ABIN03",
+    "phylum": "Bacteroidota",
+    "indval": 0.593
+   },
+   {
+    "genus": "JAUVRX01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.593
+   },
+   {
+    "genus": "SMWD01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.593
+   },
+   {
+    "genus": "Bythopirellula",
+    "phylum": "Planctomycetota",
+    "indval": 0.59
+   },
+   {
+    "genus": "JAHECW01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.589
+   },
+   {
+    "genus": "CR02bin9",
+    "phylum": "Desulfobacterota_D",
+    "indval": 0.586
+   },
+   {
+    "genus": "UBA2589",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.585
+   },
+   {
+    "genus": "JAJRRA01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.583
+   },
+   {
+    "genus": "G020353355",
+    "phylum": "Desulfobacterota",
+    "indval": 0.582
+   },
+   {
+    "genus": "SG8-4",
+    "phylum": "Planctomycetota",
+    "indval": 0.582
+   },
+   {
+    "genus": "JABDPF01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.58
+   },
+   {
+    "genus": "B10-G9",
+    "phylum": "Chloroflexota",
+    "indval": 0.578
+   },
+   {
+    "genus": "JAHEFR01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.578
+   },
+   {
+    "genus": "G020351855",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.577
+   },
+   {
+    "genus": "GCA-2726245",
+    "phylum": "Planctomycetota",
+    "indval": 0.576
+   },
+   {
+    "genus": "Loki-b32",
+    "phylum": "Asgardarchaeota",
+    "indval": 0.576
+   },
+   {
+    "genus": "E44-bin32",
+    "phylum": "Chloroflexota",
+    "indval": 0.573
+   },
+   {
+    "genus": "SZUA-318",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.572
+   },
+   {
+    "genus": "SZUA-442",
+    "phylum": "Actinomycetota",
+    "indval": 0.572
+   },
+   {
+    "genus": "S015-6",
+    "phylum": "Desulfobacterota",
+    "indval": 0.57
+   },
+   {
+    "genus": "Hodarchaeum",
+    "phylum": "Asgardarchaeota",
+    "indval": 0.564
+   },
+   {
+    "genus": "JBECKR01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.562
+   },
+   {
+    "genus": "UBA11579",
+    "phylum": "Chloroflexota",
+    "indval": 0.562
+   },
+   {
+    "genus": "CAVSKL01",
+    "phylum": "Eisenbacteria",
+    "indval": 0.561
+   },
+   {
+    "genus": "JAGLYF01",
+    "phylum": "Calditrichota",
+    "indval": 0.56
+   },
+   {
+    "genus": "JAOUNA01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.559
+   },
+   {
+    "genus": "BS750m-G44",
+    "phylum": "Chloroflexota",
+    "indval": 0.557
+   },
+   {
+    "genus": "JAAUQL01",
+    "phylum": "Bacteroidota",
+    "indval": 0.554
+   },
+   {
+    "genus": "UBA5794",
+    "phylum": "Actinomycetota",
+    "indval": 0.554
+   },
+   {
+    "genus": "JARRPM01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.553
+   },
+   {
+    "genus": "JAUWCW01",
+    "phylum": "JAUVQV01",
+    "indval": 0.553
+   },
+   {
+    "genus": "JABDQW01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.551
+   },
+   {
+    "genus": "JAJRVM01",
+    "phylum": "Planctomycetota",
+    "indval": 0.551
+   },
+   {
+    "genus": "Lutimonas",
+    "phylum": "Bacteroidota",
+    "indval": 0.551
+   },
+   {
+    "genus": "JACZWZ01",
+    "phylum": "Actinomycetota",
+    "indval": 0.549
+   },
+   {
+    "genus": "JAGLTQ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.549
+   },
+   {
+    "genus": "JAJRXK01",
+    "phylum": "Krumholzibacteriota",
+    "indval": 0.549
+   },
+   {
+    "genus": "M55B120",
+    "phylum": "Actinomycetota",
+    "indval": 0.549
+   },
+   {
+    "genus": "JABDQA01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.547
+   },
+   {
+    "genus": "JAIPFM01",
+    "phylum": "Planctomycetota",
+    "indval": 0.547
+   },
+   {
+    "genus": "SMWC01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.547
+   },
+   {
+    "genus": "JBCDBY01",
+    "phylum": "Planctomycetota",
+    "indval": 0.546
+   },
+   {
+    "genus": "JAGLCY01",
+    "phylum": "Krumholzibacteriota",
+    "indval": 0.545
+   },
+   {
+    "genus": "JABZFP01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.544
+   },
+   {
+    "genus": "SZUA-186",
+    "phylum": "Pseudomonadota",
+    "indval": 0.544
+   },
+   {
+    "genus": "Anderseniella",
+    "phylum": "Pseudomonadota",
+    "indval": 0.543
+   },
+   {
+    "genus": "GCA-2687015",
+    "phylum": "Myxococcota_A",
+    "indval": 0.543
+   },
+   {
+    "genus": "Marinihelvus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.543
+   },
+   {
+    "genus": "ARS98",
+    "phylum": "Planctomycetota",
+    "indval": 0.542
+   },
+   {
+    "genus": "CAVONV01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.542
+   },
+   {
+    "genus": "CAYNJG01",
+    "phylum": "Planctomycetota",
+    "indval": 0.542
+   },
+   {
+    "genus": "GCA-2723275",
+    "phylum": "Planctomycetota",
+    "indval": 0.542
+   },
+   {
+    "genus": "B30-G6",
+    "phylum": "Desulfobacterota",
+    "indval": 0.541
+   },
+   {
+    "genus": "Halioglobus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.541
+   },
+   {
+    "genus": "GCA-020344555",
+    "phylum": "Planctomycetota",
+    "indval": 0.539
+   },
+   {
+    "genus": "SHLN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.539
+   },
+   {
+    "genus": "JADFVY01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.538
+   },
+   {
+    "genus": "JBDGYW01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.538
+   },
+   {
+    "genus": "Gaopeijia",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.536
+   },
+   {
+    "genus": "JADFOJ01",
+    "phylum": "Planctomycetota",
+    "indval": 0.536
+   },
+   {
+    "genus": "BQJX01",
+    "phylum": "ARS69",
+    "indval": 0.534
+   },
+   {
+    "genus": "B13-G4",
+    "phylum": "Desulfobacterota",
+    "indval": 0.533
+   },
+   {
+    "genus": "BJGV01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.533
+   },
+   {
+    "genus": "JAUVPY01",
+    "phylum": "Chloroflexota",
+    "indval": 0.532
+   },
+   {
+    "genus": "JADHUC01",
+    "phylum": "Planctomycetota",
+    "indval": 0.531
+   },
+   {
+    "genus": "CALKKN01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.529
+   },
+   {
+    "genus": "Desulfosarcina",
+    "phylum": "Desulfobacterota",
+    "indval": 0.529
+   },
+   {
+    "genus": "M0029",
+    "phylum": "Acidobacteriota",
+    "indval": 0.528
+   },
+   {
+    "genus": "CS2-K091",
+    "phylum": "Planctomycetota",
+    "indval": 0.527
+   },
+   {
+    "genus": "DUZK01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.526
+   },
+   {
+    "genus": "JAACFI01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.524
+   },
+   {
+    "genus": "JAOTYK01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.524
+   },
+   {
+    "genus": "JASFEQ01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.524
+   },
+   {
+    "genus": "Bathyarchaeum",
+    "phylum": "Thermoproteota",
+    "indval": 0.523
+   },
+   {
+    "genus": "JAUWTT01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.523
+   },
+   {
+    "genus": "G020356045",
+    "phylum": "Krumholzibacteriota",
+    "indval": 0.522
+   },
+   {
+    "genus": "JAIQFR01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.522
+   },
+   {
+    "genus": "JBFKMV01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.522
+   },
+   {
+    "genus": "JAGXFP01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.521
+   },
+   {
+    "genus": "UBA2767",
+    "phylum": "Pseudomonadota",
+    "indval": 0.52
+   },
+   {
+    "genus": "JAPYTK01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.519
+   },
+   {
+    "genus": "Eudoraea",
+    "phylum": "Bacteroidota",
+    "indval": 0.518
+   },
+   {
+    "genus": "JAGTVG01",
+    "phylum": "Bacteroidota",
+    "indval": 0.518
+   },
+   {
+    "genus": "Marimicrobium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.516
+   },
+   {
+    "genus": "CBDCXS01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.515
+   },
+   {
+    "genus": "JAHEJX01",
+    "phylum": "Actinomycetota",
+    "indval": 0.515
+   },
+   {
+    "genus": "JABDJL01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.514
+   },
+   {
+    "genus": "JACZWL01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.513
+   },
+   {
+    "genus": "JANQIO01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.512
+   },
+   {
+    "genus": "GCA-2726865",
+    "phylum": "Thermoproteota",
+    "indval": 0.51
+   },
+   {
+    "genus": "Woeseia",
+    "phylum": "Pseudomonadota",
+    "indval": 0.51
+   },
+   {
+    "genus": "JALHUC01",
+    "phylum": "BMS3Abin14",
+    "indval": 0.509
+   },
+   {
+    "genus": "CAJQPP01",
+    "phylum": "Planctomycetota",
+    "indval": 0.508
+   },
+   {
+    "genus": "JACZST01",
+    "phylum": "Actinomycetota",
+    "indval": 0.507
+   },
+   {
+    "genus": "Carthagonibacter",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.505
+   },
+   {
+    "genus": "B3T1B10",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.504
+   },
+   {
+    "genus": "JBDLIY01",
+    "phylum": "Planctomycetota",
+    "indval": 0.504
+   },
+   {
+    "genus": "Thiosocius",
+    "phylum": "Pseudomonadota",
+    "indval": 0.504
+   },
+   {
+    "genus": "CALNYP01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.502
+   },
+   {
+    "genus": "BS750m-G28",
+    "phylum": "Thermoproteota",
+    "indval": 0.501
+   },
+   {
+    "genus": "G020351775",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.501
+   },
+   {
+    "genus": "CAVVWZ01",
+    "phylum": "Desulfobacterota",
+    "indval": 0.5
+   }
+  ],
+  "marine water": [
+   {
+    "genus": "Pelagibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.87
+   },
+   {
+    "genus": "Pelagilacustribacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.827
+   },
+   {
+    "genus": "Actinomarina",
+    "phylum": "Actinomycetota",
+    "indval": 0.765
+   },
+   {
+    "genus": "CACPNW01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.76
+   },
+   {
+    "genus": "Marisimplicoccus",
+    "phylum": "Bacteroidota",
+    "indval": 0.76
+   },
+   {
+    "genus": "MS024-2A",
+    "phylum": "Bacteroidota",
+    "indval": 0.751
+   },
+   {
+    "genus": "D2472",
+    "phylum": "Pseudomonadota",
+    "indval": 0.743
+   },
+   {
+    "genus": "Luminiphilus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.738
+   },
+   {
+    "genus": "Marisalimonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.737
+   },
+   {
+    "genus": "UBA3439",
+    "phylum": "Pseudomonadota",
+    "indval": 0.724
+   },
+   {
+    "genus": "HIMB59",
+    "phylum": "Pseudomonadota",
+    "indval": 0.717
+   },
+   {
+    "genus": "Marinisoma",
+    "phylum": "Fidelibacterota",
+    "indval": 0.713
+   },
+   {
+    "genus": "Seribacter",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.702
+   },
+   {
+    "genus": "SCGC-AAA076-P13",
+    "phylum": "Pseudomonadota",
+    "indval": 0.7
+   },
+   {
+    "genus": "Magnimaribacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.691
+   },
+   {
+    "genus": "MAG-121220-bin8",
+    "phylum": "Bacteroidota",
+    "indval": 0.69
+   },
+   {
+    "genus": "Salinivivens",
+    "phylum": "Pseudomonadota",
+    "indval": 0.684
+   },
+   {
+    "genus": "MGIIa-L1",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.682
+   },
+   {
+    "genus": "Parasynechococcus",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.677
+   },
+   {
+    "genus": "UBA4421",
+    "phylum": "Pseudomonadota",
+    "indval": 0.677
+   },
+   {
+    "genus": "UBA9145",
+    "phylum": "Pseudomonadota",
+    "indval": 0.67
+   },
+   {
+    "genus": "BACL14",
+    "phylum": "Pseudomonadota",
+    "indval": 0.662
+   },
+   {
+    "genus": "TMED80",
+    "phylum": "Fidelibacterota",
+    "indval": 0.653
+   },
+   {
+    "genus": "MED-G09",
+    "phylum": "Pseudomonadota",
+    "indval": 0.652
+   },
+   {
+    "genus": "UBA8316",
+    "phylum": "Bacteroidota",
+    "indval": 0.652
+   },
+   {
+    "genus": "Pseudothioglobus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.647
+   },
+   {
+    "genus": "SAR86A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.639
+   },
+   {
+    "genus": "GCA-2705445",
+    "phylum": "Pseudomonadota",
+    "indval": 0.636
+   },
+   {
+    "genus": "CACLCV01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.629
+   },
+   {
+    "genus": "UBA10364",
+    "phylum": "Bacteroidota",
+    "indval": 0.625
+   },
+   {
+    "genus": "Prochlorococcus_A",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.624
+   },
+   {
+    "genus": "HTCC2207",
+    "phylum": "Pseudomonadota",
+    "indval": 0.617
+   },
+   {
+    "genus": "MED-G13",
+    "phylum": "Bacteroidota",
+    "indval": 0.616
+   },
+   {
+    "genus": "Eutrophosalina",
+    "phylum": "Bacteroidota",
+    "indval": 0.614
+   },
+   {
+    "genus": "Poseidonia",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.612
+   },
+   {
+    "genus": "MGIIa-K1",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.608
+   },
+   {
+    "genus": "TMED112",
+    "phylum": "Pseudomonadota",
+    "indval": 0.608
+   },
+   {
+    "genus": "MGIIa-L2",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.607
+   },
+   {
+    "genus": "Synechococcus_C",
+    "phylum": "Cyanobacteriota",
+    "indval": 0.607
+   },
+   {
+    "genus": "UBA8309",
+    "phylum": "Pseudomonadota",
+    "indval": 0.604
+   },
+   {
+    "genus": "UBA9926",
+    "phylum": "Pseudomonadota",
+    "indval": 0.604
+   },
+   {
+    "genus": "CACNXQ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.595
+   },
+   {
+    "genus": "UA16",
+    "phylum": "Bacteroidota",
+    "indval": 0.589
+   },
+   {
+    "genus": "GCA-002715885",
+    "phylum": "Bacteroidota",
+    "indval": 0.584
+   },
+   {
+    "genus": "TMED131",
+    "phylum": "Pseudomonadota",
+    "indval": 0.582
+   },
+   {
+    "genus": "MED-G16",
+    "phylum": "Bacteroidota",
+    "indval": 0.581
+   },
+   {
+    "genus": "HIMB30",
+    "phylum": "Pseudomonadota",
+    "indval": 0.576
+   },
+   {
+    "genus": "Planktomarina",
+    "phylum": "Pseudomonadota",
+    "indval": 0.574
+   },
+   {
+    "genus": "Anoxypelagibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.573
+   },
+   {
+    "genus": "UBA11663",
+    "phylum": "Bacteroidota",
+    "indval": 0.567
+   },
+   {
+    "genus": "UBA3537",
+    "phylum": "Bacteroidota",
+    "indval": 0.567
+   },
+   {
+    "genus": "MED-G20",
+    "phylum": "Bacteroidota",
+    "indval": 0.566
+   },
+   {
+    "genus": "GCA-2698665",
+    "phylum": "Pseudomonadota",
+    "indval": 0.565
+   },
+   {
+    "genus": "GCA-002684695",
+    "phylum": "Pseudomonadota",
+    "indval": 0.564
+   },
+   {
+    "genus": "CACIJG01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.563
+   },
+   {
+    "genus": "Amylibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.561
+   },
+   {
+    "genus": "UBA1014",
+    "phylum": "SAR324",
+    "indval": 0.554
+   },
+   {
+    "genus": "Polaribacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.553
+   },
+   {
+    "genus": "JADHLI01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.55
+   },
+   {
+    "genus": "MEDG-81",
+    "phylum": "Pseudomonadota",
+    "indval": 0.55
+   },
+   {
+    "genus": "CACNXK01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.547
+   },
+   {
+    "genus": "MGIIb-O2",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.544
+   },
+   {
+    "genus": "Arcticimaribacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.541
+   },
+   {
+    "genus": "UBA9659",
+    "phylum": "Pseudomonadota",
+    "indval": 0.534
+   },
+   {
+    "genus": "UBA3478",
+    "phylum": "Bacteroidota",
+    "indval": 0.532
+   },
+   {
+    "genus": "UBA724",
+    "phylum": "Bacteroidota",
+    "indval": 0.532
+   },
+   {
+    "genus": "NZWG01",
+    "phylum": "Fidelibacterota",
+    "indval": 0.53
+   },
+   {
+    "genus": "UBA868",
+    "phylum": "Pseudomonadota",
+    "indval": 0.526
+   },
+   {
+    "genus": "TMED54",
+    "phylum": "Pseudomonadota",
+    "indval": 0.524
+   },
+   {
+    "genus": "Thalassovivens",
+    "phylum": "Pseudomonadota",
+    "indval": 0.524
+   },
+   {
+    "genus": "SP4260",
+    "phylum": "Pseudomonadota",
+    "indval": 0.523
+   },
+   {
+    "genus": "UBA5951",
+    "phylum": "Pseudomonadota",
+    "indval": 0.521
+   },
+   {
+    "genus": "GCA-002700125",
+    "phylum": "Chloroflexota",
+    "indval": 0.511
+   },
+   {
+    "genus": "TMED108",
+    "phylum": "Fidelibacterota",
+    "indval": 0.511
+   },
+   {
+    "genus": "UBA7377",
+    "phylum": "Pseudomonadota",
+    "indval": 0.511
+   },
+   {
+    "genus": "CACPJA01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.51
+   },
+   {
+    "genus": "MED-G82",
+    "phylum": "Pseudomonadota",
+    "indval": 0.51
+   },
+   {
+    "genus": "UBA8592",
+    "phylum": "Actinomycetota",
+    "indval": 0.508
+   },
+   {
+    "genus": "CAJQGY01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.507
+   },
+   {
+    "genus": "UBA36",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.507
+   },
+   {
+    "genus": "CACIIZ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.505
+   },
+   {
+    "genus": "TMED25",
+    "phylum": "Pseudomonadota",
+    "indval": 0.505
+   },
+   {
+    "genus": "JCVI-SCAAA005",
+    "phylum": "SAR324",
+    "indval": 0.504
+   },
+   {
+    "genus": "MGIIb-O5",
+    "phylum": "Thermoplasmatota",
+    "indval": 0.503
+   },
+   {
+    "genus": "HIMB114",
+    "phylum": "Pseudomonadota",
+    "indval": 0.502
+   }
+  ],
+  "phyllosphere": [
+   {
+    "genus": "Sphingomonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.858
+   },
+   {
+    "genus": "Methylobacterium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.818
+   },
+   {
+    "genus": "Curtobacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.722
+   },
+   {
+    "genus": "Pantoea",
+    "phylum": "Pseudomonadota",
+    "indval": 0.698
+   },
+   {
+    "genus": "Microbacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.672
+   },
+   {
+    "genus": "Telluria",
+    "phylum": "Pseudomonadota",
+    "indval": 0.629
+   },
+   {
+    "genus": "Chryseomonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.621
+   },
+   {
+    "genus": "Amnibacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.614
+   },
+   {
+    "genus": "Lichenihabitans",
+    "phylum": "Pseudomonadota",
+    "indval": 0.58
+   },
+   {
+    "genus": "Spirosoma",
+    "phylum": "Bacteroidota",
+    "indval": 0.575
+   },
+   {
+    "genus": "Frigoribacterium",
+    "phylum": "Actinomycetota",
+    "indval": 0.559
+   },
+   {
+    "genus": "Solisphingomonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.534
+   },
+   {
+    "genus": "Kineococcus",
+    "phylum": "Actinomycetota",
+    "indval": 0.524
+   },
+   {
+    "genus": "Chryseobacterium",
+    "phylum": "Bacteroidota",
+    "indval": 0.519
+   },
+   {
+    "genus": "Erwinia",
+    "phylum": "Pseudomonadota",
+    "indval": 0.513
+   }
+  ],
+  "soil": [
+   {
+    "genus": "Palsa-739",
+    "phylum": "Actinomycetota",
+    "indval": 0.815
+   },
+   {
+    "genus": "PALSA-600",
+    "phylum": "Actinomycetota",
+    "indval": 0.814
+   },
+   {
+    "genus": "JAQBQB01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.756
+   },
+   {
+    "genus": "JACVRW01",
+    "phylum": "Actinomycetota",
+    "indval": 0.752
+   },
+   {
+    "genus": "AC-32",
+    "phylum": "Actinomycetota",
+    "indval": 0.749
+   },
+   {
+    "genus": "CAVVWJ01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.745
+   },
+   {
+    "genus": "VAZQ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.744
+   },
+   {
+    "genus": "CF-72",
+    "phylum": "Chloroflexota",
+    "indval": 0.741
+   },
+   {
+    "genus": "PSRF01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.739
+   },
+   {
+    "genus": "Solirubrobacter",
+    "phylum": "Actinomycetota",
+    "indval": 0.734
+   },
+   {
+    "genus": "Palsa-465",
+    "phylum": "Actinomycetota",
+    "indval": 0.731
+   },
+   {
+    "genus": "Gp6-AA40",
+    "phylum": "Acidobacteriota",
+    "indval": 0.73
+   },
+   {
+    "genus": "3-1-20CM-4-69-9",
+    "phylum": "Actinomycetota",
+    "indval": 0.729
+   },
+   {
+    "genus": "JAICSD01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.726
+   },
+   {
+    "genus": "JAOPZW01",
+    "phylum": "Actinomycetota",
+    "indval": 0.725
+   },
+   {
+    "genus": "13-2-20CM-66-19",
+    "phylum": "Pseudomonadota",
+    "indval": 0.723
+   },
+   {
+    "genus": "DASSUW01",
+    "phylum": "Actinomycetota",
+    "indval": 0.722
+   },
+   {
+    "genus": "DATARH01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.72
+   },
+   {
+    "genus": "JALZOC01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.719
+   },
+   {
+    "genus": "CF-46",
+    "phylum": "Chloroflexota",
+    "indval": 0.711
+   },
+   {
+    "genus": "Allosphingosinicella",
+    "phylum": "Pseudomonadota",
+    "indval": 0.706
+   },
+   {
+    "genus": "Udaeobacter",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.705
+   },
+   {
+    "genus": "Gaiellasilicea",
+    "phylum": "Actinomycetota",
+    "indval": 0.703
+   },
+   {
+    "genus": "Palsa-744",
+    "phylum": "Actinomycetota",
+    "indval": 0.702
+   },
+   {
+    "genus": "SCGC-AG-212-J23",
+    "phylum": "Pseudomonadota",
+    "indval": 0.701
+   },
+   {
+    "genus": "PALSA-894",
+    "phylum": "Pseudomonadota",
+    "indval": 0.7
+   },
+   {
+    "genus": "UBA4720",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.696
+   },
+   {
+    "genus": "BOG-931",
+    "phylum": "Pseudomonadota",
+    "indval": 0.693
+   },
+   {
+    "genus": "Steroidobacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.689
+   },
+   {
+    "genus": "Streptomyces",
+    "phylum": "Actinomycetota",
+    "indval": 0.689
+   },
+   {
+    "genus": "Sphingomicrobium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.688
+   },
+   {
+    "genus": "Rhizomicrobium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.685
+   },
+   {
+    "genus": "Bradyrhizobium",
+    "phylum": "Pseudomonadota",
+    "indval": 0.684
+   },
+   {
+    "genus": "JADGRB01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.682
+   },
+   {
+    "genus": "Usitatibacter",
+    "phylum": "Pseudomonadota",
+    "indval": 0.681
+   },
+   {
+    "genus": "Actinoplanes",
+    "phylum": "Actinomycetota",
+    "indval": 0.675
+   },
+   {
+    "genus": "Z2-YC6860",
+    "phylum": "Pseudomonadota",
+    "indval": 0.675
+   },
+   {
+    "genus": "20CM-2-55-15",
+    "phylum": "Acidobacteriota",
+    "indval": 0.672
+   },
+   {
+    "genus": "DATFQI01",
+    "phylum": "Actinomycetota",
+    "indval": 0.666
+   },
+   {
+    "genus": "VAYN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.665
+   },
+   {
+    "genus": "VRUE01",
+    "phylum": "Actinomycetota",
+    "indval": 0.665
+   },
+   {
+    "genus": "JADMIH01",
+    "phylum": "Chloroflexota",
+    "indval": 0.663
+   },
+   {
+    "genus": "DATBLE01",
+    "phylum": "Actinomycetota",
+    "indval": 0.662
+   },
+   {
+    "genus": "VAXT01",
+    "phylum": "Actinomycetota",
+    "indval": 0.66
+   },
+   {
+    "genus": "JADZEM01",
+    "phylum": "Chloroflexota",
+    "indval": 0.659
+   },
+   {
+    "genus": "JALYGJ01",
+    "phylum": "Chloroflexota",
+    "indval": 0.658
+   },
+   {
+    "genus": "CADEED01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.655
+   },
+   {
+    "genus": "UBA5189",
+    "phylum": "Chloroflexota",
+    "indval": 0.655
+   },
+   {
+    "genus": "DASQMT01",
+    "phylum": "Actinomycetota",
+    "indval": 0.654
+   },
+   {
+    "genus": "JAJKIV01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.653
+   },
+   {
+    "genus": "JAQGMV01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.65
+   },
+   {
+    "genus": "Palsa-187",
+    "phylum": "Acidobacteriota",
+    "indval": 0.648
+   },
+   {
+    "genus": "AC-56",
+    "phylum": "Actinomycetota",
+    "indval": 0.645
+   },
+   {
+    "genus": "GMQP-bins7",
+    "phylum": "Actinomycetota",
+    "indval": 0.643
+   },
+   {
+    "genus": "QHVT01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.642
+   },
+   {
+    "genus": "DASUPK01",
+    "phylum": "Actinomycetota",
+    "indval": 0.64
+   },
+   {
+    "genus": "JACCXG01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.64
+   },
+   {
+    "genus": "JAMQPK01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.639
+   },
+   {
+    "genus": "CADCVQ01",
+    "phylum": "Actinomycetota",
+    "indval": 0.638
+   },
+   {
+    "genus": "DASQFQ01",
+    "phylum": "Actinomycetota",
+    "indval": 0.635
+   },
+   {
+    "genus": "AP-15",
+    "phylum": "Pseudomonadota",
+    "indval": 0.632
+   },
+   {
+    "genus": "JAICTV01",
+    "phylum": "Planctomycetota",
+    "indval": 0.631
+   },
+   {
+    "genus": "Flavisolibacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.63
+   },
+   {
+    "genus": "JACDAN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.628
+   },
+   {
+    "genus": "JACDCA01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.628
+   },
+   {
+    "genus": "Microvirga",
+    "phylum": "Pseudomonadota",
+    "indval": 0.627
+   },
+   {
+    "genus": "JABFXX01",
+    "phylum": "Myxococcota_A",
+    "indval": 0.624
+   },
+   {
+    "genus": "Micromonospora",
+    "phylum": "Actinomycetota",
+    "indval": 0.622
+   },
+   {
+    "genus": "SPCO01",
+    "phylum": "Chloroflexota",
+    "indval": 0.622
+   },
+   {
+    "genus": "Gemmata",
+    "phylum": "Planctomycetota",
+    "indval": 0.621
+   },
+   {
+    "genus": "Nitrospira_C",
+    "phylum": "Nitrospirota",
+    "indval": 0.62
+   },
+   {
+    "genus": "Blastococcus_B",
+    "phylum": "Actinomycetota",
+    "indval": 0.619
+   },
+   {
+    "genus": "WHTK01",
+    "phylum": "Chloroflexota",
+    "indval": 0.616
+   },
+   {
+    "genus": "CAVQFC01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.614
+   },
+   {
+    "genus": "PALSA-612",
+    "phylum": "Actinomycetota",
+    "indval": 0.614
+   },
+   {
+    "genus": "DATARR01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.612
+   },
+   {
+    "genus": "JACCTU01",
+    "phylum": "Actinomycetota",
+    "indval": 0.611
+   },
+   {
+    "genus": "JACCXM01",
+    "phylum": "Chloroflexota",
+    "indval": 0.611
+   },
+   {
+    "genus": "AC-51",
+    "phylum": "Actinomycetota",
+    "indval": 0.61
+   },
+   {
+    "genus": "WHSW01",
+    "phylum": "Actinomycetota",
+    "indval": 0.61
+   },
+   {
+    "genus": "JAENWD01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.607
+   },
+   {
+    "genus": "JAJPHU01",
+    "phylum": "Planctomycetota",
+    "indval": 0.606
+   },
+   {
+    "genus": "PMG-095",
+    "phylum": "Myxococcota_A",
+    "indval": 0.604
+   },
+   {
+    "genus": "DP-20",
+    "phylum": "Desulfobacterota",
+    "indval": 0.603
+   },
+   {
+    "genus": "Sulfotelmatobacter",
+    "phylum": "Acidobacteriota",
+    "indval": 0.603
+   },
+   {
+    "genus": "Nocardioides_B",
+    "phylum": "Actinomycetota",
+    "indval": 0.602
+   },
+   {
+    "genus": "Conexibacter",
+    "phylum": "Actinomycetota",
+    "indval": 0.598
+   },
+   {
+    "genus": "DASUAS01",
+    "phylum": "Actinomycetota",
+    "indval": 0.598
+   },
+   {
+    "genus": "DASVNK01",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.598
+   },
+   {
+    "genus": "JAIBJN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.598
+   },
+   {
+    "genus": "DASXHY01",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.597
+   },
+   {
+    "genus": "UBA11740",
+    "phylum": "Acidobacteriota",
+    "indval": 0.595
+   },
+   {
+    "genus": "DASXMX01",
+    "phylum": "Planctomycetota",
+    "indval": 0.591
+   },
+   {
+    "genus": "DASYWJ01",
+    "phylum": "Planctomycetota",
+    "indval": 0.591
+   },
+   {
+    "genus": "JAICJC01",
+    "phylum": "Actinomycetota",
+    "indval": 0.588
+   },
+   {
+    "genus": "CAVREM01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.586
+   },
+   {
+    "genus": "JACDBZ01",
+    "phylum": "Chloroflexota",
+    "indval": 0.585
+   },
+   {
+    "genus": "CAVVIG01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.583
+   },
+   {
+    "genus": "JBDSLU01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.582
+   },
+   {
+    "genus": "Croceibacterium_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.581
+   },
+   {
+    "genus": "VFJN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.581
+   },
+   {
+    "genus": "Acidiferrum",
+    "phylum": "Acidobacteriota",
+    "indval": 0.579
+   },
+   {
+    "genus": "ZC4RG19",
+    "phylum": "Actinomycetota",
+    "indval": 0.57
+   },
+   {
+    "genus": "Kribbella",
+    "phylum": "Actinomycetota",
+    "indval": 0.569
+   },
+   {
+    "genus": "AC-37",
+    "phylum": "Actinomycetota",
+    "indval": 0.568
+   },
+   {
+    "genus": "Solibacter",
+    "phylum": "Acidobacteriota",
+    "indval": 0.568
+   },
+   {
+    "genus": "CAYLLN01",
+    "phylum": "Planctomycetota",
+    "indval": 0.566
+   },
+   {
+    "genus": "JADGHX01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.566
+   },
+   {
+    "genus": "PALSA-1003",
+    "phylum": "Pseudomonadota",
+    "indval": 0.566
+   },
+   {
+    "genus": "Gp1-AA145",
+    "phylum": "Acidobacteriota",
+    "indval": 0.565
+   },
+   {
+    "genus": "JALZMG01",
+    "phylum": "Actinomycetota",
+    "indval": 0.565
+   },
+   {
+    "genus": "Baekduia",
+    "phylum": "Actinomycetota",
+    "indval": 0.564
+   },
+   {
+    "genus": "JACVRM01",
+    "phylum": "Actinomycetota",
+    "indval": 0.564
+   },
+   {
+    "genus": "DASQDN01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.563
+   },
+   {
+    "genus": "DATEOR01",
+    "phylum": "Actinomycetota",
+    "indval": 0.563
+   },
+   {
+    "genus": "12-FULL-67-14b",
+    "phylum": "Acidobacteriota",
+    "indval": 0.561
+   },
+   {
+    "genus": "JAMXLO01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.561
+   },
+   {
+    "genus": "Nitrososphaera",
+    "phylum": "Thermoproteota",
+    "indval": 0.561
+   },
+   {
+    "genus": "QHWT01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.56
+   },
+   {
+    "genus": "FEN-1219",
+    "phylum": "Pseudomonadota",
+    "indval": 0.558
+   },
+   {
+    "genus": "Agromyces",
+    "phylum": "Actinomycetota",
+    "indval": 0.557
+   },
+   {
+    "genus": "Devosia_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.555
+   },
+   {
+    "genus": "DATBJJ01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.553
+   },
+   {
+    "genus": "AR5",
+    "phylum": "Methylomirabilota",
+    "indval": 0.552
+   },
+   {
+    "genus": "DASWJZ01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.547
+   },
+   {
+    "genus": "DATHTC01",
+    "phylum": "Actinomycetota",
+    "indval": 0.547
+   },
+   {
+    "genus": "OLB17",
+    "phylum": "Acidobacteriota",
+    "indval": 0.547
+   },
+   {
+    "genus": "CALGFH01",
+    "phylum": "Actinomycetota",
+    "indval": 0.546
+   },
+   {
+    "genus": "JAICYJ01",
+    "phylum": "Actinomycetota",
+    "indval": 0.542
+   },
+   {
+    "genus": "AV80",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.541
+   },
+   {
+    "genus": "JACCSI01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.541
+   },
+   {
+    "genus": "Telmatobacter",
+    "phylum": "Acidobacteriota",
+    "indval": 0.541
+   },
+   {
+    "genus": "BP-464",
+    "phylum": "Actinomycetota",
+    "indval": 0.54
+   },
+   {
+    "genus": "SIAJ01",
+    "phylum": "Planctomycetota",
+    "indval": 0.54
+   },
+   {
+    "genus": "DASVFB01",
+    "phylum": "Actinomycetota",
+    "indval": 0.537
+   },
+   {
+    "genus": "JAICJR01",
+    "phylum": "Actinomycetota",
+    "indval": 0.537
+   },
+   {
+    "genus": "AR12",
+    "phylum": "Methylomirabilota",
+    "indval": 0.536
+   },
+   {
+    "genus": "AV69",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.535
+   },
+   {
+    "genus": "DASSCW01",
+    "phylum": "Chloroflexota",
+    "indval": 0.534
+   },
+   {
+    "genus": "AG11",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.531
+   },
+   {
+    "genus": "Palsa-1392",
+    "phylum": "Verrucomicrobiota",
+    "indval": 0.531
+   },
+   {
+    "genus": "JAJNBA01",
+    "phylum": "Actinomycetota",
+    "indval": 0.529
+   },
+   {
+    "genus": "BP-133",
+    "phylum": "Actinomycetota",
+    "indval": 0.528
+   },
+   {
+    "genus": "PALSA-610",
+    "phylum": "Actinomycetota",
+    "indval": 0.528
+   },
+   {
+    "genus": "CF-39",
+    "phylum": "Chloroflexota",
+    "indval": 0.525
+   },
+   {
+    "genus": "Dongia_A",
+    "phylum": "Pseudomonadota",
+    "indval": 0.525
+   },
+   {
+    "genus": "Palsa-504",
+    "phylum": "Actinomycetota",
+    "indval": 0.525
+   },
+   {
+    "genus": "DASPHG01",
+    "phylum": "Actinomycetota",
+    "indval": 0.524
+   },
+   {
+    "genus": "DASVUC01",
+    "phylum": "Planctomycetota",
+    "indval": 0.523
+   },
+   {
+    "genus": "Dactylosporangium",
+    "phylum": "Actinomycetota",
+    "indval": 0.523
+   },
+   {
+    "genus": "Geodermatophilus",
+    "phylum": "Actinomycetota",
+    "indval": 0.521
+   },
+   {
+    "genus": "Gp6-AA45",
+    "phylum": "Acidobacteriota",
+    "indval": 0.52
+   },
+   {
+    "genus": "Marmoricola",
+    "phylum": "Actinomycetota",
+    "indval": 0.517
+   },
+   {
+    "genus": "AG2",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.515
+   },
+   {
+    "genus": "CADCTP01",
+    "phylum": "Actinomycetota",
+    "indval": 0.515
+   },
+   {
+    "genus": "DATLLJ01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.514
+   },
+   {
+    "genus": "Flavitalea",
+    "phylum": "Bacteroidota",
+    "indval": 0.514
+   },
+   {
+    "genus": "DATBDN01",
+    "phylum": "Actinomycetota",
+    "indval": 0.513
+   },
+   {
+    "genus": "13-2-20CM-68-14",
+    "phylum": "Actinomycetota",
+    "indval": 0.512
+   },
+   {
+    "genus": "CAIYRG01",
+    "phylum": "Pseudomonadota",
+    "indval": 0.51
+   },
+   {
+    "genus": "DASPMP01",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.51
+   },
+   {
+    "genus": "Pseudonocardia",
+    "phylum": "Actinomycetota",
+    "indval": 0.51
+   },
+   {
+    "genus": "CAVQJU01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.509
+   },
+   {
+    "genus": "Bog-105",
+    "phylum": "Acidobacteriota",
+    "indval": 0.508
+   },
+   {
+    "genus": "Bog-257",
+    "phylum": "Acidobacteriota",
+    "indval": 0.508
+   },
+   {
+    "genus": "Nocardioides_C",
+    "phylum": "Actinomycetota",
+    "indval": 0.507
+   },
+   {
+    "genus": "CAVSUB01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.506
+   },
+   {
+    "genus": "DASTYU01",
+    "phylum": "Chloroflexota",
+    "indval": 0.505
+   },
+   {
+    "genus": "JBBQER01",
+    "phylum": "Actinomycetota",
+    "indval": 0.504
+   },
+   {
+    "genus": "JAIQFF01",
+    "phylum": "Acidobacteriota",
+    "indval": 0.503
+   },
+   {
+    "genus": "Angelobacter",
+    "phylum": "Acidobacteriota",
+    "indval": 0.502
+   },
+   {
+    "genus": "Chryseosolibacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.502
+   },
+   {
+    "genus": "Longimicrobium",
+    "phylum": "Gemmatimonadota",
+    "indval": 0.502
+   },
+   {
+    "genus": "DASSJM01",
+    "phylum": "Actinomycetota",
+    "indval": 0.501
+   }
+  ],
+  "wastewater": [
+   {
+    "genus": "Aliarcobacter",
+    "phylum": "Campylobacterota",
+    "indval": 0.855
+   },
+   {
+    "genus": "Cloacibacterium",
+    "phylum": "Bacteroidota",
+    "indval": 0.783
+   },
+   {
+    "genus": "Acidovorax",
+    "phylum": "Pseudomonadota",
+    "indval": 0.781
+   },
+   {
+    "genus": "Propionivibrio",
+    "phylum": "Pseudomonadota",
+    "indval": 0.724
+   },
+   {
+    "genus": "Zoogloea",
+    "phylum": "Pseudomonadota",
+    "indval": 0.699
+   },
+   {
+    "genus": "Macellibacteroides",
+    "phylum": "Bacteroidota",
+    "indval": 0.69
+   },
+   {
+    "genus": "Paenacidovorax",
+    "phylum": "Pseudomonadota",
+    "indval": 0.671
+   },
+   {
+    "genus": "Thauera",
+    "phylum": "Pseudomonadota",
+    "indval": 0.667
+   },
+   {
+    "genus": "Simplicispira",
+    "phylum": "Pseudomonadota",
+    "indval": 0.663
+   },
+   {
+    "genus": "Comamonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.656
+   },
+   {
+    "genus": "Brachymonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.641
+   },
+   {
+    "genus": "Pseudaeromonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.639
+   },
+   {
+    "genus": "Aeromonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.622
+   },
+   {
+    "genus": "Alicycliphilus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.612
+   },
+   {
+    "genus": "Azonexus",
+    "phylum": "Pseudomonadota",
+    "indval": 0.611
+   },
+   {
+    "genus": "Rivihabitans",
+    "phylum": "Pseudomonadota",
+    "indval": 0.611
+   },
+   {
+    "genus": "Sulfurospirillum",
+    "phylum": "Campylobacterota",
+    "indval": 0.61
+   },
+   {
+    "genus": "Ottowia",
+    "phylum": "Pseudomonadota",
+    "indval": 0.606
+   },
+   {
+    "genus": "Tolumonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.595
+   },
+   {
+    "genus": "W0P28-013",
+    "phylum": "Bacteroidota",
+    "indval": 0.591
+   },
+   {
+    "genus": "Paludibacter",
+    "phylum": "Bacteroidota",
+    "indval": 0.587
+   },
+   {
+    "genus": "UPXZ01",
+    "phylum": "Bacteroidota",
+    "indval": 0.576
+   },
+   {
+    "genus": "JAGPMH01",
+    "phylum": "Bacillota",
+    "indval": 0.571
+   },
+   {
+    "genus": "Acetoanaerobium",
+    "phylum": "Bacillota",
+    "indval": 0.56
+   },
+   {
+    "genus": "CTSOIL-112",
+    "phylum": "Pseudomonadota",
+    "indval": 0.553
+   },
+   {
+    "genus": "UBA1444",
+    "phylum": "Bacillota",
+    "indval": 0.551
+   },
+   {
+    "genus": "Desulfovibrio",
+    "phylum": "Desulfobacterota",
+    "indval": 0.544
+   },
+   {
+    "genus": "Propioniciclava",
+    "phylum": "Actinomycetota",
+    "indval": 0.54
+   },
+   {
+    "genus": "Thermomonas",
+    "phylum": "Pseudomonadota",
+    "indval": 0.534
+   },
+   {
+    "genus": "Trichococcus",
+    "phylum": "Bacillota",
+    "indval": 0.529
+   },
+   {
+    "genus": "UBA2212",
+    "phylum": "Bacillota_I",
+    "indval": 0.526
+   },
+   {
+    "genus": "Bact-08",
+    "phylum": "Bacteroidota",
+    "indval": 0.525
+   },
+   {
+    "genus": "UBA7703",
+    "phylum": "Bacillota",
+    "indval": 0.525
+   },
+   {
+    "genus": "JAAYPI01",
+    "phylum": "Bacteroidota",
+    "indval": 0.522
+   },
+   {
+    "genus": "Desulfobulbus",
+    "phylum": "Desulfobacterota",
+    "indval": 0.521
+   },
+   {
+    "genus": "Kaistella",
+    "phylum": "Bacteroidota",
+    "indval": 0.517
+   },
+   {
+    "genus": "JAGOYM01",
+    "phylum": "Fusobacteriota",
+    "indval": 0.51
+   },
+   {
+    "genus": "Caenicola",
+    "phylum": "Synergistota",
+    "indval": 0.505
+   }
+  ]
+ }
+}

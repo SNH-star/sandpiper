@@ -122,7 +122,7 @@ export const SEARCH_FIELDS: SearchFieldDef[] = [
   },
   { key: 'age', aliases: [], group: 'sample', example: 'e.g. 25 or 20-30' },
   {
-    key: 'habitat', aliases: ['indicpiper'], group: 'sample', example: 'e.g. soil or soil>=0.1',
+    key: 'indicpiper', aliases: ['habitat'], group: 'sample', example: 'e.g. soil or soil>=0.1',
     // indicator_habitat_scores: count(distinct run_id) per habitat -- the
     // only 13 values that actually match (see file header).
     values: [
