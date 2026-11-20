@@ -57,6 +57,53 @@ $colors: map-merge($colors, $addColors);
   --font-sans: #{$family-sans-serif};
   --font-display: #{$family-display};
 
+  // Plain colours and the greys Bulma uses, named once so a page-wide recolour is a change here.
+  --color-white: #fff;
+  --color-black: #000;
+  --color-focus: #3273dc;
+  --color-text: #363636;
+  --color-text-light: #7a7a7a;
+  --color-border: #dbdbdb;
+  --color-grey-dark: #555;
+  --color-grey-mid: #666;
+  --color-ink-strong: hsl(0, 0%, 25%);
+  --color-accent-deep: hsl(174, 62%, 22%);
+
+  // White and black at a given opacity (the number is the percentage), for text and edges over dark or photo backgrounds.
+  --white-12: rgba(255, 255, 255, 0.12);
+  --white-15: rgba(255, 255, 255, 0.15);
+  --white-28: rgba(255, 255, 255, 0.28);
+  --white-35: rgba(255, 255, 255, 0.35);
+  --white-40: rgba(255, 255, 255, 0.4);
+  --white-45: rgba(255, 255, 255, 0.45);
+  --white-50: rgba(255, 255, 255, 0.5);
+  --white-55: rgba(255, 255, 255, 0.55);
+  --white-60: rgba(255, 255, 255, 0.6);
+  --white-65: rgba(255, 255, 255, 0.65);
+  --white-70: rgba(255, 255, 255, 0.7);
+  --white-80: rgba(255, 255, 255, 0.8);
+  --white-82: rgba(255, 255, 255, 0.82);
+  --white-85: rgba(255, 255, 255, 0.85);
+  --white-96: rgba(255, 255, 255, 0.96);
+  --white-97: rgba(255, 255, 255, 0.97);
+  --white-100: rgba(255, 255, 255, 1);
+  --black-7: rgba(0, 0, 0, 0.07);
+  --black-8: rgba(0, 0, 0, 0.08);
+  --black-10: rgba(0, 0, 0, 0.1);
+  --black-12: rgba(0, 0, 0, 0.12);
+  --black-15: rgba(0, 0, 0, 0.15);
+  --black-16: rgba(0, 0, 0, 0.16);
+  --black-18: rgba(0, 0, 0, 0.18);
+  --black-20: rgba(0, 0, 0, 0.2);
+  --black-35: rgba(0, 0, 0, 0.35);
+  --black-40: rgba(0, 0, 0, 0.4);
+  --black-50: rgba(0, 0, 0, 0.5);
+
+  // Page and code fonts for the places that do not take Bulma's.
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-system: system-ui, -apple-system, "Segoe UI", "Ubuntu", "Cantarell", sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+
   // Colour tokens for the teal brand and its neutrals.
   --color-accent: hsl(174, 62%, 28%);
   --color-accent-strong: hsl(174, 62%, 24%);
@@ -73,18 +120,29 @@ $colors: map-merge($colors, $addColors);
   --color-sample-ecological: #84a86f;
   --color-sample-unclassified: #b0b0b0;
 
+  // GTDB taxa by type of sample: host-associated, found in both, ecological.
+  --color-taxa-host: hsl(270, 40%, 52%);
+  --color-taxa-ecological: hsl(140, 38%, 46%);
+  --color-taxa-both: hsl(28, 85%, 55%);
+
   // Statistics version comparison: one colour per version, newest first.
   --color-version-1: hsl(174, 62%, 28%);
   --color-version-2: hsl(28, 80%, 48%);
   --color-version-3: hsl(215, 55%, 46%);
   --color-version-4: hsl(340, 50%, 48%);
 
-  // Statistics group figures: pastel colours for the named groups of runs.
-  --color-pastel-green: hsl(140, 42%, 60%);
-  --color-pastel-blue: hsl(210, 65%, 68%);
-  --color-pastel-red: hsl(0, 70%, 72%);
-  --color-pastel-orange: hsl(30, 90%, 68%);
-  --color-pastel-purple: hsl(270, 50%, 74%);
+  // Statistics group figures: one colour per named group of runs.
+  // Sample groups, one colour per name on every chart: plant green, soil and bovine brown, marine blue, and so on.
+  --color-group-plant: hsl(130, 42%, 58%);
+  --color-group-bovine: hsl(28, 38%, 52%);
+  --color-group-pig: hsl(335, 70%, 76%);
+  --color-group-human: hsl(30, 90%, 64%);
+  --color-group-mouse: hsl(0, 0%, 62%);
+  --color-group-soil: hsl(25, 35%, 42%);
+  --color-group-sediment: hsl(40, 50%, 68%);
+  --color-group-marine: #1e90ff;
+  --color-group-freshwater: #A8D8B9;
+  --color-group-aquatic: #00334d;
 
   // Statistics phylum composition: the phyla the figures name, then spares for the rest.
   --color-phylum-bacteroidota: hsl(220, 55%, 40%);
@@ -173,4 +231,24 @@ $smf_low: #ff0000;
   .unique-star:hover {
     transform: none;
   }
+}
+
+// The small coloured square beside a chart key entry, one size on every figure. Each chart adds only what is its own
+// (a round or outlined swatch, a line), and the sample-type colours below are shared by every chart that uses them.
+.type-swatch, .swatch, .density-swatch, .phylum-swatch, .trend-swatch, .version-swatch, .year-swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-bar);
+}
+.type-host_associated { background: var(--color-sample-host); }
+.type-ecological { background: var(--color-sample-ecological); }
+.type-unclassified { background: var(--color-sample-unclassified); }
+
+// The red "!" on a search input sits over its right edge instead of reserving
+// room: Bulma's has-icons-right pads the input by 2.5em, which shrank the text
+// area (and nudged the Any button) whenever a field turned red.
+.search-autocomplete-wrap .control.has-icons-right > .input {
+  padding-right: calc(0.75em - 1px);
 }
