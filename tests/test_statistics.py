@@ -6,6 +6,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from api.api import statistics_payload  # noqa: E402
+from api.statistics_figures import taxa_by_sample_type_payload  # noqa: E402
 
 HOST = {'host': 600, 'ecological': 300, None: 100}
 YEARS = [('2021', 10), ('2020', 5), (None, 3), ('2022', 20)]
@@ -154,3 +155,18 @@ def test_database_versions_leave_missing_values_null():
     assert database_versions(None, None) == {'metalog_collected_date': None, 'indicpiper_version': None}
     assert database_versions('not a date', '2')['metalog_collected_date'] is None
 
+
+
+def test_taxa_by_sample_type_splits_each_level_into_host_ecological_and_both():
+    # (level, found in host-associated runs, found in ecological runs, how many taxa)
+    rows = [('genus', True, False, 1), ('genus', False, True, 3), ('genus', True, True, 5),
+            ('genus', False, False, 7), ('phylum', True, True, 2)]
+    split = taxa_by_sample_type_payload(rows)
+    assert split['levels'] == ['phylum', 'genus']
+    assert split['counts']['genus'] == {'host_only': 1, 'ecological_only': 3, 'both': 5}
+    assert split['counts']['phylum'] == {'host_only': 0, 'ecological_only': 0, 'both': 2}
+
+
+def test_taxa_by_sample_type_leaves_out_domain_and_follows_the_taxonomy_order():
+    rows = [('species', True, True, 1), ('domain', True, True, 1), ('family', True, False, 1)]
+    assert taxa_by_sample_type_payload(rows)['levels'] == ['family', 'species']

@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
-from api.indicpiper_warnings import classify_organism, mapped_organisms, count_cautions  # noqa: E402
+from api.indicpiper_warnings import RECORDED_HABITATS, classify_organism, mapped_organisms, count_cautions  # noqa: E402
 from api.api import statistics_payload  # noqa: E402
 
 
@@ -57,3 +57,43 @@ def test_indicpiper_split_is_absent_when_the_caution_count_is_unknown():
         coverage_counts={'indicpiper': 900}, top_taxa={})
     row = next(item for item in payload['coverage'] if item['key'] == 'indicpiper')
     assert 'caution_runs' not in row
+
+
+# Table S4 of the IndicPiper paper: the exact strings its habitat search uses, per habitat.
+TABLE_S4 = {
+    'freshwater sediment': ['freshwater sediment'],
+    'freshwater water': ['aquatic', 'freshwater', 'lake water', 'pond', 'riverine'],
+    'glacier': ['glacier', 'ice'],
+    'human oral': ['human oral', 'human saliva'],
+    'human skin': ['human skin'],
+    'human vaginal': ['human vaginal'],
+    'hydrothermal vent': ['hydrothermal vent'],
+    'mammalian gut': ['human gut', 'pig gut', 'bovine gut', 'sheep gut', 'goat gut'],
+    'marine sediment': ['marine sediment'],
+    'marine water': ['marine', 'seawater'],
+    'phyllosphere': ['phyllosphere'],
+    'soil': ['soil', 'rhizosphere'],
+    'wastewater': ['wastewater'],
+}
+
+
+def test_every_table_s4_string_maps_to_its_habitat():
+    for habitat, strings in TABLE_S4.items():
+        for text in strings:
+            assert classify_organism(f'{text} metagenome') == ('expected', habitat), text
+
+
+def test_all_thirteen_habitats_have_a_label():
+    assert set(RECORDED_HABITATS.values()) == set(TABLE_S4)
+
+
+def test_labels_outside_table_s4_are_not_covered():
+    for label in ('canine gut metagenome', 'mammalian gut metagenome', 'freshwater water metagenome'):
+        assert classify_organism(label) == ('uncovered', None), label
+
+
+def test_recorded_habitats_are_the_website_mapping_file():
+    import json
+    path = os.path.join(os.path.dirname(__file__), '..', 'vue', 'src', 'constants', 'indicpiperHabitats.json')
+    with open(path) as handle:
+        assert RECORDED_HABITATS == json.load(handle)

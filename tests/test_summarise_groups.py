@@ -494,6 +494,26 @@ def test_indicpiper_by_habitat_lists_a_habitat_with_scores_but_no_recorded_runs(
     assert water['mean_abundance'] is None and water['mean_abundance_matched'] is None
 
 
+def test_indicpiper_by_habitat_counts_marine_and_seawater_labels_as_marine_water(tmp_path):
+    duckdb = pytest.importorskip('duckdb')
+    db = tmp_path / 'site.duckdb'
+    con = duckdb.connect(str(db))
+    con.execute('CREATE TABLE ncbi_metadata (id INTEGER, taxon_name VARCHAR)')
+    con.execute('CREATE TABLE indicator_habitat_scores (run_id INTEGER, habitat VARCHAR, score DOUBLE)')
+    con.execute('CREATE TABLE indicator_habitat_genus_scores (run_id INTEGER, habitat VARCHAR, genus VARCHAR, relative_abundance DOUBLE)')
+    con.execute("INSERT INTO ncbi_metadata VALUES (1,'marine metagenome'),(2,'seawater metagenome'),(3,'marine metagenome'),"
+                "(4,'canine gut metagenome')")
+    con.execute("INSERT INTO indicator_habitat_scores VALUES (1,'marine water',0.4),(2,'marine water',0.2)")
+    con.execute("INSERT INTO indicator_habitat_genus_scores VALUES (1,'marine water','A',0.4),(2,'marine water','A',0.2)")
+    con.close()
+    result = summarise_groups.indicpiper_by_habitat(str(db))
+    water = result['marine water']
+    assert water['runs'] == 3 and water['matched_runs'] == 2
+    assert water['mean_abundance'] == pytest.approx((0.4 + 0.2) / 3)
+    # Table S4 has no canine gut label, so those runs belong to no habitat.
+    assert result['mammalian gut']['runs'] == 0
+
+
 def test_indicpiper_by_habitat_uses_the_map_shared_with_the_site():
     labels = summarise_groups.indicpiper_label_habitats()
     assert labels['soil metagenome'] == 'soil' and labels['pig gut metagenome'] == 'mammalian gut'
@@ -524,3 +544,14 @@ def test_indicpiper_by_habitat_ignores_runs_without_a_label_and_takes_a_custom_m
     con.close()
     result = summarise_groups.indicpiper_by_habitat(str(db), {'cave metagenome': 'cave'})
     assert result['cave']['runs'] == 1 and result['cave']['mean_abundance'] == pytest.approx(0.5)
+
+
+def test_indicpiper_genera_are_grouped_by_habitat_strongest_first():
+    sys.path.insert(0, BIN)
+    from export_indicpiper_genera import genera_by_habitat
+    rows = [{'Taxonomy': 'Bacteria; P1; C; O; F; Aaa', 'Habitat': 'soil', 'IndVal_mean': '0.4'},
+            {'Taxonomy': 'Bacteria; P2; C; O; F; Bbb', 'Habitat': 'soil', 'IndVal_mean': '0.61234'},
+            {'Taxonomy': 'Archaea; P3; C; O; F; Ccc', 'Habitat': 'glacier', 'IndVal_mean': '0.5'}]
+    result = genera_by_habitat(rows)
+    assert list(result) == ['glacier', 'soil']
+    assert result['soil'] == [{'genus': 'Bbb', 'phylum': 'P2', 'indval': 0.612}, {'genus': 'Aaa', 'phylum': 'P1', 'indval': 0.4}]
