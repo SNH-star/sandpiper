@@ -25,7 +25,7 @@
           <div class="sticky-bar-row">
             <b-button v-if="run_history.length > 0" type="is-primary" class="sticky-prev-btn" aria-label="Previous run" @click="go_back">←<span class="sticky-prev-label"> Previous</span></b-button>
             <div class="sticky-input-col">
-              <b-field class="sticky-field-grow">
+              <b-field class="sticky-field-grow" :type="sticky_error ? 'is-danger' : ''">
                 <div class="search-autocomplete-wrap">
                   <b-input id="sticky-run-search" name="sticky-run-search" v-model="sticky_input" aria-label="Filter runs" placeholder="e.g. country: Australia" icon="magnify" expanded
                     @input="on_sticky_input" @keydown="on_sticky_keydown"></b-input>
@@ -40,7 +40,7 @@
                   </ul>
                 </div>
                 <div class="control">
-                  <b-button type="is-primary" :loading="sticky_loading" @click="next_from_sticky">Next</b-button>
+                  <b-button :type="sticky_error ? 'is-danger' : 'is-primary'" :loading="sticky_loading" :aria-describedby="sticky_error ? 'sticky-problem' : undefined" @click="next_from_sticky">Next</b-button>
                 </div>
               </b-field>
               <div class="sticky-sub-row">
@@ -54,7 +54,8 @@
                   <InfoTooltipButton controls="run-search-popover" label="Show search syntax help" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'keys_info'" @open="showStickyTooltip($event, 'keys_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" />
                   <b-button type="is-light" size="is-small" icon-left="shuffle-variant" class="sticky-random-button" @click="next_random_run">Random Search</b-button>
                 </span>
-                <span v-if="sticky_count !== null" class="sticky-count-below" aria-live="polite" aria-atomic="true">{{ sticky_count.toLocaleString() }} runs</span>
+                <span v-if="sticky_error" id="sticky-problem" class="sticky-problem" role="alert">{{ sticky_error }}</span>
+                <span v-else-if="sticky_count !== null" class="sticky-count-below" aria-live="polite" aria-atomic="true">{{ sticky_count.toLocaleString() }} runs</span>
               </div>
             </div>
             <div class="sticky-logos-group">
@@ -96,7 +97,7 @@
                     <span class="keys-example">e.g. 25 or 20-30</span>
                   </div>
                   <div class="keys-item">
-                    <code class="keys-item-label">habitat <InfoTooltipButton controls="run-search-popover" label="Show IndicPiper habitat values" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'habitat_info'" @open="showStickyTooltip($event, 'habitat_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
+                    <code class="keys-item-label">indicpiper <InfoTooltipButton controls="run-search-popover" label="Show IndicPiper habitat values" :expanded="sticky_tooltip_visible && sticky_tooltip_name === 'habitat_info'" @open="showStickyTooltip($event, 'habitat_info')" @close-delayed="hideStickyTooltipDelayed" @close="hideStickyTooltip" /></code>
                     <span class="keys-example">e.g. soil or soil&gt;=0.1</span>
                   </div>
                 </div>
@@ -183,18 +184,18 @@
         <div v-if="sticky_tooltip_visible" id="run-search-popover" class="sticky-info-tooltip" :style="{ left: sticky_tooltip_x + 'px', top: sticky_tooltip_y + 'px' }" role="dialog" aria-label="Search field help" @mouseenter="keepStickyTooltipOpen" @mouseleave="hideStickyTooltip" @keydown.esc="hideStickyTooltip">
           <template v-if="sticky_tooltip_name === 'keys_info'">
             <p class="sticky-tooltip-title">Search syntax</p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-              Filter runs using <strong style="color:#fff">key: value</strong> pairs, separated by commas.
+            <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+              Filter runs using <strong style="color:var(--color-white)">key: value</strong> pairs, separated by commas.
             </p>
             <div class="sticky-tooltip-grid" style="margin-bottom: 0.5rem;">
               <span>country: Australia</span><span>year: 2010-2015</span><span>gbp: 2-10</span>
               <span>environment: ecological</span><span>taxonomy: s__Prochlorococcus</span><span>metadata: host=Sus scrofa</span>
             </div>
-            <p style="color: rgba(255,255,255,0.45); font-size: 0.72rem;">Click "List of Keys" to expand all available keys.</p>
+            <p style="color: var(--white-45); font-size: 0.72rem;">Click "List of Keys" to expand all available keys.</p>
           </template>
           <template v-if="sticky_tooltip_name === 'organism_info'">
             <p class="sticky-tooltip-title">Organism</p>
-            <p style="color: rgba(255,255,255,0.85); font-size: 0.78rem;">
+            <p style="color: var(--white-85); font-size: 0.78rem;">
               Searches the NCBI taxon assigned to the run. Covers both single-organism identifications
               (e.g. <em>Homo sapiens</em>, <em>Vibrio cholerae</em>) and NCBI's metagenome pseudo-taxa
               (e.g. <em>soil metagenome</em>, <em>human gut metagenome</em>) — use this field for
@@ -203,13 +204,13 @@
           </template>
           <template v-if="sticky_tooltip_name === 'taxonomy_info'">
             <p class="sticky-tooltip-title">Taxonomy — detected presence only</p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-              Filters runs where a taxon was <strong style="color:#fff">detected</strong> by SingleM — not that the sample is primarily composed of it.
+            <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+              Filters runs where a taxon was <strong style="color:var(--color-white)">detected</strong> by SingleM — not that the sample is primarily composed of it.
             </p>
-            <p style="color: rgba(255,255,255,0.65); font-size: 0.78rem; margin-bottom: 0.4rem;">
-              A run labelled "marine metagenome" can still match <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">taxonomy: s__Prochlorococcus</code> if that organism was present in the community.
+            <p style="color: var(--white-65); font-size: 0.78rem; margin-bottom: 0.4rem;">
+              A run labelled "marine metagenome" can still match <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">taxonomy: s__Prochlorococcus</code> if that organism was present in the community.
             </p>
-            <p style="color: rgba(255,255,255,0.45); font-size: 0.72rem;">Use GTDB taxonomy strings, e.g. d__, p__, c__, o__, f__, g__, s__</p>
+            <p style="color: var(--white-45); font-size: 0.72rem;">Use GTDB taxonomy strings, e.g. d__, p__, c__, o__, f__, g__, s__</p>
           </template>
           <template v-if="sticky_tooltip_name === 'platform_info'">
             <p class="sticky-tooltip-title">Platform — all values <span class="tooltip-hint">(click to use)</span></p>
@@ -247,10 +248,10 @@
           </template>
           <template v-if="sticky_tooltip_name === 'habitat_info'">
             <p class="sticky-tooltip-title">IndicPiper habitat — all values <span class="tooltip-hint">(click to use)</span></p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+            <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
               Matches runs whose genus composition includes indicator genera for this habitat
               (<a href="https://github.com/cliffbueno/IndicPiper" target="_blank" rel="noopener" style="color:#8ecbff;">IndicPiper</a> analysis).
-              Add <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;=</code>, <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;</code>, <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;=</code> or <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;</code> plus a number to threshold on that habitat's IndicPiper score instead of just matching its presence, e.g. <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">soil&gt;=0.1</code>. Leave the name off and just give a comparison, e.g. <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">habitat: &gt;0.5</code>, to match runs whose strongest habitat match (whichever habitat that is) exceeds it.
+              Add <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;=</code>, <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&gt;</code>, <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;=</code> or <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">&lt;</code> plus a number to threshold on that habitat's IndicPiper score instead of just matching its presence, e.g. <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">soil&gt;=0.1</code>. Leave the name off and just give a comparison, e.g. <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">habitat: &gt;0.5</code>, to match runs whose strongest habitat match (whichever habitat that is) exceeds it.
             </p>
             <div class="sticky-tooltip-grid is-clickable" @click="insert_sticky_tooltip_value($event, 'habitat_info')">
               <span>human oral</span><span>mammalian gut</span><span>human vaginal</span>
@@ -262,16 +263,16 @@
           </template>
           <template v-if="sticky_tooltip_name === 'age_info'">
             <p class="sticky-tooltip-title">Age</p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.85); font-size: 0.78rem;">
-              Searches <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">age</code> and <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">host_age</code> BioSample attributes by numeric value.
+            <p style="margin-bottom: 0.5rem; color: var(--white-85); font-size: 0.78rem;">
+              Searches <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">age</code> and <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">host_age</code> BioSample attributes by numeric value.
             </p>
-            <p style="color: rgba(255,255,255,0.55); font-size: 0.75rem;">
+            <p style="color: var(--white-55); font-size: 0.75rem;">
               Age is reported at face value — the relevant scale depends on the organism and study. Could be years for a human cohort, weeks for neonates, or centuries for a tree.
             </p>
           </template>
           <template v-if="sticky_tooltip_name === 'metadata_info'">
             <p class="sticky-tooltip-title">Metadata <span class="tooltip-hint">(click to use)</span></p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
+            <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
               Searches all free-form BioSample attributes submitted to NCBI.
             </p>
             <div class="sticky-tooltip-grid is-clickable" style="margin-bottom: 0.5rem;" @click="insert_sticky_tooltip_value($event, 'metadata_info')">
@@ -286,8 +287,8 @@
           </template>
           <template v-if="sticky_tooltip_name === 'metalog_info'">
             <p class="sticky-tooltip-title">Metalog metadata</p>
-            <p style="margin-bottom: 0.5rem; color: rgba(255,255,255,0.8); font-size: 0.78rem;">
-              Searches Metalog's curated and harmonised metadata. Use a plain value to search every field, or <code style="background:rgba(255,255,255,0.15); padding: 0.1rem 0.3rem; border-radius:3px;">field=value</code> to search one field.
+            <p style="margin-bottom: 0.5rem; color: var(--white-80); font-size: 0.78rem;">
+              Searches Metalog's curated and harmonised metadata. Use a plain value to search every field, or <code style="background:var(--white-15); padding: 0.1rem 0.3rem; border-radius:3px;">field=value</code> to search one field.
             </p>
             <div class="sticky-tooltip-grid">
               <span>metalog: diabetes</span>
@@ -335,7 +336,8 @@ import { SEARCH_FIELDS } from '@/constants/searchFields'
 import { RANDOM_DEFAULTS } from '@/constants/randomRun'
 import InfoTooltipButton from '@/components/InfoTooltipButton.vue'
 import { pageLoadingState, startPageLoading } from '@/store/pageLoading'
-import { useSearchAutocomplete, splitActiveSegment } from '@/composables/useSearchAutocomplete'
+import { useSearchAutocomplete, splitActiveSegment, splitQueryParts } from '@/composables/useSearchAutocomplete'
+import { validateQueryParts } from '@/utils/searchValidation'
 import debounce from 'lodash/debounce'
 
 function queryParamToString (value) {
@@ -379,6 +381,8 @@ export default {
       sticky_count_request_id: 0,
       sticky_abort: null,
       debounced_fetch_count: null,
+      sticky_problems_visible: false,
+      show_sticky_problems_soon: null,
       last_scroll_y: 0,
       run_history: [],
       sticky_tooltip_visible: false,
@@ -395,9 +399,19 @@ export default {
     // Vue binds functions declared in `methods`, which drops Lodash's custom
     // `.cancel()` property. Keep the debouncer as per-instance state instead.
     this.debounced_fetch_count = debounce(this.fetch_count, 450)
+    // A half-typed value ("year: 20") is not an error yet: wait for a pause.
+    this.show_sticky_problems_soon = debounce(() => { this.sticky_problems_visible = true }, 800)
   },
 
   computed: {
+    // Impossible values in the run-page filter bar (latitude 200, IndicPiper 250...).
+    sticky_problems () {
+      return validateQueryParts(splitQueryParts(this.sticky_input))
+    },
+    sticky_error () {
+      const first = this.sticky_problems[0]
+      return this.sticky_problems_visible && first ? `${first.key}: ${first.message}` : ''
+    },
     is_run_page () {
       return this.$route.name === 'Run'
     },
@@ -479,6 +493,7 @@ export default {
     this.sticky_count_request_id += 1
     this.sticky_abort?.abort()
     this.debounced_fetch_count.cancel()
+    this.show_sticky_problems_soon.cancel()
     clearTimeout(this.sticky_tooltip_timer)
   },
 
@@ -514,8 +529,10 @@ export default {
       const requestId = ++this.sticky_count_request_id
       this.sticky_loading = false
       this.sticky_count = null
+      this.sticky_problems_visible = false
+      this.show_sticky_problems_soon()
       const raw = this.sticky_input.trim()
-      if (!raw) {
+      if (!raw || this.sticky_problems.length > 0) {
         this.debounced_fetch_count.cancel()
         return
       }
@@ -635,6 +652,10 @@ export default {
     async next_from_sticky () {
       const query = this.sticky_input.trim()
       if (!query) { this.next_random_run(); return }
+      if (this.sticky_problems.length > 0) {
+        this.sticky_problems_visible = true
+        return
+      }
       const requestId = ++this.sticky_count_request_id
       this.debounced_fetch_count.cancel()
       this.sticky_loading = true
@@ -699,7 +720,7 @@ export default {
         platform_info: 'platform',
         instrument_info: 'instrument',
         library_info: 'library_strategy',
-        habitat_info: 'habitat',
+        habitat_info: 'indicpiper',
         metadata_info: 'metadata',
       }[tooltipName]
       if (!fieldForTooltip) return
@@ -850,7 +871,7 @@ export default {
   /* Explicit, not inherited from body's near-white Bulma default -- every
      page except Home should sit on genuine white regardless of what the
      loading-state JS is doing. */
-  background: #fff;
+  background: var(--color-white);
 }
 .route-content-image {
   /* Only in the DOM while pageLoadingState.isLoading is true (see
@@ -874,37 +895,35 @@ export default {
   top: 50vh;
   right: 0;
   z-index: var(--z-sticky-tab);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--white-82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--black-10);
   border-right: none;
   border-radius: 6px 0 0 6px;
   padding: 0.7rem 0.45rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: -2px 2px 10px var(--black-8);
   user-select: none;
   transition: background 0.2s var(--ease-spring);
 }
 .sticky-pull-tab:focus-visible,
 .sticky-close-tab:focus-visible,
 .sticky-keys-toggle:focus-visible {
-  outline: 2px solid #3273dc;
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 .sticky-pull-tab:hover {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--white-96);
 }
 .sticky-pull-label {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #555;
+  color: var(--color-grey-dark);
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .sticky-search-bar {
@@ -913,10 +932,10 @@ export default {
   left: 0;
   right: 0;
   z-index: var(--z-sticky-nav);
-  background: rgba(255, 255, 255, 1);
+  background: var(--white-100);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  border-bottom: 1px solid var(--black-7);
   box-shadow: var(--shadow-md);
   padding: 0.9rem 3.5rem 0.7rem;
   transform: translateY(-110%);
@@ -985,7 +1004,7 @@ export default {
   visibility: hidden;
 }
 .sticky-input-col .search-ghost-suffix {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--white-40);
 }
 .sticky-input-col .search-suggest-dropdown {
   position: absolute;
@@ -999,9 +1018,9 @@ export default {
   top: 100%;
   margin-top: 0.25rem;
   background: #26282c;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--white-15);
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px var(--black-40);
   max-height: 280px;
   overflow-y: auto;
   z-index: 30;
@@ -1012,14 +1031,14 @@ export default {
 .sticky-input-col .search-suggest-dropdown li {
   padding: 0.4rem 0.75rem;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--white-85);
   cursor: pointer;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .sticky-input-col .search-suggest-dropdown li.is-active,
 .sticky-input-col .search-suggest-dropdown li:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--white-12);
 }
 .sticky-sub-row {
   display: flex;
@@ -1055,27 +1074,25 @@ export default {
   z-index: var(--z-sticky-close);
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--white-82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--black-10);
   border-top: none;
   border-radius: 0 0 6px 6px;
   padding: 0.45rem 1rem;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 10px var(--black-8);
   transition: background 0.2s var(--ease-spring);
 }
 .sticky-close-tab:hover {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--white-96);
 }
 .sticky-close-label {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #555;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: var(--color-grey-dark);
 }
 .sticky-logo-left {
   height: 75px;
@@ -1091,9 +1108,14 @@ export default {
   object-fit: contain;
   opacity: 0.8;
 }
+.sticky-problem {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cc0f35; /* Bulma's is-danger text, matching the red field and button */
+}
 .sticky-count-below {
   font-size: 0.72rem;
-  color: rgba(0, 0, 0, 0.35);
+  color: var(--black-35);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1148,8 +1170,6 @@ export default {
 .sticky-syntax-title {
   font-size: 0.68rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   color: hsl(174, 40%, 38%);
   white-space: nowrap;
 }
@@ -1160,7 +1180,7 @@ export default {
 }
 .sticky-syntax-item {
   font-size: 0.72rem;
-  color: #666;
+  color: var(--color-grey-mid);
   white-space: nowrap;
 }
 .sticky-syntax-item code {
@@ -1177,7 +1197,7 @@ export default {
 }
 .sticky-example-label {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-grey-mid);
   white-space: nowrap;
 }
 .sticky-example-query {
@@ -1208,8 +1228,6 @@ export default {
 .keys-group-title {
   font-size: 0.66rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   color: hsl(174, 62%, 24%);
   border-bottom: 2px solid hsl(174, 45%, 85%);
   padding-bottom: var(--space-1);
@@ -1277,18 +1295,18 @@ export default {
   user-select: none;
 }
 .sticky-info-icon:hover {
-  color: #555;
+  color: var(--color-grey-dark);
 }
 .sticky-info-tooltip {
   position: fixed;
   z-index: var(--z-tooltip);
   background: rgba(25, 25, 35, 0.97);
-  color: #fff;
+  color: var(--color-white);
   border-radius: 8px;
   padding: 0.8rem 1rem;
   min-width: 280px;
   max-width: 380px;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 28px var(--black-50);
   font-size: 0.78rem;
   line-height: 1.5;
   pointer-events: auto;
@@ -1296,9 +1314,7 @@ export default {
 .sticky-tooltip-title {
   font-weight: 700;
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--white-50);
   margin-bottom: 0.5rem;
 }
 .sticky-tooltip-grid {
@@ -1307,7 +1323,7 @@ export default {
   gap: 0.3rem;
 }
 .sticky-tooltip-grid span {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--white-12);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -1317,7 +1333,7 @@ export default {
   text-transform: none;
   font-weight: 400;
   letter-spacing: normal;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--white-35);
 }
 .sticky-tooltip-grid.is-clickable span {
   cursor: pointer;
@@ -1325,8 +1341,8 @@ export default {
 }
 .sticky-tooltip-grid.is-clickable span:hover,
 .sticky-tooltip-grid.is-clickable span:focus-visible {
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: var(--white-28);
+  color: var(--color-white);
 }
 
 @media (max-width: 1023px) {
@@ -1348,7 +1364,8 @@ export default {
 
 @media (max-width: 768px) {
   #app {
-    overflow-x: hidden;
+    // clip, not hidden: hidden makes #app a scroll container, which stops position: sticky working inside it.
+    overflow-x: clip;
   }
   #app .container {
     min-width: 0;
@@ -1405,7 +1422,7 @@ export default {
     right: 0.75rem;
     bottom: 0.75rem;
     min-height: 44px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--black-10);
     border-radius: 999px;
     padding: 0.65rem 0.9rem;
   }
@@ -1512,7 +1529,7 @@ export default {
     margin: 0.5rem auto 0;
     min-width: 44px;
     min-height: 44px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--black-10);
     border-radius: 999px;
     padding: 0.65rem 0.9rem;
   }
@@ -1541,7 +1558,7 @@ export default {
     margin-left: auto;
     margin-right: 0.75rem;
     right: auto;
-    background: #fff;
+    background: var(--color-white);
     box-shadow: var(--shadow-md);
   }
   .sticky-keys-panel.is-open {
